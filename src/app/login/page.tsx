@@ -3,13 +3,13 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Mail,
   Lock,
   Eye,
   EyeOff,
   ArrowRight,
-  Dumbbell,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -55,11 +55,11 @@ export default function LoginPage() {
           <div className="space-y-6">
             <div className="flex items-center gap-3">
               <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <img src="/logo.png" alt="GemFitness" className="w-12 h-12 object-contain" />
+                <Image src="/logo.png" alt="GemFitness" width={48} height={48} className="w-12 h-12 object-contain" />
               </div>
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">GemFitness</h1>
-                <p className="text-orange-500 font-semibold">We're What We Eat!</p>
+                <p className="text-orange-500 font-semibold">We&apos;re What We Eat!</p>
               </div>
             </div>
 
@@ -242,7 +242,7 @@ export default function LoginPage() {
                 {/* Sign Up Link */}
                 <div className="text-center pt-4 border-t">
                   <p className="text-gray-600">
-                    Don't have an account?{' '}
+                    Don&apos;t have an account?{' '}
                     <Link
                       href="/signup?plan=quarterly"
                       className="text-orange-500 hover:text-orange-600 font-semibold"

@@ -22,6 +22,8 @@ const membershipPlans = {
     name: 'Monthly',
     price: 200,
     period: 'month',
+    popular: false,
+    savings: '',
     features: [
       'Full gym access',
       'All equipment',
@@ -54,6 +56,7 @@ const membershipPlans = {
     price: 2200,
     period: 'year',
     savings: 'Save GH₵200',
+    popular: false,
     features: [
       'Everything in Quarterly',
       'Unlimited personal training',
@@ -91,10 +94,9 @@ export default function SignupPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Update selected plan when URL parameter changes
   useEffect(() => {
-    if (planParam) {
-      setSelectedPlan(planParam);
-    }
+    setSelectedPlan(planParam);
   }, [planParam]);
 
   const plan = membershipPlans[selectedPlan as keyof typeof membershipPlans];
@@ -477,7 +479,7 @@ export default function SignupPage() {
                   {plan.savings && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
                       <p className="text-green-700 font-semibold text-sm">
-                        🎉 You're saving {plan.savings}!
+                        🎉 You&apos;re saving {plan.savings}!
                       </p>
                     </div>
                   )}
