@@ -1,0 +1,8 @@
+// Server Actions will be defined here
+// 
+// Example:
+// "use server"
+// 
+// export async function createMember(formData: FormData) {
+//   // Database operations
+// }

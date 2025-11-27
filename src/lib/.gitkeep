@@ -1,0 +1,7 @@
+// Utility functions and helpers
+//
+// Example files:
+// - prisma.ts (Database client)
+// - email.ts (Email functions)
+// - qr.ts (QR code generation)
+// - utils.ts (General utilities)

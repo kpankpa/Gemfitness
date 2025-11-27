@@ -1,0 +1,6 @@
+// Email templates for Resend
+//
+// Example:
+// export function ExpiryWarningEmail({ name, daysLeft }) {
+//   return <div>Hi {name}...</div>
+// }

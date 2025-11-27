@@ -1,36 +1,83 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🏋️ GemFitness - We're What We Eat!
 
-## Getting Started
+Modern gym management system and website for GemFitness, Tema Gbestile, Ghana.
 
-First, run the development server:
+## 🚀 Getting Started
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the website.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📋 TODO - Pending Features
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 🔮 Features to Implement Later
 
-## Learn More
+- [ ] **Live Chat Widget** - Real-time customer support
 
-To learn more about Next.js, take a look at the following resources:
+  - Consider: Tawk.to, Crisp, or Intercom integration
+  - Position: Bottom right corner
+  - Offline mode with email capture
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- [ ] **Savings Calculator (Pricing)** - Interactive tool
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+  - Input: Number of months to compare
+  - Output: Show savings vs monthly plan
+  - Visual chart/graph comparison
+  - "You save GH₵XXX with Annual plan!"
 
-## Deploy on Vercel
+- [ ] **Instagram Feed Integration** - Live social proof
+  - Display recent Instagram posts
+  - Auto-update from @gemfitness account
+  - Options: Instagram Graph API or embed widget
+  - Fallback to static images if API fails
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 📝 Content Needs
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [ ] Upload training session videos to `/public/videos/`
+- [ ] Add trainer professional photos to `/public/trainers/`
+- [ ] Collect member transformation photos (with permission)
+- [ ] Get member testimonials with video clips
+- [ ] Create 360° virtual tour photos
+- [ ] Design logo files (logo.svg, favicon.ico, etc.)
+
+## 🛠️ Tech Stack
+
+- **Framework:** Next.js 16 (App Router, Turbopack)
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS v4
+- **Animations:** Framer Motion
+- **Icons:** Lucide React
+- **UI Components:** Custom (shadcn/ui based)
+- **Database:** Prisma + PostgreSQL (pending setup)
+- **Auth:** NextAuth v5 (pending setup)
+- **Payments:** Paystack (pending setup)
+
+## 📱 Current Features
+
+✅ Responsive homepage with video hero
+✅ Interactive navigation
+✅ Features showcase
+✅ Pricing comparison
+✅ Trainer profiles section
+✅ Transformation stories
+✅ Video gallery
+✅ Virtual tour preview
+✅ WhatsApp integration
+✅ Google Maps
+✅ Member counter
+✅ BMI calculator
+✅ FAQ accordion
+✅ Contact form
+
+## 📞 Contact
+
+- **Location:** Tema, Gbestile, Ghana
+- **Phone:** +233 24 900 3832
+- **Email:** info@gemfitness.com
+
+## 📄 License
+
+Private - All rights reserved GemFitness © 2025
