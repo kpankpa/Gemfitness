@@ -117,10 +117,11 @@ export default function SignupPage() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Simulate API call
+    // Simulate API call - In production, this will authenticate with backend
     setTimeout(() => {
       console.log('Form submitted:', { ...formData, plan: selectedPlan });
-      window.location.href = `/success`;
+      // Redirect to member dashboard after successful signup
+      window.location.href = `/dashboard`;
     }, 1500);
   };
 

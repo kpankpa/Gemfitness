@@ -86,7 +86,7 @@
     scroll-behavior: smooth;
   }
   
-  /* Typography Scale with Montserrat for headings */
+  /* Typography Scale with Montserrat for headings - Fluid & Responsive */
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-montserrat), sans-serif;
     font-weight: 700;
@@ -96,50 +96,44 @@
   }
   
   h1 {
-    font-size: 3.5rem;
+    font-size: clamp(2rem, 5vw + 1rem, 3.5rem);
     font-weight: 800;
   }
   
   h2 {
-    font-size: 2.5rem;
+    font-size: clamp(1.75rem, 4vw + 0.5rem, 2.5rem);
     font-weight: 700;
   }
   
   h3 {
-    font-size: 2rem;
+    font-size: clamp(1.5rem, 3vw + 0.5rem, 2rem);
     font-weight: 700;
   }
   
   h4 {
-    font-size: 1.5rem;
+    font-size: clamp(1.25rem, 2vw + 0.5rem, 1.5rem);
     font-weight: 600;
   }
   
   h5 {
-    font-size: 1.25rem;
+    font-size: clamp(1.125rem, 1.5vw + 0.5rem, 1.25rem);
     font-weight: 600;
   }
   
   h6 {
-    font-size: 1rem;
+    font-size: clamp(1rem, 1vw + 0.5rem, 1rem);
     font-weight: 600;
   }
   
   p {
     line-height: 1.7;
     color: #404040;
-    font-size: 1rem;
+    font-size: clamp(0.875rem, 0.5vw + 0.75rem, 1rem);
   }
   
   strong {
     font-weight: 600;
     color: #1a1a1a;
-  }
-  
-  @media (max-width: 768px) {
-    h1 { font-size: 2.5rem; }
-    h2 { font-size: 2rem; }
-    h3 { font-size: 1.5rem; }
   }
   
   /* Focus styles */

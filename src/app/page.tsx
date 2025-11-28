@@ -118,14 +118,14 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section with Modern Light Design */}
-      <section className="relative min-h-[90vh] flex items-center overflow-hidden bg-gradient-to-br from-orange-50 via-white to-orange-50">
+      <section className="relative min-h-[calc(100vh-5rem)] sm:min-h-[90vh] flex items-center overflow-hidden bg-gradient-to-br from-orange-50 via-white to-orange-50">
         {/* Animated Background Pattern */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#FF6B00_1px,transparent_1px),linear-gradient(to_bottom,#FF6B00_1px,transparent_1px)] bg-[size:4rem_4rem]" />
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20">
+          <div className="grid lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-12 items-center">
             <motion.div
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
@@ -141,23 +141,23 @@ export default function HomePage() {
                 <span>We&apos;re What We Eat!</span>
               </motion.div>
               
-              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold mb-6 leading-tight text-gray-900">
+              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-4 sm:mb-6 leading-tight text-gray-900">
                 Transform Your <span className="text-orange-500">Body & Mind</span>
               </h1>
               
-              <p className="text-xl text-gray-600 mb-8 leading-relaxed">
+              <p className="text-base sm:text-lg md:text-xl text-gray-600 mb-6 sm:mb-8 leading-relaxed max-w-2xl">
                 Join <strong className="text-orange-500 font-bold">{memberCount}+ members</strong> at Tema&apos;s premier fitness destination. 
                 Professional trainers, modern equipment, and a supportive community await.
               </p>
               
-              <div className="flex flex-col sm:flex-row gap-4 mb-10">
-                <Button asChild size="lg" className="text-lg group bg-orange-500 hover:bg-orange-600 text-white font-semibold">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-8 sm:mb-10">
+                <Button asChild size="lg" className="text-base sm:text-lg group bg-orange-500 hover:bg-orange-600 text-white font-semibold h-12 sm:h-14 px-6 sm:px-8 w-full sm:w-auto touch-manipulation">
                   <Link href="/signup?plan=quarterly">
                     Join Now
                     <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                   </Link>
                 </Button>
-                <Button asChild size="lg" variant="outline" className="text-lg border-2 border-gray-300 text-gray-700 hover:border-orange-500 hover:text-orange-500 font-semibold">
+                <Button asChild size="lg" variant="outline" className="text-base sm:text-lg border-2 border-gray-300 text-gray-700 hover:border-orange-500 hover:text-orange-500 font-semibold h-12 sm:h-14 px-6 sm:px-8 w-full sm:w-auto touch-manipulation">
                   <Link href="#videos">
                     <Play className="mr-2 h-5 w-5" />
                     Watch Classes
@@ -166,18 +166,18 @@ export default function HomePage() {
               </div>
 
               {/* Live Stats */}
-              <div className="grid grid-cols-3 gap-6">
+              <div className="grid grid-cols-3 gap-3 sm:gap-6 max-w-md">
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-orange-500 mb-1">{memberCount}+</div>
-                  <div className="text-sm text-gray-600 font-medium">Active Members</div>
+                  <div className="text-2xl sm:text-3xl font-bold text-orange-500 mb-1">{memberCount}+</div>
+                  <div className="text-xs sm:text-sm text-gray-600 font-medium">Active Members</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-orange-500 mb-1">16</div>
-                  <div className="text-sm text-gray-600 font-medium">Hours Daily</div>
+                  <div className="text-2xl sm:text-3xl font-bold text-orange-500 mb-1">16</div>
+                  <div className="text-xs sm:text-sm text-gray-600 font-medium">Hours Daily</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-orange-500 mb-1">5★</div>
-                  <div className="text-sm text-gray-600 font-medium">Rated</div>
+                  <div className="text-2xl sm:text-3xl font-bold text-orange-500 mb-1">5★</div>
+                  <div className="text-xs sm:text-sm text-gray-600 font-medium">Rated</div>
                 </div>
               </div>
             </motion.div>
@@ -238,25 +238,25 @@ export default function HomePage() {
         href="https://wa.me/233249003832"
         target="_blank"
         rel="noopener noreferrer"
-        className="fixed bottom-6 right-6 z-50 bg-[#25D366] text-white p-4 rounded-full shadow-lg hover:scale-110 transition-transform"
+        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 bg-[#25D366] text-white p-3 sm:p-4 rounded-full shadow-lg hover:scale-110 active:scale-95 transition-transform touch-manipulation"
         aria-label="Chat on WhatsApp"
       >
-        <MessageCircle className="h-6 w-6" />
+        <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
       </a>
 
       {/* Training Videos Section */}
-      <section id="videos" className="py-20 bg-gray-50">
+      <section id="videos" className="py-12 sm:py-16 lg:py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-12 sm:mb-14 lg:mb-16">
             <motion.h2
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="text-4xl sm:text-5xl font-bold mb-4 text-gray-900"
+              className="text-3xl sm:text-4xl md:text-5xl font-bold mb-3 sm:mb-4 text-gray-900"
             >
               Explore Our <span className="text-orange-500">Training Programs</span>
             </motion.h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-sm sm:text-base md:text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed px-4">
               From high-intensity workouts to mindful yoga, find the perfect class for your fitness journey.
             </p>
           </div>
@@ -540,18 +540,18 @@ export default function HomePage() {
       </section>
 
       {/* Pricing Section */}
-      <section id="pricing" className="py-20 bg-white">
+      <section id="pricing" className="py-12 sm:py-16 lg:py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl sm:text-5xl font-heading font-bold mb-4">
+          <div className="text-center mb-12 sm:mb-14 lg:mb-16">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-heading font-bold mb-3 sm:mb-4">
               Simple, <span className="text-gradient">Transparent</span> Pricing
             </h2>
-            <p className="text-lg text-neutral-600 max-w-2xl mx-auto">
+            <p className="text-sm sm:text-base md:text-lg text-neutral-600 max-w-2xl mx-auto px-4">
               Choose the plan that fits your lifestyle. All plans include full gym access and amenities.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 mb-8">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 mb-8">
             {[
               {
                 name: "Monthly",

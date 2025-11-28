@@ -47,7 +47,7 @@ export default function Navigation() {
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
+        <div className="flex items-center justify-between h-16 sm:h-20">
           {/* Logo */}
           <Link href="/" className="flex items-center group">
             <Image
@@ -104,10 +104,10 @@ export default function Navigation() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="lg:hidden p-2 rounded-lg text-gray-900 hover:bg-gray-100 transition-colors"
+            className="md:hidden p-2 rounded-lg text-gray-900 hover:bg-gray-100 transition-colors touch-manipulation"
             aria-label="Toggle menu"
           >
-            {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            {isOpen ? <X className="h-7 w-7" /> : <Menu className="h-7 w-7" />}
           </button>
         </div>
       </div>
@@ -153,14 +153,14 @@ export default function Navigation() {
                 <Link
                   href="/login"
                   onClick={() => setIsOpen(false)}
-                  className="block w-full px-6 py-3 border-2 border-orange-500 text-orange-500 rounded-lg font-semibold text-center hover:bg-orange-50 transition-colors"
+                  className="block w-full px-6 py-4 border-2 border-orange-500 text-orange-500 rounded-lg font-semibold text-center hover:bg-orange-50 transition-colors text-base touch-manipulation"
                 >
                   Log In
                 </Link>
                 <Link
                   href="/signup?plan=quarterly"
                   onClick={() => setIsOpen(false)}
-                  className="block w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-semibold text-center"
+                  className="block w-full px-6 py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-semibold text-center text-base touch-manipulation"
                 >
                   Join Now →
                 </Link>

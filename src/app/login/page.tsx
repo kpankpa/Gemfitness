@@ -35,10 +35,11 @@ export default function LoginPage() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Simulate API call
+    // Simulate API call - In production, this will authenticate with backend
     setTimeout(() => {
       console.log('Login submitted:', formData);
-      window.location.href = '/';
+      // Redirect to member dashboard after successful login
+      window.location.href = '/dashboard';
     }, 1500);
   };
 
