@@ -100,7 +100,7 @@ export default function SignupPage() {
   }, [planParam]);
 
   const plan = membershipPlans[selectedPlan as keyof typeof membershipPlans];
-  const registrationFee = 100;
+  const registrationFee = 250;
   const total = plan.price + registrationFee;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {

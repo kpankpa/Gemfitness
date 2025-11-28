@@ -704,7 +704,7 @@ export default function HomePage() {
 
           <div className="text-center bg-primary/10 border border-primary/20 rounded-lg p-6">
             <p className="text-neutral-700">
-              <strong>One-time registration fee:</strong> {formatCurrency(100)} (includes welcome kit & fitness assessment)
+              <strong>One-time registration fee:</strong> {formatCurrency(250)} (includes welcome kit & fitness assessment)
             </p>
           </div>
         </div>
