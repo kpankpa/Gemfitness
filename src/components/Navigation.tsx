@@ -87,6 +87,12 @@ export default function Navigation() {
           {/* CTA Buttons - Desktop */}
           <div className="hidden md:flex items-center gap-3">
             <Link
+              href="/admin/login"
+              className="px-4 py-2 text-sm text-gray-600 hover:text-orange-500 font-medium transition-colors"
+            >
+              Admin
+            </Link>
+            <Link
               href="/login"
               className="px-5 py-2.5 text-gray-700 hover:text-orange-500 font-semibold transition-colors"
             >
