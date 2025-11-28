@@ -372,32 +372,38 @@ export default function HomePage() {
               {
                 icon: Dumbbell,
                 title: "Modern Equipment",
-                description: "State-of-the-art machines and free weights for all fitness levels"
+                description: "State-of-the-art machines and free weights for all fitness levels",
+                gradient: "from-orange-500 to-red-500"
               },
               {
                 icon: Users,
                 title: "Expert Trainers",
-                description: "Certified professionals to guide and motivate you every step"
+                description: "Certified professionals to guide and motivate you every step",
+                gradient: "from-blue-500 to-cyan-500"
               },
               {
                 icon: Calendar,
                 title: "Flexible Classes",
-                description: "Group sessions, personal training, and open gym hours"
+                description: "Group sessions, personal training, and open gym hours",
+                gradient: "from-purple-500 to-pink-500"
               },
               {
                 icon: Clock,
                 title: "Convenient Hours",
-                description: "Open early morning to late evening, 7 days a week"
+                description: "Open early morning to late evening, 7 days a week",
+                gradient: "from-green-500 to-emerald-500"
               },
               {
                 icon: Target,
                 title: "Goal Tracking",
-                description: "Monitor your progress with our digital check-in system"
+                description: "Monitor your progress with our digital check-in system",
+                gradient: "from-yellow-500 to-orange-500"
               },
               {
                 icon: Trophy,
                 title: "Community Challenges",
-                description: "Monthly competitions and rewards to keep you motivated"
+                description: "Monthly competitions and rewards to keep you motivated",
+                gradient: "from-pink-500 to-rose-500"
               },
             ].map((feature, i) => (
               <motion.div
@@ -406,16 +412,17 @@ export default function HomePage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: i * 0.1 }}
                 viewport={{ once: true }}
+                className="group"
               >
-                <Card className="h-full hover:shadow-lg transition-shadow">
-                  <CardHeader>
-                    <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                      <feature.icon className="h-6 w-6 text-primary" />
+                <Card className="h-full border-2 border-gray-100 hover:border-orange-300 hover:shadow-2xl transition-all duration-300 overflow-hidden">
+                  <CardHeader className="space-y-4">
+                    <div className={`h-16 w-16 rounded-2xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center mb-2 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                      <feature.icon className="h-8 w-8 text-white" />
                     </div>
-                    <CardTitle>{feature.title}</CardTitle>
+                    <CardTitle className="text-xl font-bold text-gray-900 group-hover:text-orange-600 transition-colors">{feature.title}</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-neutral-600">{feature.description}</p>
+                    <p className="text-gray-600 leading-relaxed">{feature.description}</p>
                   </CardContent>
                 </Card>
               </motion.div>
