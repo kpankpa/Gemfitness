@@ -22,11 +22,17 @@ export default function AdminLogin() {
 
     // Simulate authentication
     setTimeout(() => {
-      // In production, validate credentials with backend
       if (formData.username && formData.password) {
-        // Store session
+        // Determine role based on username
+        let role = 'receptionist';
+        if (formData.username.toLowerCase().includes('manager') || formData.username.toLowerCase() === 'admin') {
+          role = 'manager';
+        }
+        
+        // Store session with role
         localStorage.setItem('adminAuth', 'true');
         localStorage.setItem('adminUser', formData.username);
+        localStorage.setItem('adminRole', role);
         router.push('/admin/dashboard');
       } else {
         alert('Please enter valid credentials');
@@ -128,10 +134,16 @@ export default function AdminLogin() {
             </form>
 
             {/* Demo Credentials Info */}
-            <div className="mt-6 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-              <p className="text-xs text-orange-800 font-medium text-center">
-                Demo Access: Use any username/password
-              </p>
+            <div className="mt-6 p-4 bg-orange-50 border border-orange-200 rounded-lg space-y-2">
+              <p className="text-xs font-bold text-orange-900 mb-2">Demo Access:</p>
+              <div className="space-y-1">
+                <p className="text-xs text-orange-800">
+                  <span className="font-semibold">Manager:</span> Use "manager" or "admin" as username
+                </p>
+                <p className="text-xs text-orange-800">
+                  <span className="font-semibold">Receptionist:</span> Use any other username
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>

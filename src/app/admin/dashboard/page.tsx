@@ -54,25 +54,35 @@ const mockRecentCheckIns = [
 export default function AdminDashboard() {
   const router = useRouter();
   const [adminUser, setAdminUser] = useState('');
+  const [adminRole, setAdminRole] = useState<'receptionist' | 'manager'>('receptionist');
   const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'checkin' | 'payments'>('overview');
 
   useEffect(() => {
     // Check authentication
     const isAuth = localStorage.getItem('adminAuth');
     const user = localStorage.getItem('adminUser');
+    const role = localStorage.getItem('adminRole') as 'receptionist' | 'manager';
     
     if (!isAuth) {
       router.push('/admin/login');
     } else {
       setAdminUser(user || 'Admin');
+      setAdminRole(role || 'receptionist');
     }
   }, [router]);
 
   const handleLogout = () => {
     localStorage.removeItem('adminAuth');
     localStorage.removeItem('adminUser');
+    localStorage.removeItem('adminRole');
     router.push('/admin/login');
   };
+
+  // Permission checks
+  const canViewReports = adminRole === 'manager';
+  const canEditMembers = adminRole === 'manager';
+  const canManagePayments = adminRole === 'manager';
+  const canViewFinancials = adminRole === 'manager';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -104,7 +114,7 @@ export default function AdminDashboard() {
               <div className="flex items-center gap-2 pl-4 border-l border-gray-200">
                 <div className="text-right hidden sm:block">
                   <p className="text-sm font-semibold text-gray-900">{adminUser}</p>
-                  <p className="text-xs text-gray-500">Receptionist</p>
+                  <p className="text-xs text-gray-500 capitalize">{adminRole}</p>
                 </div>
                 <Button variant="ghost" size="sm" onClick={handleLogout}>
                   <LogOut className="h-5 w-5" />
@@ -153,16 +163,16 @@ export default function AdminDashboard() {
             {/* Stats Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {[
-                { label: 'Total Members', value: mockStats.totalMembers.toLocaleString(), icon: Users, color: 'blue', change: '+5%' },
-                { label: 'Active Today', value: mockStats.activeToday, icon: Activity, color: 'green', change: '+12%' },
-                { label: 'New This Month', value: mockStats.newThisMonth, icon: UserPlus, color: 'purple', change: '+8%' },
-                { label: 'Revenue (GH₵)', value: mockStats.revenue.toLocaleString(), icon: DollarSign, color: 'orange', change: '+15%' },
+                { label: 'Total Members', value: mockStats.totalMembers.toLocaleString(), icon: Users, color: 'blue', change: '+5%', visible: true },
+                { label: 'Active Today', value: mockStats.activeToday, icon: Activity, color: 'green', change: '+12%', visible: true },
+                { label: 'New This Month', value: mockStats.newThisMonth, icon: UserPlus, color: 'purple', change: '+8%', visible: true },
+                { label: 'Revenue (GH₵)', value: canViewFinancials ? mockStats.revenue.toLocaleString() : '***', icon: DollarSign, color: 'orange', change: '+15%', visible: true },
               ].map((stat, i) => (
                 <Card key={i} className="border-2 border-gray-100 hover:shadow-lg transition-shadow">
                   <CardContent className="p-4 sm:p-6">
                     <div className="flex items-center justify-between mb-2">
                       <stat.icon className={`h-8 w-8 text-${stat.color}-500`} />
-                      <span className="text-xs font-semibold text-green-600">{stat.change}</span>
+                      {canViewFinancials && <span className="text-xs font-semibold text-green-600">{stat.change}</span>}
                     </div>
                     <div className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{stat.value}</div>
                     <div className="text-xs sm:text-sm text-gray-600 font-medium">{stat.label}</div>
@@ -186,14 +196,18 @@ export default function AdminDashboard() {
                     <UserCheck className="h-6 w-6" />
                     <span className="text-xs sm:text-sm">Check-In</span>
                   </Button>
-                  <Button variant="outline" className="h-auto flex-col gap-2 py-4 border-2">
-                    <CreditCard className="h-6 w-6" />
-                    <span className="text-xs sm:text-sm">Payment</span>
-                  </Button>
-                  <Button variant="outline" className="h-auto flex-col gap-2 py-4 border-2">
-                    <Download className="h-6 w-6" />
-                    <span className="text-xs sm:text-sm">Reports</span>
-                  </Button>
+                  {canManagePayments && (
+                    <Button variant="outline" className="h-auto flex-col gap-2 py-4 border-2">
+                      <CreditCard className="h-6 w-6" />
+                      <span className="text-xs sm:text-sm">Payment</span>
+                    </Button>
+                  )}
+                  {canViewReports && (
+                    <Button variant="outline" className="h-auto flex-col gap-2 py-4 border-2">
+                      <Download className="h-6 w-6" />
+                      <span className="text-xs sm:text-sm">Reports</span>
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -271,10 +285,12 @@ export default function AdminDashboard() {
                     <CardTitle className="text-xl sm:text-2xl">Member Management</CardTitle>
                     <CardDescription>Search, filter, and manage members</CardDescription>
                   </div>
-                  <Button className="bg-orange-500 hover:bg-orange-600 w-full sm:w-auto">
-                    <UserPlus className="mr-2 h-5 w-5" />
-                    Add New Member
-                  </Button>
+                  {canEditMembers && (
+                    <Button className="bg-orange-500 hover:bg-orange-600 w-full sm:w-auto">
+                      <UserPlus className="mr-2 h-5 w-5" />
+                      Add New Member
+                    </Button>
+                  )}
                 </div>
               </CardHeader>
               <CardContent>
@@ -325,6 +341,11 @@ export default function AdminDashboard() {
                             <Button variant="ghost" size="sm">
                               View
                             </Button>
+                            {canEditMembers && (
+                              <Button variant="ghost" size="sm" className="ml-1">
+                                Edit
+                              </Button>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -386,18 +407,28 @@ export default function AdminDashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
-            <Card className="border-2 border-gray-100">
-              <CardHeader>
-                <CardTitle className="text-xl sm:text-2xl">Payment Management</CardTitle>
-                <CardDescription>Track payments and renewals</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-12">
-                  <CreditCard className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-600">Payment management coming soon</p>
-                </div>
-              </CardContent>
-            </Card>
+            {canManagePayments ? (
+              <Card className="border-2 border-gray-100">
+                <CardHeader>
+                  <CardTitle className="text-xl sm:text-2xl">Payment Management</CardTitle>
+                  <CardDescription>Track payments and renewals</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-12">
+                    <CreditCard className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-600">Payment management coming soon</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="border-2 border-red-100 bg-red-50">
+                <CardContent className="p-8 text-center">
+                  <AlertCircle className="h-16 w-16 text-red-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-red-900 mb-2">Access Restricted</h3>
+                  <p className="text-red-700">Only managers can access payment management</p>
+                </CardContent>
+              </Card>
+            )}
           </motion.div>
         )}
       </div>
