@@ -1,0 +1,271 @@
+// Prisma schema for GemFitness Gym Management System
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model - Members and Staff
+model User {
+  id                 String         @id @default(cuid())
+  email              String         @unique
+  phone              String         @unique
+  name               String
+  password           String
+  role               UserRole       @default(MEMBER)
+  qrCode             String?        @unique // Unique QR code for member check-in
+  registrationPaid   Boolean        @default(false) // One-time registration fee (GH₵ 250)
+  registrationType   RegistrationType @default(SINGLE) // Single, Couple, or Family
+  paymentReference   String?        // Reference for registration payment
+  profileImage       String?        // Profile image URL
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  
+  // Relations
+  subscriptions Subscription[]
+  checkIns      CheckIn[]
+  payments      Payment[]
+  notifications Notification[]
+  classBookings ClassBooking[]
+  eventBookings EventBooking[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([qrCode])
+  @@map("users")
+}
+
+enum UserRole {
+  MEMBER
+  RECEPTIONIST
+  MANAGER
+  ADMIN
+}
+
+enum RegistrationType {
+  SINGLE         // GH₵ 250
+  COUPLE         // GH₵ 400
+  FAMILY         // GH₵ 1000 (up to 5 members)
+}
+
+// Subscription model - Membership plans
+model Subscription {
+  id            String             @id @default(cuid())
+  userId        String
+  plan          MembershipPlan
+  status        SubscriptionStatus @default(ACTIVE)
+  startDate     DateTime           @default(now())
+  expiresAt     DateTime
+  amount        Float
+  paymentId     String?            @unique
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  
+  // Relations
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payment       Payment?           @relation(fields: [paymentId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("subscriptions")
+}
+
+enum MembershipPlan {
+  DAILY          // GH₵ 50 - Walk-in
+  ONE_MONTH      // GH₵ 200
+  THREE_MONTHS   // GH₵ 450
+  SIX_MONTHS     // GH₵ 1000
+  TWELVE_MONTHS  // GH₵ 2000
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+// CheckIn model - Track member attendance
+model CheckIn {
+  id          String   @id @default(cuid())
+  userId      String
+  checkedInAt DateTime @default(now())
+  checkedBy   String?  // Staff member who processed check-in
+  method      String   @default("qr") // "qr" or "manual"
+  notes       String?  // Additional notes
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([checkedInAt])
+  @@map("check_ins")
+}
+
+// Payment model - Transaction records
+model Payment {
+  id               String         @id @default(cuid())
+  userId           String
+  amount           Float
+  plan             MembershipPlan?
+  paymentType      PaymentType    @default(SUBSCRIPTION)
+  status           PaymentStatus  @default(PENDING)
+  reference        String         @unique // Paystack reference
+  paystackResponse Json?          // Store full webhook data
+  paidAt           DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  
+  // Relations
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription     Subscription?
+
+  @@index([userId])
+  @@index([reference])
+  @@index([status])
+  @@map("payments")
+}
+
+enum PaymentType {
+  REGISTRATION   // One-time registration fee
+  SUBSCRIPTION   // Monthly/recurring subscription
+  DAILY_WALKIN   // Daily walk-in fee
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+// Notification model - Email notification logs
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  subject   String
+  message   String
+  sentAt    DateTime?
+  status    String           @default("pending") // "pending", "sent", "failed"
+  createdAt DateTime         @default(now())
+  
+  // Relations
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  WELCOME
+  PAYMENT_SUCCESS
+  EXPIRY_WARNING    // 3 days before expiry
+  SUBSCRIPTION_EXPIRED
+  SUBSCRIPTION_RENEWED
+}
+
+// Class model - Gym classes/sessions
+model Class {
+  id            String         @id @default(cuid())
+  name          String
+  description   String?
+  type          String         // "Cardio", "HIIT", "Weight Training", "Dance", etc.
+  instructor    String
+  duration      Int            // Duration in minutes
+  maxCapacity   Int            @default(20)
+  currentBookings Int          @default(0)  // Current number of bookings
+  schedule      String         // "Mon, Wed, Fri - 6:30 AM"
+  color         String?        // Gradient color for UI
+  status        ClassStatus    @default(ACTIVE)
+  createdBy     String         // Manager who created the class
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  // Relations
+  bookings      ClassBooking[]
+
+  @@index([status])
+  @@index([type])
+  @@map("classes")
+}
+
+enum ClassStatus {
+  ACTIVE
+  INACTIVE
+  CANCELLED
+}
+
+// ClassBooking model - Member class bookings
+model ClassBooking {
+  id          String   @id @default(cuid())
+  userId      String
+  classId     String
+  bookedFor   DateTime // When the class is scheduled
+  status      String   @default("confirmed") // "confirmed", "cancelled", "attended"
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([classId])
+  @@index([bookedFor])
+  @@map("class_bookings")
+}
+
+// Event model - Special events (workshops, competitions, etc.)
+model Event {
+  id            String         @id @default(cuid())
+  title         String
+  description   String
+  eventDate     DateTime
+  endDate       DateTime?
+  location      String?        @default("GemFitness Tema")
+  image         String?        // Event banner/poster URL
+  maxAttendees  Int?           // Null = unlimited
+  isFree        Boolean        @default(true)
+  price         Float?         // Event ticket price if not free
+  status        EventStatus    @default(UPCOMING)
+  createdBy     String         // Staff member who created event
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  // Relations
+  bookings      EventBooking[]
+
+  @@index([status])
+  @@index([eventDate])
+  @@map("events")
+}
+
+enum EventStatus {
+  UPCOMING
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+// EventBooking model - Member event registrations
+model EventBooking {
+  id          String   @id @default(cuid())
+  userId      String
+  eventId     String
+  status      String   @default("registered") // "registered", "cancelled", "attended"
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([eventId])
+  @@map("event_bookings")
+}

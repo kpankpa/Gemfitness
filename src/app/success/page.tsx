@@ -253,7 +253,7 @@ export default function SuccessPage() {
                           <div key={key}>
                             <div className="text-xl font-bold text-orange-500">{value}</div>
                             <div className="text-xs text-gray-500 capitalize">
-                              {key.replace('_', ' ')}
+                              {key.replace(/_/g, ' ')}
                             </div>
                           </div>
                         ))}

@@ -160,9 +160,6 @@ const pricingOptions = [
       'Gate entrance fee',
       'Exclusive sessions',
       'Community gatherings',
-    ],
-  },
-];
       'Free guest passes (2/month)',
       'Nutrition consultation',
     ],

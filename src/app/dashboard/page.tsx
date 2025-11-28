@@ -7,7 +7,6 @@ import {
   User,
   Calendar,
   Clock,
-  TrendingUp,
   Award,
   Settings,
   LogOut,
@@ -28,13 +27,52 @@ import {
   Zap,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import type { DashboardData } from '@/types';
 
 export default function MemberDashboard() {
-  const [userName] = useState('Kay'); // This will come from auth later
-  const [membershipPlan] = useState('Quarterly');
-  const [memberSince] = useState('January 2026');
+  // Real data states
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState('Kay'); // Fallback
 
+  // Fetch dashboard data
+  const fetchDashboardData = async () => {
+    try {
+      // For demo, use a test email. In production, this comes from auth
+      const testEmail = 'kay@gemfitness.com';
+      const response = await fetch(`/api/member/dashboard?email=${encodeURIComponent(testEmail)}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setDashboardData(data);
+        setUserName(data.user.name);
+      } else {
+        console.error('Failed to fetch dashboard data');
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Classes available to book
   const upcomingClasses = [
     {
       name: 'Early Birds Class',
@@ -61,6 +99,50 @@ export default function MemberDashboard() {
       duration: '2 hours',
       spots: 'Available',
       type: 'Stepboard',
+      color: 'from-purple-500 to-pink-500',
+    },
+  ];
+
+  // Classes the member has already booked
+  const myBookedClasses = [
+    {
+      name: 'Boot Camp',
+      bookedFor: 'Nov 28, 2025',
+      time: '5:30 AM - 7:00 AM',
+      instructor: 'Coach Sarah',
+      duration: '90 min',
+      type: 'HIIT',
+      status: 'confirmed',
+      color: 'from-orange-500 to-yellow-500',
+    },
+    {
+      name: 'Early Birds Class',
+      bookedFor: 'Nov 29, 2025',
+      time: '6:30 AM - 7:30 AM',
+      instructor: 'Coach John',
+      duration: '60 min',
+      type: 'Cardio',
+      status: 'confirmed',
+      color: 'from-red-500 to-pink-500',
+    },
+    {
+      name: 'Weight Training',
+      bookedFor: 'Nov 30, 2025',
+      time: '7:00 PM - 8:30 PM',
+      instructor: 'Coach David',
+      duration: '90 min',
+      type: 'Strength',
+      status: 'confirmed',
+      color: 'from-orange-500 to-red-500',
+    },
+    {
+      name: 'DM Class',
+      bookedFor: 'Dec 2, 2025',
+      time: '7:00 AM - 9:00 AM',
+      instructor: 'Coach Mike',
+      duration: '120 min',
+      type: 'Stepboard',
+      status: 'confirmed',
       color: 'from-purple-500 to-pink-500',
     },
   ];
@@ -152,14 +234,20 @@ export default function MemberDashboard() {
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <Crown className="h-6 w-6" />
-                    <CardTitle className="text-2xl font-bold">{membershipPlan} Membership</CardTitle>
+                    <CardTitle className="text-2xl font-bold">{dashboardData?.membership?.plan || 'Basic'} Membership</CardTitle>
                   </div>
                   <CardDescription className="text-white/90 text-base">
-                    Active since {memberSince}
+                    Member since {dashboardData?.user?.memberSince || 'January 2026'}
                   </CardDescription>
                 </div>
-                <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
-                  <span className="text-sm font-semibold">ACTIVE</span>
+                <div className={`backdrop-blur-sm px-4 py-2 rounded-full ${
+                  dashboardData?.membership?.status === 'active' ? 'bg-green-500/20' :
+                  dashboardData?.membership?.status === 'expiring_soon' ? 'bg-yellow-500/20' :
+                  'bg-red-500/20'
+                }`}>
+                  <span className="text-sm font-semibold">
+                    {dashboardData?.membership?.status?.toUpperCase() || 'ACTIVE'}
+                  </span>
                 </div>
               </div>
             </CardHeader>
@@ -208,6 +296,73 @@ export default function MemberDashboard() {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-8">
+            {/* My Booked Classes */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <Card className="border-2 border-orange-200 bg-gradient-to-br from-orange-50 to-white">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                        <CheckCircle2 className="h-6 w-6 text-orange-500" />
+                        My Booked Classes
+                      </CardTitle>
+                      <CardDescription>Your confirmed class schedule</CardDescription>
+                    </div>
+                    <span className="px-3 py-1 bg-orange-500 text-white text-sm font-semibold rounded-full">
+                      {dashboardData?.bookedClasses?.length || 0} Booked
+                    </span>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {(dashboardData?.bookedClasses || []).map((classItem, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-4 p-4 rounded-xl bg-white border-2 border-orange-200 hover:border-orange-400 hover:shadow-lg transition-all group"
+                    >
+                      <div className={`h-16 w-16 rounded-xl bg-gradient-to-br ${classItem.color} flex items-center justify-center shadow-lg flex-shrink-0`}>
+                        <CheckCircle2 className="h-8 w-8 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-gray-900 text-lg group-hover:text-orange-600 transition-colors">
+                          {classItem.name}
+                        </h3>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-sm text-gray-600 mt-1">
+                          <span className="flex items-center gap-1 font-semibold text-gray-900">
+                            <Calendar className="h-4 w-4 text-orange-500" />
+                            {classItem.bookedFor}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-4 w-4 text-orange-500" />
+                            {classItem.time}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <User className="h-4 w-4" />
+                            {classItem.instructor}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full font-semibold">
+                            {classItem.type}
+                          </span>
+                          <span className="text-xs text-gray-500">{classItem.duration}</span>
+                          <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold capitalize">
+                            {classItem.status}
+                          </span>
+                        </div>
+                      </div>
+                      <Button variant="outline" className="border-2 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-400">
+                        Cancel
+                      </Button>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </motion.div>
+
             {/* Upcoming Classes */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -218,8 +373,8 @@ export default function MemberDashboard() {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
-                      <CardTitle className="text-2xl font-bold text-gray-900">Upcoming Classes</CardTitle>
-                      <CardDescription>Your scheduled sessions this week</CardDescription>
+                      <CardTitle className="text-2xl font-bold text-gray-900">Available Classes</CardTitle>
+                      <CardDescription>Book your next workout session</CardDescription>
                     </div>
                     <Link href="/classes">
                       <Button variant="outline" className="border-2 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white">
@@ -229,7 +384,7 @@ export default function MemberDashboard() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {upcomingClasses.map((classItem, index) => (
+                  {(dashboardData?.availableClasses || upcomingClasses).map((classItem, index) => (
                     <div
                       key={index}
                       className="flex items-center gap-4 p-4 rounded-xl border-2 border-gray-100 hover:border-orange-300 hover:shadow-md transition-all group"
