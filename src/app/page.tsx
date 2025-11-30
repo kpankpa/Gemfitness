@@ -262,7 +262,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {trainingVideos.map((video, i) => (
+            {trainingVideos.slice(0, 3).map((video, i) => (
               <motion.div
                 key={video.id}
                 initial={{ opacity: 0, y: 20 }}

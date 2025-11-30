@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hash } from 'bcryptjs';
 import { RegistrationType, UserRole, MembershipPlan } from '@prisma/client';
+import { generateMemberQRCode } from '@/lib/qr/generator';
 import type { Prisma } from '@prisma/client';
 
 // Type for user with included relations
@@ -22,7 +23,6 @@ type UserWithSubscriptions = Prisma.UserGetPayload<{
     _count: {
       select: {
         checkIns: true;
-        payments: true;
       };
     };
   };
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
           some: { 
             status: subscriptionStatus,
             ...(status === 'expiring_soon' && {
-              expiresAt: {
+              endDate: {
                 lte: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) // 3 days from now
               }
             })
@@ -72,8 +72,7 @@ export async function GET(request: NextRequest) {
         },
         _count: {
           select: { 
-            checkIns: true,
-            payments: true
+            checkIns: true
           }
         }
       },
@@ -82,21 +81,20 @@ export async function GET(request: NextRequest) {
 
     const formattedMembers = members.map(member => ({
       id: member.id,
-      name: member.name,
+      name: `${member.firstName} ${member.lastName}`,
       email: member.email,
       phone: member.phone,
       plan: member.subscriptions[0]?.plan?.replace(/_/g, ' ') || 'No Plan',
       status: member.subscriptions[0]?.status?.toLowerCase() || 'inactive',
-      expiresAt: member.subscriptions[0]?.expiresAt?.toISOString().split('T')[0] || null,
+      expiresAt: member.subscriptions[0]?.endDate?.toISOString().split('T')[0] || null,
       joinDate: member.createdAt.toISOString().split('T')[0],
       qrCode: member.qrCode,
       registrationPaid: member.registrationPaid,
       registrationType: member.registrationType,
-      totalCheckIns: member._count.checkIns,
-      totalPayments: member._count.payments
+      totalCheckIns: member._count.checkIns
     }));
 
-    return NextResponse.json({ members: formattedMembers });
+    return NextResponse.json({ success: true, members: formattedMembers });
   } catch (error) {
     console.error('Error fetching members:', error);
     return NextResponse.json(
@@ -111,16 +109,17 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { 
-      name, 
+      firstName,
+      lastName, 
       email, 
       phone, 
       password, 
-      registrationType = 'SINGLE',
+      registrationType = 'SELF',
       plan,
+      dateOfBirth,
     } = body;
-
     // Validate required fields
-    if (!name || !email || !phone || !password || !plan) {
+    if (!firstName || !lastName || !email || !phone || !password || !plan || !dateOfBirth) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -147,89 +146,81 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await hash(password, 12);
 
-    // Generate QR code (simple format for now)
-    const qrCode = `GM${Date.now().toString(36).toUpperCase()}`;
-
-    // Calculate registration fee based on type
-    const registrationFees = {
-      SINGLE: 250,
-      COUPLE: 400,
-      FAMILY: 1000
-    };
-
-    const registrationFee = registrationFees[registrationType as keyof typeof registrationFees];
-
     // Create user
     const user = await prisma.user.create({
       data: {
-        name,
+        firstName,
+        lastName,
         email,
         phone,
         password: hashedPassword,
         role: UserRole.MEMBER,
-        qrCode,
+        qrCode: '', // Will be generated after user creation
         registrationType: registrationType as RegistrationType,
-        registrationPaid: false // Will be updated when payment is confirmed
+        registrationPaid: false,
+        emergencyContact: '',
+        emergencyPhone: '',
+        dateOfBirth: new Date(dateOfBirth)
       }
+    });
+
+    // Generate QR code with user ID
+    const qrCodeResult = await generateMemberQRCode(user.id);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { qrCode: qrCodeResult.qrCodeString }
     });
 
     // For now, automatically mark registration as paid and create subscription
     const planPrices = {
-      'DAILY': 50,
       'ONE_MONTH': 200,
-      'THREE_MONTHS': 450,
-      'SIX_MONTHS': 1000,
-      'TWELVE_MONTHS': 2000
+      'THREE_MONTHS': 500,
+      'ONE_YEAR': 1800
     };
 
     const planDurations = {
-      'DAILY': 1,
       'ONE_MONTH': 30,
       'THREE_MONTHS': 90,
-      'SIX_MONTHS': 180,
-      'TWELVE_MONTHS': 365
+      'ONE_YEAR': 365
     };
 
-    const planKey = plan.replace(/\s+/g, '_').toUpperCase() as keyof typeof planPrices;
+    const planKey = plan as keyof typeof planPrices;
     const amount = planPrices[planKey];
     const duration = planDurations[planKey];
 
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + duration);
+    if (!amount || !duration) {
+      return NextResponse.json(
+        { error: 'Invalid membership plan' },
+        { status: 400 }
+      );
+    }
 
-    // Create registration payment record (marked as SUCCESS for demo)
+    const startDate = new Date();
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + duration);
+
+    // Create subscription first
+    const subscription = await prisma.subscription.create({
+      data: {
+        userId: user.id,
+        plan: planKey as MembershipPlan,
+        amount,
+        startDate,
+        endDate,
+        status: 'ACTIVE',
+        registrationType: registrationType as RegistrationType
+      }
+    });
+
+    // Create payment record for the subscription
     await prisma.payment.create({
       data: {
-        userId: user.id,
-        amount: registrationFee,
-        paymentType: 'REGISTRATION',
-        status: 'SUCCESS',
-        reference: `REG_${Date.now()}`,
-        paidAt: new Date()
-      }
-    });
-
-    // Create subscription payment record
-    const subscriptionPayment = await prisma.payment.create({
-      data: {
-        userId: user.id,
+        subscriptionId: subscription.id,
         amount,
-        plan: planKey,
-        paymentType: 'SUBSCRIPTION',
-        status: 'SUCCESS',
+        paymentMethod: 'CASH',
+        paymentDate: new Date(),
         reference: `SUB_${Date.now()}`,
-        paidAt: new Date()
-      }
-    });
-
-    // Create subscription
-    await prisma.subscription.create({
-      data: {
-        userId: user.id,
-        plan: planKey,
-        amount,
-        expiresAt,
-        paymentId: subscriptionPayment.id
+        status: 'SUCCESS'
       }
     });
 
@@ -243,10 +234,9 @@ export async function POST(request: NextRequest) {
       success: true, 
       user: {
         id: user.id,
-        name: user.name,
+        name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         qrCode: user.qrCode,
-        registrationFee,
         registrationPaid: updatedUser.registrationPaid
       }
     });

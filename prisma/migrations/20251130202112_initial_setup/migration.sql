@@ -2,16 +2,13 @@
 CREATE TYPE "UserRole" AS ENUM ('MEMBER', 'RECEPTIONIST', 'MANAGER', 'ADMIN');
 
 -- CreateEnum
-CREATE TYPE "RegistrationType" AS ENUM ('SINGLE', 'COUPLE', 'FAMILY');
+CREATE TYPE "RegistrationType" AS ENUM ('SELF', 'WALK_IN', 'ADMIN');
 
 -- CreateEnum
-CREATE TYPE "MembershipPlan" AS ENUM ('DAILY', 'ONE_MONTH', 'THREE_MONTHS', 'SIX_MONTHS', 'TWELVE_MONTHS');
+CREATE TYPE "MembershipPlan" AS ENUM ('ONE_MONTH', 'THREE_MONTHS', 'ONE_YEAR');
 
 -- CreateEnum
 CREATE TYPE "SubscriptionStatus" AS ENUM ('ACTIVE', 'EXPIRED', 'CANCELLED');
-
--- CreateEnum
-CREATE TYPE "PaymentType" AS ENUM ('REGISTRATION', 'SUBSCRIPTION', 'DAILY_WALKIN');
 
 -- CreateEnum
 CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'SUCCESS', 'FAILED', 'CANCELLED');
@@ -30,12 +27,21 @@ CREATE TABLE "users" (
     "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "phone" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
+    "firstName" TEXT NOT NULL,
+    "lastName" TEXT NOT NULL,
+    "dateOfBirth" TIMESTAMP(3) NOT NULL,
+    "address" TEXT,
+    "emergencyContact" TEXT NOT NULL,
+    "emergencyPhone" TEXT NOT NULL,
+    "fitnessGoals" TEXT,
+    "medicalConditions" TEXT,
     "password" TEXT NOT NULL,
     "role" "UserRole" NOT NULL DEFAULT 'MEMBER',
     "qrCode" TEXT,
     "registrationPaid" BOOLEAN NOT NULL DEFAULT false,
-    "registrationType" "RegistrationType" NOT NULL DEFAULT 'SINGLE',
+    "registrationType" "RegistrationType" NOT NULL DEFAULT 'SELF',
+    "paymentReference" TEXT,
+    "profileImage" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -49,9 +55,9 @@ CREATE TABLE "subscriptions" (
     "plan" "MembershipPlan" NOT NULL,
     "status" "SubscriptionStatus" NOT NULL DEFAULT 'ACTIVE',
     "startDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "endDate" TIMESTAMP(3) NOT NULL,
     "amount" DOUBLE PRECISION NOT NULL,
-    "paymentId" TEXT,
+    "registrationType" "RegistrationType" NOT NULL DEFAULT 'SELF',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -62,9 +68,11 @@ CREATE TABLE "subscriptions" (
 CREATE TABLE "check_ins" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "checkedInAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "checkInTime" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "checkOutTime" TIMESTAMP(3),
     "checkedBy" TEXT,
     "method" TEXT NOT NULL DEFAULT 'qr',
+    "notes" TEXT,
 
     CONSTRAINT "check_ins_pkey" PRIMARY KEY ("id")
 );
@@ -72,14 +80,13 @@ CREATE TABLE "check_ins" (
 -- CreateTable
 CREATE TABLE "payments" (
     "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
+    "subscriptionId" TEXT NOT NULL,
     "amount" DOUBLE PRECISION NOT NULL,
-    "plan" "MembershipPlan",
-    "paymentType" "PaymentType" NOT NULL DEFAULT 'SUBSCRIPTION',
-    "status" "PaymentStatus" NOT NULL DEFAULT 'PENDING',
+    "paymentMethod" TEXT NOT NULL DEFAULT 'CARD',
+    "paymentDate" TIMESTAMP(3) NOT NULL,
     "reference" TEXT NOT NULL,
+    "status" "PaymentStatus" NOT NULL DEFAULT 'PENDING',
     "paystackResponse" JSONB,
-    "paidAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -109,6 +116,7 @@ CREATE TABLE "classes" (
     "instructor" TEXT NOT NULL,
     "duration" INTEGER NOT NULL,
     "maxCapacity" INTEGER NOT NULL DEFAULT 20,
+    "currentBookings" INTEGER NOT NULL DEFAULT 0,
     "schedule" TEXT NOT NULL,
     "color" TEXT,
     "status" "ClassStatus" NOT NULL DEFAULT 'ACTIVE',
@@ -181,28 +189,25 @@ CREATE INDEX "users_phone_idx" ON "users"("phone");
 CREATE INDEX "users_qrCode_idx" ON "users"("qrCode");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "subscriptions_paymentId_key" ON "subscriptions"("paymentId");
-
--- CreateIndex
 CREATE INDEX "subscriptions_userId_idx" ON "subscriptions"("userId");
 
 -- CreateIndex
 CREATE INDEX "subscriptions_status_idx" ON "subscriptions"("status");
 
 -- CreateIndex
-CREATE INDEX "subscriptions_expiresAt_idx" ON "subscriptions"("expiresAt");
+CREATE INDEX "subscriptions_endDate_idx" ON "subscriptions"("endDate");
 
 -- CreateIndex
 CREATE INDEX "check_ins_userId_idx" ON "check_ins"("userId");
 
 -- CreateIndex
-CREATE INDEX "check_ins_checkedInAt_idx" ON "check_ins"("checkedInAt");
+CREATE INDEX "check_ins_checkInTime_idx" ON "check_ins"("checkInTime");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "payments_reference_key" ON "payments"("reference");
 
 -- CreateIndex
-CREATE INDEX "payments_userId_idx" ON "payments"("userId");
+CREATE INDEX "payments_subscriptionId_idx" ON "payments"("subscriptionId");
 
 -- CreateIndex
 CREATE INDEX "payments_reference_idx" ON "payments"("reference");
@@ -250,13 +255,10 @@ CREATE INDEX "event_bookings_eventId_idx" ON "event_bookings"("eventId");
 ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_paymentId_fkey" FOREIGN KEY ("paymentId") REFERENCES "payments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "check_ins" ADD CONSTRAINT "check_ins_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payments" ADD CONSTRAINT "payments_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "payments" ADD CONSTRAINT "payments_subscriptionId_fkey" FOREIGN KEY ("subscriptionId") REFERENCES "subscriptions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

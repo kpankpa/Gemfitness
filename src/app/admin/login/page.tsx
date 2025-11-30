@@ -11,34 +11,42 @@ import { useRouter } from 'next/navigation';
 export default function AdminLogin() {
   const router = useRouter();
   const [formData, setFormData] = useState({
-    username: '',
+    email: '',
     password: '',
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError('');
 
-    // Simulate authentication
-    setTimeout(() => {
-      if (formData.username && formData.password) {
-        // Determine role based on username
-        let role = 'receptionist';
-        if (formData.username.toLowerCase().includes('manager') || formData.username.toLowerCase() === 'admin') {
-          role = 'manager';
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Check if user has admin/receptionist/manager role
+        if (data.redirectUrl?.includes('/admin') || data.redirectUrl?.includes('/dashboard')) {
+          router.push(data.redirectUrl);
+        } else {
+          setError('Access denied. Admin, Manager, or Receptionist role required.');
+          setIsLoading(false);
         }
-        
-        // Store session with role
-        localStorage.setItem('adminAuth', 'true');
-        localStorage.setItem('adminUser', formData.username);
-        localStorage.setItem('adminRole', role);
-        router.push('/admin/dashboard');
       } else {
-        alert('Please enter valid credentials');
+        setError(data.error || 'Invalid credentials');
         setIsLoading(false);
       }
-    }, 1000);
+    } catch (err) {
+      setError('An error occurred. Please try again.');
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -80,19 +88,26 @@ export default function AdminLogin() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Username */}
+              {/* Error Message */}
+              {error && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-600 text-center">{error}</p>
+                </div>
+              )}
+
+              {/* Email */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Username
+                  Email Address
                 </label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                   <input
-                    type="text"
-                    value={formData.username}
-                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-500 transition-colors"
-                    placeholder="Enter username"
+                    placeholder="admin@gemfitness.com"
                     required
                   />
                 </div>

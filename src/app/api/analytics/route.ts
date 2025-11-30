@@ -22,7 +22,7 @@ export async function GET() {
     const activeSubscriptions = await prisma.subscription.count({
       where: { 
         status: 'ACTIVE',
-        expiresAt: { gte: new Date() }
+        endDate: { gte: new Date() }
       }
     });
 
@@ -33,7 +33,7 @@ export async function GET() {
 
     const todayCheckIns = await prisma.checkIn.count({
       where: {
-        checkedInAt: {
+        checkInTime: {
           gte: today,
           lt: tomorrow
         }
@@ -45,7 +45,7 @@ export async function GET() {
     const monthlyRevenue = await prisma.payment.aggregate({
       where: {
         status: 'SUCCESS',
-        paidAt: { gte: startOfMonth }
+        paymentDate: { gte: startOfMonth }
       },
       _sum: { amount: true }
     });
@@ -57,7 +57,7 @@ export async function GET() {
     const expiringSoon = await prisma.subscription.count({
       where: {
         status: 'ACTIVE',
-        expiresAt: {
+        endDate: {
           gte: new Date(),
           lte: threeDaysFromNow
         }
@@ -68,20 +68,24 @@ export async function GET() {
     const recentPayments = await prisma.payment.findMany({
       where: { status: 'SUCCESS' },
       include: {
-        user: {
-          select: { name: true }
+        subscription: {
+          include: {
+            user: {
+              select: { firstName: true, lastName: true }
+            }
+          }
         }
       },
-      orderBy: { paidAt: 'desc' },
+      orderBy: { paymentDate: 'desc' },
       take: 10
     });
 
     const formattedPayments = recentPayments.map(payment => ({
       id: payment.id,
-      member: payment.user.name,
+      member: `${payment.subscription.user.firstName} ${payment.subscription.user.lastName}`,
       amount: payment.amount,
-      plan: payment.plan?.replace(/_/g, ' ') || 'Registration',
-      date: payment.paidAt?.toISOString().split('T')[0] || 'N/A',
+      plan: payment.subscription.plan.replace(/_/g, ' '),
+      date: payment.paymentDate.toISOString().split('T')[0],
       reference: payment.reference
     }));
 
@@ -90,7 +94,7 @@ export async function GET() {
         totalMembers,
         activeMembers: activeSubscriptions,
         todayCheckIns,
-        monthlyRevenue: monthlyRevenue._sum.amount || 0,
+        monthlyRevenue: monthlyRevenue._sum?.amount || 0,
         expiringSoon
       },
       recentPayments: formattedPayments

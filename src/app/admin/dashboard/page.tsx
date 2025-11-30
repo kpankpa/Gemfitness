@@ -97,18 +97,8 @@ const mockEvents = [
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const adminUser = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('adminUser') || '';
-    }
-    return '';
-  })[0];
-  const adminRole = useState<'receptionist' | 'manager'>(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem('adminRole') as 'receptionist' | 'manager') || 'receptionist';
-    }
-    return 'receptionist';
-  })[0];
+  const [user, setUser] = useState<any>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   
   const [activeTab, setActiveTab] = useState<'overview' | 'checkin' | 'members' | 'classes' | 'events' | 'attendance' | 'payments' | 'plans' | 'staff' | 'analytics'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
@@ -117,8 +107,15 @@ export default function AdminDashboard() {
   // Real data states
   const [members, setMembers] = useState<Member[]>([]);
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
-  const [analytics, setAnalytics] = useState<Analytics | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [analytics, setAnalytics] = useState<any>({
+    totalMembers: 0,
+    activeMembers: 0,
+    expiringSoon: 0,
+    todayCheckIns: 0,
+    monthlyRevenue: 0,
+    recentPayments: []
+  });
+  const [loading, setLoading] = useState(true);
   
   // Modal states
   const [showNewMemberModal, setShowNewMemberModal] = useState(false);
@@ -133,7 +130,7 @@ export default function AdminDashboard() {
     phone: '',
     password: '',
     registrationType: 'SINGLE',
-    plan: '1 Month'
+    plan: 'ONE_MONTH'
   });
   const [isRegistering, setIsRegistering] = useState(false);
 
@@ -156,7 +153,9 @@ export default function AdminDashboard() {
     try {
       const response = await fetch('/api/members');
       const data = await response.json();
-      setMembers(data.members || []);
+      if (data.success) {
+        setMembers(data.members || []);
+      }
     } catch (error) {
       console.error('Error fetching members:', error);
     }
@@ -166,7 +165,9 @@ export default function AdminDashboard() {
     try {
       const response = await fetch('/api/checkins');
       const data = await response.json();
-      setCheckIns(data.checkIns || []);
+      if (data.success) {
+        setCheckIns(data.checkIns || []);
+      }
     } catch (error) {
       console.error('Error fetching check-ins:', error);
     }
@@ -176,28 +177,52 @@ export default function AdminDashboard() {
     try {
       const response = await fetch('/api/analytics');
       const data = await response.json();
-      setAnalytics(data);
+      setAnalytics({
+        totalMembers: data.totalMembers || 0,
+        activeMembers: data.activeMembers || 0,
+        expiringSoon: data.expiringSoon || 0,
+        todayCheckIns: data.todayCheckIns || 0,
+        monthlyRevenue: data.monthlyRevenue || 0,
+        recentPayments: data.recentPayments || []
+      });
     } catch (error) {
       console.error('Error fetching analytics:', error);
     }
   };
 
   useEffect(() => {
-    // Check authentication and redirect if not authenticated.
-    const isAuth = localStorage.getItem('adminAuth');
-    if (!isAuth) {
-      router.push('/admin/login');
-    } else {
-      // Load initial data
-      fetchMembers();
-      fetchCheckIns();
-      fetchAnalytics();
-    }
+    // Check authentication
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/session');
+        const data = await response.json();
+        
+        if (data.user && ['ADMIN', 'MANAGER', 'RECEPTIONIST'].includes(data.user.role)) {
+          setUser(data.user);
+          setIsAuthenticated(true);
+          // Load initial data
+          await Promise.all([
+            fetchMembers(),
+            fetchCheckIns(),
+            fetchAnalytics()
+          ]);
+        } else {
+          router.push('/admin/login');
+        }
+      } catch (error) {
+        router.push('/admin/login');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    checkAuth();
   }, [router]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminAuth');
-    localStorage.removeItem('adminUser');
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/admin/login');
+  };
     localStorage.removeItem('adminRole');
     router.push('/admin/login');
   };
@@ -227,7 +252,7 @@ export default function AdminDashboard() {
           phone: '',
           password: '',
           registrationType: 'SINGLE',
-          plan: '1 Month'
+          plan: 'ONE_MONTH'
         });
         // Refresh members list
         fetchMembers();
@@ -307,14 +332,23 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
-      <AdminSidebar
-        adminUser={adminUser}
-        adminRole={adminRole}
-        onLogout={handleLogout}
-        activeTab={activeTab}
-        onTabChange={(tab) => setActiveTab(tab as typeof activeTab)}
-      />
+      {loading ? (
+        <div className="flex items-center justify-center w-full h-screen">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading dashboard...</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Sidebar */}
+          <AdminSidebar
+            adminUser={user?.email || user?.firstName || 'Admin'}
+            adminRole={user?.role?.toLowerCase() || 'admin'}
+            onLogout={handleLogout}
+            activeTab={activeTab}
+            onTabChange={(tab) => setActiveTab(tab as typeof activeTab)}
+          />
 
       {/* Main Content */}
       <div className="flex-1 lg:ml-64 pt-[57px] lg:pt-0">
@@ -358,11 +392,11 @@ export default function AdminDashboard() {
             {/* Stats Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {[
-                { label: 'Total Members', value: analytics?.stats?.totalMembers?.toLocaleString() || '0', icon: Users, color: 'text-blue-500', bg: 'bg-blue-50', visible: true },
-                { label: 'Active Members', value: analytics?.stats?.activeMembers?.toLocaleString() || '0', icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-50', visible: true },
-                { label: 'Expiring Soon', value: analytics?.stats?.expiringSoon || '0', icon: AlertTriangle, color: 'text-yellow-500', bg: 'bg-yellow-50', visible: true },
-                { label: 'Checked In Today', value: analytics?.stats?.todayCheckIns || '0', icon: Activity, color: 'text-purple-500', bg: 'bg-purple-50', visible: true },
-                { label: 'Revenue (GH₵)', value: canViewFinancials ? analytics?.stats?.monthlyRevenue?.toLocaleString() || '0' : '***', icon: DollarSign, color: 'text-orange-500', bg: 'bg-orange-50', visible: canViewFinancials },
+                { label: 'Total Members', value: analytics?.totalMembers?.toLocaleString() || '0', icon: Users, color: 'text-blue-500', bg: 'bg-blue-50', visible: true },
+                { label: 'Active Members', value: analytics?.activeMembers?.toLocaleString() || '0', icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-50', visible: true },
+                { label: 'Expiring Soon', value: analytics?.expiringSoon || '0', icon: AlertTriangle, color: 'text-yellow-500', bg: 'bg-yellow-50', visible: true },
+                { label: 'Checked In Today', value: analytics?.todayCheckIns || '0', icon: Activity, color: 'text-purple-500', bg: 'bg-purple-50', visible: true },
+                { label: 'Revenue (GH₵)', value: canViewFinancials ? analytics?.monthlyRevenue?.toLocaleString() || '0' : '***', icon: DollarSign, color: 'text-orange-500', bg: 'bg-orange-50', visible: canViewFinancials },
                 { label: 'Attendance Rate', value: '85%', icon: TrendingUp, color: 'text-cyan-500', bg: 'bg-cyan-50', visible: canViewFinancials },
               ].filter(stat => stat.visible).map((stat, i) => (
                 <Card key={i} className="border-2 border-gray-100 hover:shadow-lg transition-shadow">
@@ -421,14 +455,14 @@ export default function AdminDashboard() {
             {/* Recent Activity & Alerts */}
             <div className="grid lg:grid-cols-2 gap-6">
               {/* Expiring Soon Alert */}
-              {mockStats.expiringSoon > 0 && (
+              {analytics?.expiringSoon > 0 && (
                 <Card className="border-2 border-yellow-200 bg-yellow-50">
                   <CardHeader>
                     <div className="flex items-center gap-2">
                       <AlertTriangle className="h-5 w-5 text-yellow-600" />
                       <CardTitle className="text-lg sm:text-xl text-yellow-900">Expiring Soon</CardTitle>
                     </div>
-                    <CardDescription className="text-yellow-700">{mockStats.expiringSoon} memberships expiring in 3 days</CardDescription>
+                    <CardDescription className="text-yellow-700">{analytics?.expiringSoon} memberships expiring in 3 days</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
@@ -455,7 +489,7 @@ export default function AdminDashboard() {
               <Card className="border-2 border-gray-100">
                 <CardHeader>
                   <CardTitle className="text-lg sm:text-xl">Today&apos;s Check-Ins</CardTitle>
-                  <CardDescription>Latest {checkIns.length} check-ins</CardDescription>
+                  <CardDescription>{analytics?.todayCheckIns || 0} check-ins today</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
@@ -1461,11 +1495,11 @@ export default function AdminDashboard() {
                   onChange={(e) => setNewMember({ ...newMember, plan: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 >
-                  <option value="1 Month">1 Month - GH₵ 200</option>
-                  <option value="3 Months">3 Months - GH₵ 450</option>
-                  <option value="6 Months">6 Months - GH₵ 1000</option>
-                  <option value="12 Months">12 Months - GH₵ 2000</option>
-                  <option value="Daily">Daily Walk-In - GH₵ 50</option>
+                  <option value="ONE_MONTH">1 Month - GH₵ 200</option>
+                  <option value="THREE_MONTHS">3 Months - GH₵ 450</option>
+                  <option value="SIX_MONTHS">6 Months - GH₵ 1000</option>
+                  <option value="TWELVE_MONTHS">12 Months - GH₵ 2000</option>
+                  <option value="DAILY">Daily Walk-In - GH₵ 50</option>
                 </select>
               </div>
               <div className="flex gap-3">
@@ -1538,6 +1572,8 @@ export default function AdminDashboard() {
             </form>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

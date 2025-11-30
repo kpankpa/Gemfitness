@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
           take: 1
         },
         checkIns: {
-          orderBy: { checkedInAt: 'desc' },
+          orderBy: { checkInTime: 'desc' },
           take: 10
         },
         classBookings: {
@@ -52,10 +52,7 @@ export async function GET(request: NextRequest) {
         },
         _count: {
           select: {
-            checkIns: true,
-            payments: {
-              where: { status: 'SUCCESS' }
-            }
+            checkIns: true
           }
         }
       }
@@ -86,7 +83,7 @@ export async function GET(request: NextRequest) {
     let daysLeft = 0;
 
     if (activeSubscription) {
-      const expiryDate = new Date(activeSubscription.expiresAt);
+      const expiryDate = new Date(activeSubscription.endDate);
       const today = new Date();
       const timeDiff = expiryDate.getTime() - today.getTime();
       daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24));
@@ -101,10 +98,10 @@ export async function GET(request: NextRequest) {
     // Format recent check-ins
     const recentCheckIns = user.checkIns.map(checkIn => ({
       id: checkIn.id,
-      member: user.name,
+      member: `${user.firstName} ${user.lastName}`,
       memberId: user.id,
-      date: checkIn.checkedInAt.toISOString().split('T')[0],
-      time: checkIn.checkedInAt.toLocaleTimeString('en-US', {
+      date: checkIn.checkInTime.toISOString().split('T')[0],
+      time: checkIn.checkInTime.toLocaleTimeString('en-GH', {
         hour: '2-digit',
         minute: '2-digit'
       }),
@@ -165,7 +162,7 @@ export async function GET(request: NextRequest) {
     const dashboardData: DashboardData = {
       user: {
         id: user.id,
-        name: user.name,
+        name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         phone: user.phone,
         role: user.role as 'MEMBER' | 'RECEPTIONIST' | 'MANAGER' | 'ADMIN',
@@ -178,15 +175,15 @@ export async function GET(request: NextRequest) {
       membership: {
         status: membershipStatus,
         plan: activeSubscription?.plan?.replace(/_/g, ' ') || 'No Plan',
-        expiresAt: activeSubscription?.expiresAt?.toISOString().split('T')[0] || null,
+        expiresAt: activeSubscription?.endDate?.toISOString().split('T')[0] || null,
         daysLeft,
         amount: activeSubscription?.amount || 0
       },
       stats: {
         totalCheckIns: user._count.checkIns,
-        totalPayments: user._count.payments,
+        totalPayments: user.subscriptions.length,
         thisMonthCheckIns: user.checkIns.filter(checkIn => {
-          const checkInDate = new Date(checkIn.checkedInAt);
+          const checkInDate = new Date(checkIn.checkInTime);
           const today = new Date();
           return checkInDate.getMonth() === today.getMonth() && 
                  checkInDate.getFullYear() === today.getFullYear();

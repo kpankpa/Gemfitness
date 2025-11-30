@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import {
   User,
   Mail,
@@ -12,6 +12,7 @@ import {
   MapPin,
   Check,
   ArrowRight,
+  AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -74,6 +75,7 @@ const membershipPlans = {
 
 export default function SignupPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const planParam = searchParams.get('plan') || 'quarterly';
   const [selectedPlan, setSelectedPlan] = useState(planParam);
   const [formData, setFormData] = useState({
@@ -93,6 +95,7 @@ export default function SignupPage() {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   // Update selected plan when URL parameter changes
   useEffect(() => {
@@ -111,18 +114,42 @@ export default function SignupPage() {
       ...formData,
       [name]: type === 'checkbox' ? checked : value,
     });
+    // Clear error when user starts typing
+    if (error) setError('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setError('');
 
-    // Simulate API call - In production, this will authenticate with backend
-    setTimeout(() => {
-      console.log('Form submitted:', { ...formData, plan: selectedPlan });
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...formData,
+          plan: selectedPlan,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || 'Registration failed. Please try again.');
+        setIsSubmitting(false);
+        return;
+      }
+
       // Redirect to member dashboard after successful signup
-      window.location.href = `/dashboard`;
-    }, 1500);
+      router.push(data.redirectUrl);
+    } catch (error) {
+      console.error('Signup error:', error);
+      setError('An error occurred during registration. Please try again.');
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -156,6 +183,18 @@ export default function SignupPage() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* Error Message */}
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3"
+                    >
+                      <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                      <p className="text-sm text-red-700">{error}</p>
+                    </motion.div>
+                  )}
+
                   {/* Name Fields */}
                   <div className="grid md:grid-cols-2 gap-4">
                     <div>

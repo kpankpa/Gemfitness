@@ -4,17 +4,20 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import {
   Mail,
   Lock,
   Eye,
   EyeOff,
   ArrowRight,
+  AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function LoginPage() {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -22,6 +25,7 @@ export default function LoginPage() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -29,18 +33,42 @@ export default function LoginPage() {
       ...formData,
       [name]: type === 'checkbox' ? checked : value,
     });
+    // Clear error when user starts typing
+    if (error) setError('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setError('');
 
-    // Simulate API call - In production, this will authenticate with backend
-    setTimeout(() => {
-      console.log('Login submitted:', formData);
-      // Redirect to member dashboard after successful login
-      window.location.href = '/dashboard';
-    }, 1500);
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || 'Login failed. Please try again.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Redirect to appropriate dashboard
+      router.push(data.redirectUrl);
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('An error occurred. Please try again.');
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -110,6 +138,18 @@ export default function LoginPage() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-5">
+                {/* Error Message */}
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3"
+                  >
+                    <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-700">{error}</p>
+                  </motion.div>
+                )}
+
                 {/* Email Field */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

@@ -22,7 +22,7 @@ export async function GET() {
 
     const checkIns = await prisma.checkIn.findMany({
       where: {
-        checkedInAt: {
+        checkInTime: {
           gte: today,
           lt: tomorrow
         }
@@ -30,27 +30,29 @@ export async function GET() {
       include: {
         user: {
           select: {
-            name: true,
+            firstName: true,
+            lastName: true,
             qrCode: true
           }
         }
       },
-      orderBy: { checkedInAt: 'desc' }
+      orderBy: { checkInTime: 'desc' }
     });
 
     const formattedCheckIns = checkIns.map(checkIn => ({
       id: checkIn.id,
-      member: checkIn.user.name,
+      member: `${checkIn.user.firstName} ${checkIn.user.lastName}`,
       memberId: checkIn.user.qrCode,
-      time: checkIn.checkedInAt.toLocaleTimeString('en-US', { 
+      time: checkIn.checkInTime.toLocaleTimeString('en-US', { 
         hour: '2-digit', 
         minute: '2-digit'
       }),
       method: checkIn.method,
-      checkedBy: checkIn.checkedBy || 'system'
+      checkedBy: checkIn.checkedBy || 'system',
+      checkInTime: checkIn.checkInTime
     }));
 
-    return NextResponse.json({ checkIns: formattedCheckIns });
+    return NextResponse.json({ success: true, checkIns: formattedCheckIns });
   } catch (error) {
     console.error('Error fetching check-ins:', error);
     return NextResponse.json(
@@ -89,7 +91,7 @@ export async function POST(request: NextRequest) {
       where: {
         userId: user.id,
         status: 'ACTIVE',
-        expiresAt: { gte: new Date() }
+        endDate: { gte: new Date() }
       }
     });
 
@@ -112,8 +114,8 @@ export async function POST(request: NextRequest) {
       success: true, 
       checkIn: {
         id: checkIn.id,
-        member: user.name,
-        time: checkIn.checkedInAt.toLocaleTimeString('en-US', { 
+        member: `${user.firstName} ${user.lastName}`,
+        time: checkIn.checkInTime.toLocaleTimeString('en-US', { 
           hour: '2-digit', 
           minute: '2-digit'
         })
