@@ -162,13 +162,15 @@ export async function GET(request: NextRequest) {
     const dashboardData: DashboardData = {
       user: {
         id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         phone: user.phone,
         role: user.role as 'MEMBER' | 'RECEPTIONIST' | 'MANAGER' | 'ADMIN',
         qrCode: user.qrCode || '',
         registrationPaid: user.registrationPaid,
-        registrationType: user.registrationType as 'SINGLE' | 'COUPLE' | 'FAMILY',
+        registrationType: user.registrationType as 'SELF' | 'WALK_IN' | 'ADMIN',
         createdAt: user.createdAt.toISOString(),
         memberSince: user.createdAt.toISOString().split('T')[0]
       },

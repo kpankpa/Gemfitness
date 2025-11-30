@@ -40,7 +40,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import AdminSidebar from '@/components/AdminSidebar';
-import type { Member, CheckIn, Analytics, NewMember, CheckInData } from '@/types';
+import type { Member, CheckIn } from '@/types';
 
 // Mock data - In production, fetch from API
 const mockStats = {
@@ -55,21 +55,6 @@ const mockStats = {
   revenueGrowth: '+15%',
   attendanceRate: '68%',
 };
-
-const mockMembers = [
-  { id: 1, name: 'Kwame Mensah', email: 'kwame@email.com', phone: '024 555 0001', plan: '3 Months', status: 'active', expiresAt: '2026-02-20', joinDate: '2025-11-20', qrCode: 'QR001', registrationPaid: true },
-  { id: 2, name: 'Ama Serwaa', email: 'ama@email.com', phone: '050 555 0002', plan: '1 Month', status: 'expiring_soon', expiresAt: '2025-11-30', joinDate: '2025-11-22', qrCode: 'QR002', registrationPaid: true },
-  { id: 3, name: 'Kofi Asante', email: 'kofi@email.com', phone: '024 555 0003', plan: '12 Months', status: 'active', expiresAt: '2026-11-25', joinDate: '2025-11-25', qrCode: 'QR003', registrationPaid: true },
-  { id: 4, name: 'Akua Frimpong', email: 'akua@email.com', phone: '050 555 0004', plan: '1 Month', status: 'expired', expiresAt: '2025-11-10', joinDate: '2025-10-10', qrCode: 'QR004', registrationPaid: true },
-  { id: 5, name: 'Yaw Boateng', email: 'yaw@email.com', phone: '024 555 0005', plan: '3 Months', status: 'active', expiresAt: '2026-01-15', joinDate: '2025-10-15', qrCode: 'QR005', registrationPaid: true },
-];
-
-const mockTodayCheckIns = [
-  { id: 1, member: 'Kwame Mensah', memberId: 'QR001', time: '07:30 AM', method: 'qr', checkedBy: 'receptionist1' },
-  { id: 2, member: 'Ama Serwaa', memberId: 'QR002', time: '08:15 AM', method: 'manual', checkedBy: 'receptionist1' },
-  { id: 3, member: 'Yaw Boateng', memberId: 'QR005', time: '09:00 AM', method: 'qr', checkedBy: 'receptionist1' },
-  { id: 4, member: 'Efua Owusu', memberId: 'QR003', time: '09:45 AM', method: 'qr', checkedBy: 'receptionist1' },
-];
 
 const mockStaff = [
   { id: 1, name: 'Sarah Mensah', email: 'sarah@gemfitness.com', role: 'receptionist', status: 'active', joinDate: '2025-01-15' },
@@ -97,23 +82,24 @@ const mockEvents = [
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ id: string; email: string; role: string; firstName?: string } | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   
   const [activeTab, setActiveTab] = useState<'overview' | 'checkin' | 'members' | 'classes' | 'events' | 'attendance' | 'payments' | 'plans' | 'staff' | 'analytics'>('overview');
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'momo' | 'cash' | 'card'>('momo');
   
   // Real data states
   const [members, setMembers] = useState<Member[]>([]);
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
-  const [analytics, setAnalytics] = useState<any>({
+  const [analytics, setAnalytics] = useState({
     totalMembers: 0,
     activeMembers: 0,
     expiringSoon: 0,
     todayCheckIns: 0,
     monthlyRevenue: 0,
-    recentPayments: []
+    recentPayments: [] as Array<{id: string; member: string; amount: number; date: string}>
   });
   const [loading, setLoading] = useState(true);
   
@@ -124,21 +110,23 @@ export default function AdminDashboard() {
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
   // Registration form state
-  const [newMember, setNewMember] = useState<NewMember>({
-    name: '',
+  const [newMember, setNewMember] = useState({
+    firstName: '',
+    lastName: '',
     email: '',
     phone: '',
     password: '',
-    registrationType: 'SINGLE',
+    dateOfBirth: '',
+    registrationType: 'SELF' as 'SELF' | 'WALK_IN' | 'ADMIN',
     plan: 'ONE_MONTH'
   });
   const [isRegistering, setIsRegistering] = useState(false);
 
   // Check-in form state
-  const [checkInData, setCheckInData] = useState<CheckInData>({
+  const [checkInData, setCheckInData] = useState({
     qrCode: '',
     memberId: '',
-    method: 'qr'
+    method: 'qr' as 'qr' | 'manual'
   });
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [showCheckInModal, setShowCheckInModal] = useState(false);
@@ -149,9 +137,10 @@ export default function AdminDashboard() {
   }
 
   // Fetch real data functions
-  const fetchMembers = async () => {
+  const fetchMembers = async (limit?: number) => {
     try {
-      const response = await fetch('/api/members');
+      const url = limit ? `/api/members?limit=${limit}` : '/api/members?limit=20';
+      const response = await fetch(url);
       const data = await response.json();
       if (data.success) {
         setMembers(data.members || []);
@@ -200,16 +189,16 @@ export default function AdminDashboard() {
         if (data.user && ['ADMIN', 'MANAGER', 'RECEPTIONIST'].includes(data.user.role)) {
           setUser(data.user);
           setIsAuthenticated(true);
-          // Load initial data
+          // Load initial data (only essentials)
           await Promise.all([
-            fetchMembers(),
             fetchCheckIns(),
             fetchAnalytics()
           ]);
         } else {
           router.push('/admin/login');
         }
-      } catch (error) {
+      } catch (err) {
+        console.error('Auth error:', err);
         router.push('/admin/login');
       } finally {
         setLoading(false);
@@ -219,11 +208,16 @@ export default function AdminDashboard() {
     checkAuth();
   }, [router]);
 
+  // Fetch members when tab changes
+  useEffect(() => {
+    if (isAuthenticated && (activeTab === 'overview' || activeTab === 'members') && members.length === 0) {
+      fetchMembers(activeTab === 'overview' ? 10 : undefined);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, isAuthenticated]);
+
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/admin/login');
-  };
-    localStorage.removeItem('adminRole');
     router.push('/admin/login');
   };
 
@@ -247,11 +241,13 @@ export default function AdminDashboard() {
         alert(`Member registered successfully! QR Code: ${data.user.qrCode}`);
         setShowNewMemberModal(false);
         setNewMember({
-          name: '',
+          firstName: '',
+          lastName: '',
           email: '',
           phone: '',
           password: '',
-          registrationType: 'SINGLE',
+          dateOfBirth: '',
+          registrationType: 'SELF',
           plan: 'ONE_MONTH'
         });
         // Refresh members list
@@ -282,7 +278,7 @@ export default function AdminDashboard() {
         body: JSON.stringify({
           qrCode: checkInData.qrCode,
           method: checkInData.method,
-          checkedBy: adminUser
+          checkedBy: user?.email || 'admin'
         }),
       });
 
@@ -307,7 +303,7 @@ export default function AdminDashboard() {
   };
 
   // Permission checks
-  const isManager = adminRole === 'manager';
+  const isManager = user?.role === 'MANAGER';
   const canViewReports = isManager;
   const canManagePayments = isManager;
   const canViewFinancials = isManager;
@@ -344,7 +340,7 @@ export default function AdminDashboard() {
           {/* Sidebar */}
           <AdminSidebar
             adminUser={user?.email || user?.firstName || 'Admin'}
-            adminRole={user?.role?.toLowerCase() || 'admin'}
+            adminRole={user?.role?.toLowerCase() === 'receptionist' ? 'receptionist' : 'manager'}
             onLogout={handleLogout}
             activeTab={activeTab}
             onTabChange={(tab) => setActiveTab(tab as typeof activeTab)}
@@ -640,7 +636,7 @@ export default function AdminDashboard() {
 
                 {/* Pagination */}
                 <div className="flex items-center justify-between mt-4 pt-4 border-t-2">
-                  <p className="text-sm text-gray-600">Showing {members.length} of {analytics?.stats?.totalMembers || 0} members</p>
+                  <p className="text-sm text-gray-600">Showing {members.length} of {analytics?.totalMembers || 0} members</p>
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm">Previous</Button>
                     <Button variant="outline" size="sm">Next</Button>
@@ -1436,15 +1432,27 @@ export default function AdminDashboard() {
           <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4 max-h-screen overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">Register New Member</h2>
             <form onSubmit={handleRegisterMember} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  value={newMember.name}
-                  onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">First Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={newMember.firstName}
+                    onChange={(e) => setNewMember({ ...newMember, firstName: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={newMember.lastName}
+                    onChange={(e) => setNewMember({ ...newMember, lastName: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Email</label>
@@ -1477,15 +1485,25 @@ export default function AdminDashboard() {
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium mb-1">Date of Birth</label>
+                <input
+                  type="date"
+                  required
+                  value={newMember.dateOfBirth}
+                  onChange={(e) => setNewMember({ ...newMember, dateOfBirth: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium mb-1">Registration Type</label>
                 <select
                   value={newMember.registrationType}
-                  onChange={(e) => setNewMember({ ...newMember, registrationType: e.target.value as 'SINGLE' | 'COUPLE' | 'FAMILY' })}
+                  onChange={(e) => setNewMember({ ...newMember, registrationType: e.target.value as 'SELF' | 'WALK_IN' | 'ADMIN' })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 >
-                  <option value="SINGLE">Single - GH₵ 250</option>
-                  <option value="COUPLE">Couple - GH₵ 400</option>
-                  <option value="FAMILY">Family - GH₵ 1000</option>
+                  <option value="SELF">Self Registration - GH₵ 250</option>
+                  <option value="WALK_IN">Walk-In - GH₵ 250</option>
+                  <option value="ADMIN">Admin Registration - Free</option>
                 </select>
               </div>
               <div>
@@ -1573,7 +1591,7 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
-        </>
+      </>
       )}
     </div>
   );

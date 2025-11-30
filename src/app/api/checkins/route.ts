@@ -13,8 +13,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 // GET /api/checkins - Get today's check-ins
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const limit = searchParams.get('limit');
+    
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
@@ -36,7 +39,8 @@ export async function GET() {
           }
         }
       },
-      orderBy: { checkInTime: 'desc' }
+      orderBy: { checkInTime: 'desc' },
+      ...(limit && { take: parseInt(limit) })
     });
 
     const formattedCheckIns = checkIns.map(checkIn => ({

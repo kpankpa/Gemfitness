@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const plan = searchParams.get('plan');
+    const limit = searchParams.get('limit');
     
     const where: Prisma.UserWhereInput = { role: 'MEMBER' };
     
@@ -76,7 +77,8 @@ export async function GET(request: NextRequest) {
           }
         }
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      ...(limit && { take: parseInt(limit) })
     }) as UserWithSubscriptions[];
 
     const formattedMembers = members.map(member => ({

@@ -2,13 +2,15 @@
 
 export interface User {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
+  name?: string; // Computed field
   email: string;
   phone: string;
   role: 'MEMBER' | 'RECEPTIONIST' | 'MANAGER' | 'ADMIN';
   qrCode?: string;
   registrationPaid: boolean;
-  registrationType: 'SINGLE' | 'COUPLE' | 'FAMILY';
+  registrationType: 'SELF' | 'WALK_IN' | 'ADMIN';
   createdAt: string;
   memberSince?: string;
 }
@@ -16,11 +18,12 @@ export interface User {
 export interface Subscription {
   id: string;
   userId: string;
-  plan: 'DAILY' | 'ONE_MONTH' | 'THREE_MONTHS' | 'SIX_MONTHS' | 'TWELVE_MONTHS';
+  plan: 'ONE_MONTH' | 'THREE_MONTHS' | 'ONE_YEAR';
   status: 'ACTIVE' | 'EXPIRED' | 'CANCELLED';
   amount: number;
-  expiresAt: string;
+  endDate: string;
   startDate: string;
+  registrationType: 'SELF' | 'WALK_IN' | 'ADMIN';
 }
 
 export interface CheckIn {
@@ -44,9 +47,8 @@ export interface Member {
   joinDate: string;
   qrCode?: string;
   registrationPaid: boolean;
-  registrationType: 'SINGLE' | 'COUPLE' | 'FAMILY';
+  registrationType: 'SELF' | 'WALK_IN' | 'ADMIN';
   totalCheckIns: number;
-  totalPayments: number;
 }
 
 export interface Payment {
@@ -116,19 +118,4 @@ export interface DashboardData {
   recentCheckIns: CheckIn[];
   bookedClasses: BookedClass[];
   availableClasses: AvailableClass[];
-}
-
-export interface NewMember {
-  name: string;
-  email: string;
-  phone: string;
-  password: string;
-  registrationType: 'SINGLE' | 'COUPLE' | 'FAMILY';
-  plan: string;
-}
-
-export interface CheckInData {
-  qrCode: string;
-  memberId: string;
-  method: 'qr' | 'manual';
 }
