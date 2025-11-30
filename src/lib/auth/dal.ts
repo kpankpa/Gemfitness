@@ -22,7 +22,7 @@ export const verifySession = cache(async () => {
  * Get the current authenticated user
  * Returns null if not authenticated
  */
-export const getUser = cache(async (): Promise<User | null> => {
+export const getUser = cache(async () => {
   const session = await verifySession();
   
   if (!session.isAuth || !session.userId) {
