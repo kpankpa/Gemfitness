@@ -157,27 +157,34 @@ export default function AdminDashboard() {
 
   const fetchCheckIns = async () => {
     try {
+      console.log('📥 Fetching check-ins...');
       const response = await fetch('/api/checkins');
+      console.log('📥 Check-ins response status:', response.status);
       if (!response.ok) {
         throw new Error(`Failed to fetch check-ins: ${response.status}`);
       }
       const data = await response.json();
+      console.log('📥 Check-ins data:', data);
       if (data.success) {
         setCheckIns(data.checkIns || []);
       }
+      console.log('✅ Check-ins loaded:', data.checkIns?.length || 0);
     } catch (error) {
-      console.error('Error fetching check-ins:', error);
+      console.error('❌ Error fetching check-ins:', error);
       setCheckIns([]);
     }
   };
 
   const fetchAnalytics = async () => {
     try {
+      console.log('📊 Fetching analytics...');
       const response = await fetch('/api/analytics');
+      console.log('📊 Analytics response status:', response.status);
       if (!response.ok) {
         throw new Error(`Failed to fetch analytics: ${response.status}`);
       }
       const data = await response.json();
+      console.log('📊 Analytics data:', data);
       setAnalytics({
         totalMembers: data.totalMembers || 0,
         activeMembers: data.activeMembers || 0,
@@ -186,8 +193,9 @@ export default function AdminDashboard() {
         monthlyRevenue: data.monthlyRevenue || 0,
         recentPayments: data.recentPayments || []
       });
+      console.log('✅ Analytics loaded');
     } catch (error) {
-      console.error('Error fetching analytics:', error);
+      console.error('❌ Error fetching analytics:', error);
       // Set default values on error to prevent infinite loading
       setAnalytics({
         totalMembers: 0,

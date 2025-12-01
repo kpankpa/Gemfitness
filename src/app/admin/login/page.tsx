@@ -23,15 +23,26 @@ export default function AdminLogin() {
     setError('');
 
     try {
+      console.log('🔐 Attempting login...');
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
+        signal: controller.signal
       });
 
+      clearTimeout(timeoutId);
+      console.log('📡 Login response status:', response.status);
+
       const data = await response.json();
+      console.log('📊 Login data:', data);
 
       if (response.ok && data.success) {
+        console.log('✅ Login successful, redirecting...');
         // Check if user has admin/receptionist/manager role
         if (data.redirectUrl?.includes('/admin') || data.redirectUrl?.includes('/dashboard')) {
           router.push(data.redirectUrl);
@@ -40,11 +51,17 @@ export default function AdminLogin() {
           setIsLoading(false);
         }
       } else {
+        console.log('❌ Login failed:', data.error);
         setError(data.error || 'Invalid credentials');
         setIsLoading(false);
       }
     } catch (err) {
-      setError('An error occurred. Please try again.');
+      console.error('❌ Login error:', err);
+      if (err instanceof Error && err.name === 'AbortError') {
+        setError('Request timeout. Please try again.');
+      } else {
+        setError('An error occurred. Please try again.');
+      }
       setIsLoading(false);
     }
   };
