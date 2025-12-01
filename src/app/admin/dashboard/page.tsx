@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import QRScanner from '@/components/QRScanner';
+import WebcamQRScanner from '@/components/WebcamQRScanner';
 import {
   Users,
   User,
@@ -36,6 +37,8 @@ import {
   Plus,
   BarChart3,
   UserCheck,
+  Camera,
+  Scan,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -127,6 +130,13 @@ export default function AdminDashboard() {
   });
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [showCheckInModal, setShowCheckInModal] = useState(false);
+  const [checkInMode, setCheckInMode] = useState<'search' | 'scanner' | 'camera'>('search');
+  const [showWebcamScanner, setShowWebcamScanner] = useState(false);
+  const [checkInStats, setCheckInStats] = useState({
+    today: 0,
+    activeNow: 0,
+    thisWeek: 0
+  });
 
   // Fetch real data functions
   const fetchMembers = async (limit?: number) => {
@@ -163,6 +173,25 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error('❌ Error fetching check-ins:', error);
       setCheckIns([]);
+    }
+  };
+
+  const fetchCheckInStats = async () => {
+    try {
+      console.log('📊 Fetching check-in stats...');
+      const response = await fetch('/api/checkins/stats');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch check-in stats: ${response.status}`);
+      }
+      const data = await response.json();
+      console.log('📊 Check-in stats data:', data);
+      if (data.success) {
+        setCheckInStats(data.stats);
+      }
+      console.log('✅ Check-in stats loaded:', data.stats);
+    } catch (error) {
+      console.error('❌ Error fetching check-in stats:', error);
+      setCheckInStats({ today: 0, activeNow: 0, thisWeek: 0 });
     }
   };
 
@@ -216,7 +245,9 @@ export default function AdminDashboard() {
           
           // Load data independently - don't block dashboard rendering
           console.log('📥 Loading data independently...');
+          fetchMembers();
           fetchCheckIns();
+          fetchCheckInStats();
           fetchAnalytics();
         } else {
           console.log('❌ No valid user, redirecting to login');
@@ -232,6 +263,19 @@ export default function AdminDashboard() {
     
     checkAuth();
   }, [router]);
+
+  // Auto-refresh check-ins and stats every 30 seconds when on check-in tab
+  useEffect(() => {
+    if (isAuthenticated && activeTab === 'checkin') {
+      const interval = setInterval(() => {
+        console.log('🔄 Auto-refreshing check-ins and stats...');
+        fetchCheckIns();
+        fetchCheckInStats();
+      }, 30000); // 30 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated, activeTab]);
 
   // Fetch members when tab changes
   useEffect(() => {
@@ -314,8 +358,9 @@ export default function AdminDashboard() {
         alert(`✅ Check-in successful for ${data.checkIn.member}!`);
         setShowCheckInModal(false);
         setCheckInData({ qrCode: '', memberId: '', method: 'qr' });
-        // Refresh check-ins list
+        // Refresh check-ins list and stats
         fetchCheckIns();
+        fetchCheckInStats();
         fetchAnalytics();
       } else {
         alert(data.error || 'Failed to check-in');
@@ -888,87 +933,172 @@ export default function AdminDashboard() {
           >
             {/* Check-In Interface */}
             <Card className="border-2 border-gray-100">
-              <CardHeader>
-                <CardTitle className="text-xl sm:text-2xl">Member Check-In</CardTitle>
-                <CardDescription>Scan QR code or search by name, phone, or member ID</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl sm:text-2xl">Member Check-In</CardTitle>
+                  <CardDescription>Choose your preferred check-in method</CardDescription>
+                </div>
+                <Button
+                  onClick={() => {
+                    fetchCheckIns();
+                    fetchCheckInStats();
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                >
+                  <Activity className="h-4 w-4" />
+                  Refresh
+                </Button>
               </CardHeader>
               <CardContent>
-                <div className="max-w-3xl mx-auto space-y-6">
-                  {/* Search & Scan Section */}
-                  <div className="grid md:grid-cols-2 gap-6">
-                    {/* Manual Search */}
+                <div className="max-w-4xl mx-auto space-y-6">
+                  {/* Check-In Method Tabs */}
+                  <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
+                    <button
+                      onClick={() => setCheckInMode('search')}
+                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-md font-medium transition-all ${
+                        checkInMode === 'search'
+                          ? 'bg-white text-orange-600 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <Search className="h-5 w-5" />
+                      <span>Manual Search</span>
+                    </button>
+                    <button
+                      onClick={() => setCheckInMode('scanner')}
+                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-md font-medium transition-all ${
+                        checkInMode === 'scanner'
+                          ? 'bg-white text-orange-600 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <Scan className="h-5 w-5" />
+                      <span>QR Scanner</span>
+                    </button>
+                    <button
+                      onClick={() => setCheckInMode('camera')}
+                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-md font-medium transition-all ${
+                        checkInMode === 'camera'
+                          ? 'bg-white text-orange-600 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <Camera className="h-5 w-5" />
+                      <span>Camera Scan</span>
+                    </button>
+                  </div>
+
+                  {/* Manual Search Mode */}
+                  {checkInMode === 'search' && (
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-semibold text-gray-900">Manual Search</h3>
-                        <Button
-                          onClick={() => setShowCheckInModal(true)}
-                          size="sm"
-                          className="bg-green-500 hover:bg-green-600"
-                        >
-                          <QrCode className="h-4 w-4 mr-1" />
-                          Quick Check-In
-                        </Button>
-                      </div>
                       <div className="relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-gray-400" />
                         <input
                           type="text"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          placeholder="Name, phone, or ID..."
-                          className="w-full pl-12 pr-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500"
+                          placeholder="Search by name, phone number, or member ID..."
+                          className="w-full pl-14 pr-4 py-4 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                          autoFocus
                         />
                       </div>
                       
-                      {/* Search Results */}
+                      {/* Search Results with Check-In Buttons */}
                       {searchQuery && filteredMembers.length > 0 && (
-                        <div className="border-2 border-gray-200 rounded-xl p-2 max-h-64 overflow-y-auto">
+                        <div className="border-2 border-gray-200 rounded-xl divide-y max-h-96 overflow-y-auto">
                           {filteredMembers.map((member) => (
                             <div
                               key={member.id}
-                              className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg cursor-pointer"
-                              onClick={() => {
-                                setSelectedMember(member);
-                                setShowMemberModal(true);
-                              }}
+                              className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
                             >
-                              <div>
-                                <p className="font-semibold text-gray-900">{member.name}</p>
-                                <p className="text-xs text-gray-500">{member.phone} • {member.qrCode}</p>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-1">
+                                  <p className="font-semibold text-gray-900 text-lg">{member.name}</p>
+                                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                    member.status === 'active' ? 'bg-green-100 text-green-700' :
+                                    member.status === 'expiring_soon' ? 'bg-yellow-100 text-yellow-700' :
+                                    'bg-red-100 text-red-700'
+                                  }`}>
+                                    {member.status.replace(/_/g, ' ')}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-gray-600">
+                                  <Phone className="inline h-3 w-3 mr-1" />
+                                  {member.phone}
+                                  <span className="mx-2">•</span>
+                                  <Mail className="inline h-3 w-3 mr-1" />
+                                  {member.email}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1 font-mono">ID: {member.qrCode?.slice(0, 20)}...</p>
                               </div>
-                              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                member.status === 'active' ? 'bg-green-100 text-green-700' :
-                                member.status === 'expiring_soon' ? 'bg-yellow-100 text-yellow-700' :
-                                'bg-red-100 text-red-700'
-                              }`}>
-                                {member.status.replace(/_/g, ' ')}
-                              </span>
+                              <Button
+                                onClick={async () => {
+                                  if (member.status === 'expired') {
+                                    alert('❌ Cannot check-in: Member subscription has expired');
+                                    return;
+                                  }
+                                  await handleCheckIn({ qrCode: member.qrCode, method: 'manual' });
+                                }}
+                                disabled={isCheckingIn || member.status === 'expired'}
+                                className={`ml-4 ${
+                                  member.status === 'expired' 
+                                    ? 'bg-gray-400 cursor-not-allowed' 
+                                    : 'bg-green-500 hover:bg-green-600'
+                                }`}
+                                size="lg"
+                              >
+                                <CheckCircle2 className="h-5 w-5 mr-2" />
+                                Check In
+                              </Button>
                             </div>
                           ))}
                         </div>
                       )}
 
+                      {/* No Results */}
                       {searchQuery && filteredMembers.length === 0 && (
-                        <div className="border-2 border-red-200 bg-red-50 rounded-xl p-6 text-center">
-                          <UserX className="h-12 w-12 text-red-400 mx-auto mb-2" />
-                          <p className="font-semibold text-red-900">Member Not Found</p>
-                          <p className="text-sm text-red-600 mb-3">No member matches &quot;{searchQuery}&quot;</p>
+                        <div className="border-2 border-red-200 bg-red-50 rounded-xl p-8 text-center">
+                          <UserX className="h-16 w-16 text-red-400 mx-auto mb-3" />
+                          <p className="font-semibold text-red-900 text-lg mb-1">Member Not Found</p>
+                          <p className="text-sm text-red-600 mb-4">No member matches &quot;{searchQuery}&quot;</p>
                           {canRegisterMember && (
-                            <Button size="sm" className="bg-orange-500 hover:bg-orange-600">
+                            <Button 
+                              onClick={() => setShowNewMemberModal(true)}
+                              className="bg-orange-500 hover:bg-orange-600"
+                            >
+                              <UserPlus className="h-4 w-4 mr-2" />
                               Register New Member
                             </Button>
                           )}
                         </div>
                       )}
-                    </div>
 
-                    {/* QR Scanner */}
+                      {/* Instructions when no search */}
+                      {!searchQuery && (
+                        <div className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center bg-gray-50">
+                          <Search className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                          <p className="text-gray-600 text-lg font-medium mb-2">Start typing to search for members</p>
+                          <p className="text-gray-500 text-sm">Search by name, phone number, or member ID</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* QR Scanner Mode (Barcode Scanner Device) */}
+                  {checkInMode === 'scanner' && (
                     <div className="space-y-4">
-                      <h3 className="font-semibold text-gray-900">QR Code Scanner</h3>
+                      <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 text-center mb-4">
+                        <Scan className="h-12 w-12 text-blue-600 mx-auto mb-3" />
+                        <h3 className="font-semibold text-blue-900 mb-2">USB/Bluetooth Barcode Scanner</h3>
+                        <p className="text-sm text-blue-700">
+                          Use a physical barcode scanner device to scan member QR codes
+                        </p>
+                      </div>
                       <QRScanner 
                         onScan={async (qrCode) => {
                           setCheckInData({ ...checkInData, qrCode, method: 'qr' });
-                          // Auto-submit check-in
                           await handleCheckIn({ qrCode, method: 'qr' });
                         }}
                         onError={(error) => {
@@ -976,21 +1106,55 @@ export default function AdminDashboard() {
                         }}
                         placeholder="Scan or enter member QR code"
                       />
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <p className="text-xs text-gray-600 text-center">
+                          <strong>How to use:</strong> Click &quot;Activate Scanner&quot; and point your barcode scanner at the member&apos;s QR code. 
+                          The scanner will automatically input the code and check them in.
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  )}
+
+                  {/* Camera Scanner Mode */}
+                  {checkInMode === 'camera' && (
+                    <div className="space-y-4">
+                      <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-8 text-center">
+                        <Camera className="h-16 w-16 text-purple-600 mx-auto mb-4" />
+                        <h3 className="font-semibold text-purple-900 text-lg mb-2">Webcam QR Scanner</h3>
+                        <p className="text-sm text-purple-700 mb-6">
+                          Use your device&apos;s camera to scan QR codes from member phones or printed cards
+                        </p>
+                        <Button
+                          onClick={() => setShowWebcamScanner(true)}
+                          className="bg-purple-600 hover:bg-purple-700"
+                          size="lg"
+                        >
+                          <Camera className="h-5 w-5 mr-2" />
+                          Start Camera
+                        </Button>
+                      </div>
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <p className="text-xs text-yellow-800 text-center">
+                          <AlertTriangle className="inline h-3 w-3 mr-1" />
+                          <strong>Note:</strong> Camera scanning requires browser permission and works best with good lighting.
+                          For faster check-ins, use Manual Search or Barcode Scanner methods.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Quick Check-In Stats */}
                   <div className="grid grid-cols-3 gap-4 pt-4 border-t-2">
                     <div className="text-center p-4 bg-green-50 rounded-lg">
-                      <div className="text-3xl font-bold text-green-700">{checkIns.length}</div>
+                      <div className="text-3xl font-bold text-green-700">{checkInStats.today}</div>
                       <div className="text-xs text-gray-600 font-medium">Today</div>
                     </div>
                     <div className="text-center p-4 bg-blue-50 rounded-lg">
-                      <div className="text-3xl font-bold text-blue-700">42</div>
+                      <div className="text-3xl font-bold text-blue-700">{checkInStats.activeNow}</div>
                       <div className="text-xs text-gray-600 font-medium">Active Now</div>
                     </div>
                     <div className="text-center p-4 bg-purple-50 rounded-lg">
-                      <div className="text-3xl font-bold text-purple-700">524</div>
+                      <div className="text-3xl font-bold text-purple-700">{checkInStats.thisWeek}</div>
                       <div className="text-xs text-gray-600 font-medium">This Week</div>
                     </div>
                   </div>
@@ -1005,36 +1169,44 @@ export default function AdminDashboard() {
                 <CardDescription>Latest activity today</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b-2 border-gray-200">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Time</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Member</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">ID</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Method</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase hidden sm:table-cell">Checked By</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {checkIns.map((checkin) => (
-                        <tr key={checkin.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm text-gray-900 font-medium">{checkin.time}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900">{checkin.member}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{checkin.memberId}</td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                              checkin.method === 'qr' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
-                            }`}>
-                              {checkin.method.toUpperCase()}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600 hidden sm:table-cell">{checkin.checkedBy}</td>
+                {checkIns.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b-2 border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Time</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Member</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">ID</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Method</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase hidden sm:table-cell">Checked By</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {checkIns.map((checkin) => (
+                          <tr key={checkin.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm text-gray-900 font-medium">{checkin.time}</td>
+                            <td className="px-4 py-3 text-sm text-gray-900">{checkin.member}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600 font-mono text-xs">{checkin.memberId?.slice(0, 15)}...</td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                checkin.method === 'qr' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                              }`}>
+                                {checkin.method.toUpperCase()}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-600 hidden sm:table-cell">{checkin.checkedBy}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Activity className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500 font-medium mb-2">No check-ins today yet</p>
+                    <p className="text-sm text-gray-400">Check-ins will appear here as members arrive</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>
@@ -1619,9 +1791,19 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* Webcam QR Scanner Modal */}
+      {showWebcamScanner && (
+        <WebcamQRScanner
+          onScan={async (qrCode) => {
+            setShowWebcamScanner(false);
+            await handleCheckIn({ qrCode, method: 'qr' });
+          }}
+          onClose={() => setShowWebcamScanner(false)}
+        />
+      )}
       </>
       )}
     </div>
   );
 }
-
