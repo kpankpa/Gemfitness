@@ -1,8 +1,9 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import QRScanner from '@/components/QRScanner';
 import {
   Users,
   User,
@@ -42,18 +43,12 @@ import Image from 'next/image';
 import AdminSidebar from '@/components/AdminSidebar';
 import type { Member, CheckIn } from '@/types';
 
-// Mock data - In production, fetch from API
+// Mock data for features not yet implemented (Classes, Events, Plans, Staff, Payments)
+// TODO: Replace with real API calls when backend is ready
 const mockStats = {
-  totalMembers: 1247,
-  activeMembers: 1189,
-  expiringSoon: 34,
-  expiredMembers: 24,
-  activeToday: 89,
-  newThisMonth: 23,
   revenue: 45680,
   pendingPayments: 12,
   revenueGrowth: '+15%',
-  attendanceRate: '68%',
 };
 
 const mockStaff = [
@@ -86,7 +81,6 @@ export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   
   const [activeTab, setActiveTab] = useState<'overview' | 'checkin' | 'members' | 'classes' | 'events' | 'attendance' | 'payments' | 'plans' | 'staff' | 'analytics'>('overview');
-  
   const [searchQuery, setSearchQuery] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'momo' | 'cash' | 'card'>('momo');
   
@@ -102,12 +96,14 @@ export default function AdminDashboard() {
     recentPayments: [] as Array<{id: string; member: string; amount: number; date: string}>
   });
   const [loading, setLoading] = useState(true);
-  const [loadingTimeout, setLoadingTimeout] = useState(false);
   
-  // Modal states
+  // Modal states (TODO: Implement modals for editing members and day passes)
   const [showNewMemberModal, setShowNewMemberModal] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showMemberModal, setShowMemberModal] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showDayPassModal, setShowDayPassModal] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
   // Registration form state
@@ -131,11 +127,6 @@ export default function AdminDashboard() {
   });
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [showCheckInModal, setShowCheckInModal] = useState(false);
-
-  // Suppress unused variable warnings for future features
-  if (false) {
-    console.log(showNewMemberModal, showMemberModal, showDayPassModal, selectedMember);
-  }
 
   // Fetch real data functions
   const fetchMembers = async (limit?: number) => {
@@ -221,36 +212,25 @@ export default function AdminDashboard() {
           console.log('✅ User authenticated:', data.user.role);
           setUser(data.user);
           setIsAuthenticated(true);
-          // Load initial data (only essentials)
-          console.log('📥 Loading initial data...');
-          await Promise.all([
-            fetchCheckIns(),
-            fetchAnalytics()
-          ]);
-          console.log('✅ Initial data loaded');
+          setLoading(false); // Stop loading immediately after auth
+          
+          // Load data independently - don't block dashboard rendering
+          console.log('📥 Loading data independently...');
+          fetchCheckIns();
+          fetchAnalytics();
         } else {
           console.log('❌ No valid user, redirecting to login');
+          setLoading(false);
           router.push('/admin/login');
         }
       } catch (err) {
         console.error('❌ Auth error:', err);
-        router.push('/admin/login');
-      } finally {
-        console.log('🏁 Setting loading to false');
         setLoading(false);
+        router.push('/admin/login');
       }
     };
-
-    // Set timeout for loading state
-    const timeoutId = setTimeout(() => {
-      if (loading) {
-        setLoadingTimeout(true);
-      }
-    }, 10000); // 10 second timeout
     
     checkAuth();
-
-    return () => clearTimeout(timeoutId);
   }, [router]);
 
   // Fetch members when tab changes
@@ -310,9 +290,10 @@ export default function AdminDashboard() {
   };
 
   // Handle check-in
-  const handleCheckIn = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCheckIn = async (overrideData?: { qrCode?: string; method?: 'qr' | 'manual' }) => {
     setIsCheckingIn(true);
+
+    const dataToSend = overrideData || checkInData;
 
     try {
       const response = await fetch('/api/checkins', {
@@ -321,8 +302,8 @@ export default function AdminDashboard() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          qrCode: checkInData.qrCode,
-          method: checkInData.method,
+          qrCode: dataToSend.qrCode,
+          method: dataToSend.method,
           checkedBy: user?.email || 'admin'
         }),
       });
@@ -330,7 +311,7 @@ export default function AdminDashboard() {
       const data = await response.json();
 
       if (response.ok) {
-        alert(`Check-in successful for ${data.checkIn.member}!`);
+        alert(`✅ Check-in successful for ${data.checkIn.member}!`);
         setShowCheckInModal(false);
         setCheckInData({ qrCode: '', memberId: '', method: 'qr' });
         // Refresh check-ins list
@@ -378,11 +359,6 @@ export default function AdminDashboard() {
           <div className="text-center">
             <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-gray-600">Loading dashboard...</p>
-            {loadingTimeout && (
-              <p className="mt-2 text-sm text-yellow-600">
-                This is taking longer than expected. Please check your connection.
-              </p>
-            )}
           </div>
         </div>
       ) : (
@@ -989,15 +965,17 @@ export default function AdminDashboard() {
                     {/* QR Scanner */}
                     <div className="space-y-4">
                       <h3 className="font-semibold text-gray-900">QR Code Scanner</h3>
-                      <div className="border-4 border-dashed border-gray-300 rounded-xl p-8 text-center bg-gray-50">
-                        <QrCode className="h-24 w-24 text-gray-400 mx-auto mb-4" />
-                        <p className="font-semibold text-gray-700 mb-2">Scan Member QR Code</p>
-                        <p className="text-sm text-gray-500 mb-4">Position code within frame</p>
-                        <Button variant="outline" className="border-2">
-                          <Activity className="mr-2 h-4 w-4" />
-                          Activate Scanner
-                        </Button>
-                      </div>
+                      <QRScanner 
+                        onScan={async (qrCode) => {
+                          setCheckInData({ ...checkInData, qrCode, method: 'qr' });
+                          // Auto-submit check-in
+                          await handleCheckIn({ qrCode, method: 'qr' });
+                        }}
+                        onError={(error) => {
+                          alert(`❌ ${error}`);
+                        }}
+                        placeholder="Scan or enter member QR code"
+                      />
                     </div>
                   </div>
 
@@ -1597,7 +1575,7 @@ export default function AdminDashboard() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
             <h2 className="text-xl font-bold mb-4">Member Check-In</h2>
-            <form onSubmit={handleCheckIn} className="space-y-4">
+            <form onSubmit={(e) => { e.preventDefault(); handleCheckIn(); }} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Member QR Code</label>
                 <input
@@ -1646,3 +1624,4 @@ export default function AdminDashboard() {
     </div>
   );
 }
+

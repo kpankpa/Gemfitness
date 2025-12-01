@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import QRCodeDisplay from '@/components/QRCodeDisplay';
 import { 
   User, 
   Mail, 
@@ -561,22 +562,16 @@ export default function MemberDashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="bg-white p-4 rounded-lg border-2 border-gray-200 flex flex-col items-center">
-                {/* QR Code would be displayed here - for now showing text */}
-                <div className="w-40 h-40 md:w-48 md:h-48 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
-                  <QrCode className="w-20 h-20 md:w-24 md:h-24 text-gray-400" />
-                </div>
-                <p className="text-[10px] md:text-xs text-gray-600 text-center font-mono break-all px-2">
-                  {user.qrCode}
-                </p>
-              </div>
+              <QRCodeDisplay 
+                data={user.qrCode}
+                size={256}
+                showDownload={true}
+                label={user.qrCode}
+                className="py-4"
+              />
               <p className="text-xs md:text-sm text-gray-600 text-center">
                 Show this QR code at reception to check in
               </p>
-              <Button variant="outline" className="w-full border-orange-500 text-orange-500 hover:bg-orange-50 text-xs md:text-sm">
-                <QrCode className="w-4 h-4 mr-2" />
-                Download QR Code
-              </Button>
             </CardContent>
           </Card>
 

@@ -43,3 +43,19 @@
 {"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2025-11-30 16:14:15","userId":"cmim96ft90005tpao07a5nf5y"}
 {"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2025-11-30 16:21:36","userId":"cmim96ft90005tpao07a5nf5y"}
 {"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2025-11-30 16:21:36","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"warn","message":"Login attempt with incorrect password","service":"gemfitness","timestamp":"2025-12-01 02:05:22","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-01 02:06:01","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-01 02:06:01","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-01 02:44:58","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-01 02:44:58","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-01 03:04:24","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-01 03:04:24","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-01 03:25:22","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-01 03:25:22","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-01 04:25:32","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-01 04:25:32","userId":"cmim96ft90005tpao07a5nf5y"}
+{"amount":750,"email":"junior@gmail.com","level":"info","message":"🔶 MOCK PAYMENT: Initializing payment","plan":"quarterly","reference":"REF_1764593781255_6os0rolzo","service":"gemfitness","timestamp":"2025-12-01 04:56:21"}
+{"amount":750,"level":"info","message":"PAYMENT: INITIALIZE","plan":"quarterly","reference":"REF_1764593781255_6os0rolzo","service":"gemfitness","timestamp":"2025-12-01 04:56:21","userId":"pending"}
+{"email":"junior@gmail.com","level":"info","message":"✅ User registered successfully","plan":"THREE_MONTHS","service":"gemfitness","timestamp":"2025-12-01 04:56:21","userId":"cmin5ks300000tpekh0dhdzvu"}
+{"email":"junior@gmail.com","level":"info","message":"AUTH: SIGNUP","plan":"THREE_MONTHS","service":"gemfitness","timestamp":"2025-12-01 04:56:21","userId":"cmin5ks300000tpekh0dhdzvu"}
+{"level":"info","message":"📧 MOCK EMAIL: Sending email","messageId":"msg_1764593782226_5dwuxm7ct","service":"gemfitness","subject":"Welcome to GemFitness - Your Membership is Active! 🎉","timestamp":"2025-12-01 04:56:22","to":"junior@gmail.com"}
