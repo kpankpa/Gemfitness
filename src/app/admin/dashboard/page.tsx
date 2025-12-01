@@ -102,6 +102,7 @@ export default function AdminDashboard() {
     recentPayments: [] as Array<{id: string; member: string; amount: number; date: string}>
   });
   const [loading, setLoading] = useState(true);
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
   
   // Modal states
   const [showNewMemberModal, setShowNewMemberModal] = useState(false);
@@ -141,30 +142,41 @@ export default function AdminDashboard() {
     try {
       const url = limit ? `/api/members?limit=${limit}` : '/api/members?limit=20';
       const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch members: ${response.status}`);
+      }
       const data = await response.json();
       if (data.success) {
         setMembers(data.members || []);
       }
     } catch (error) {
       console.error('Error fetching members:', error);
+      setMembers([]);
     }
   };
 
   const fetchCheckIns = async () => {
     try {
       const response = await fetch('/api/checkins');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch check-ins: ${response.status}`);
+      }
       const data = await response.json();
       if (data.success) {
         setCheckIns(data.checkIns || []);
       }
     } catch (error) {
       console.error('Error fetching check-ins:', error);
+      setCheckIns([]);
     }
   };
 
   const fetchAnalytics = async () => {
     try {
       const response = await fetch('/api/analytics');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch analytics: ${response.status}`);
+      }
       const data = await response.json();
       setAnalytics({
         totalMembers: data.totalMembers || 0,
@@ -176,6 +188,15 @@ export default function AdminDashboard() {
       });
     } catch (error) {
       console.error('Error fetching analytics:', error);
+      // Set default values on error to prevent infinite loading
+      setAnalytics({
+        totalMembers: 0,
+        activeMembers: 0,
+        expiringSoon: 0,
+        todayCheckIns: 0,
+        monthlyRevenue: 0,
+        recentPayments: []
+      });
     }
   };
 
@@ -183,29 +204,45 @@ export default function AdminDashboard() {
     // Check authentication
     const checkAuth = async () => {
       try {
+        console.log('🔍 Checking authentication...');
         const response = await fetch('/api/auth/session');
         const data = await response.json();
+        console.log('📊 Auth response:', data);
         
         if (data.user && ['ADMIN', 'MANAGER', 'RECEPTIONIST'].includes(data.user.role)) {
+          console.log('✅ User authenticated:', data.user.role);
           setUser(data.user);
           setIsAuthenticated(true);
           // Load initial data (only essentials)
+          console.log('📥 Loading initial data...');
           await Promise.all([
             fetchCheckIns(),
             fetchAnalytics()
           ]);
+          console.log('✅ Initial data loaded');
         } else {
+          console.log('❌ No valid user, redirecting to login');
           router.push('/admin/login');
         }
       } catch (err) {
-        console.error('Auth error:', err);
+        console.error('❌ Auth error:', err);
         router.push('/admin/login');
       } finally {
+        console.log('🏁 Setting loading to false');
         setLoading(false);
       }
     };
+
+    // Set timeout for loading state
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        setLoadingTimeout(true);
+      }
+    }, 10000); // 10 second timeout
     
     checkAuth();
+
+    return () => clearTimeout(timeoutId);
   }, [router]);
 
   // Fetch members when tab changes
@@ -333,6 +370,11 @@ export default function AdminDashboard() {
           <div className="text-center">
             <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-gray-600">Loading dashboard...</p>
+            {loadingTimeout && (
+              <p className="mt-2 text-sm text-yellow-600">
+                This is taking longer than expected. Please check your connection.
+              </p>
+            )}
           </div>
         </div>
       ) : (

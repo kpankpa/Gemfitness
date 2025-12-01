@@ -90,13 +90,11 @@ export async function GET() {
     }));
 
     return NextResponse.json({
-      stats: {
-        totalMembers,
-        activeMembers: activeSubscriptions,
-        todayCheckIns,
-        monthlyRevenue: monthlyRevenue._sum?.amount || 0,
-        expiringSoon
-      },
+      totalMembers,
+      activeMembers: activeSubscriptions,
+      todayCheckIns,
+      monthlyRevenue: monthlyRevenue._sum?.amount || 0,
+      expiringSoon,
       recentPayments: formattedPayments
     });
 
