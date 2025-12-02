@@ -178,7 +178,10 @@ export default function AdminSidebar({
           {/* Logout Button */}
           <div className="p-4 border-t border-gray-200">
             <Button
-              onClick={onLogout}
+              onClick={() => {
+                console.log('🔘 Logout button clicked in AdminSidebar');
+                onLogout();
+              }}
               variant="outline"
               className={`w-full border-2 border-gray-300 hover:bg-red-50 hover:border-red-300 hover:text-red-600 ${
                 isCollapsed ? 'px-2' : ''

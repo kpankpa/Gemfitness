@@ -11,15 +11,18 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 export async function GET() {
   try {
     const now = new Date();
     
-    // Today's check-ins (midnight to now)
+    // Today's check-ins (midnight to now in UTC)
     const todayStart = new Date(now);
-    todayStart.setHours(0, 0, 0, 0);
+    todayStart.setUTCHours(0, 0, 0, 0);
     
+    logger.info('Fetching check-in stats', { todayStart: todayStart.toISOString() });
+
     const todayCheckIns = await prisma.checkIn.count({
       where: {
         checkInTime: {
@@ -53,6 +56,12 @@ export async function GET() {
       }
     });
 
+    logger.info('Check-in stats calculated', { 
+      today: todayCheckIns, 
+      activeNow, 
+      thisWeek: weekCheckIns 
+    });
+
     return NextResponse.json({
       success: true,
       stats: {
@@ -63,7 +72,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('Error fetching check-in stats:', error);
+    logger.error('Error fetching check-in stats:', error);
     return NextResponse.json(
       { error: 'Failed to fetch stats' },
       { status: 500 }

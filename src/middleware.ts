@@ -29,28 +29,49 @@ const publicApiRoutes = [
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
+  console.log('🔍 Middleware invoked for:', path, 'Method:', request.method);
 
-  // Allow public routes
-  if (publicRoutes.includes(path) || path.startsWith('/_next') || path.startsWith('/static')) {
+  // Allow Next.js internal routes immediately
+  if (path.startsWith('/_next') || path.startsWith('/static')) {
     return NextResponse.next();
   }
 
-  // Allow public API routes
+  // Allow public routes
+  if (publicRoutes.includes(path)) {
+    return NextResponse.next();
+  }
+
+  // Allow public API routes (signup/login)
   if (publicApiRoutes.some((route) => path.startsWith(route))) {
+    console.log('✅ Public API route, allowing:', path);
     return NextResponse.next();
   }
 
   // Get session from cookies
   const session = request.cookies.get('session')?.value;
+  console.log('🔍 Middleware: Session cookie exists?', !!session);
+  
   const sessionData = await decrypt(session);
+  console.log('🔍 Middleware: Session decrypted?', !!sessionData, 'Role:', sessionData?.role);
 
-  // Redirect to login if no session
-  if (!sessionData) {
-    if (path.startsWith('/api/')) {
+  // For API routes, check session and allow if valid
+  if (path.startsWith('/api/')) {
+    console.log('🔍 Middleware: API request to', path, 'Method:', request.method);
+    if (!sessionData) {
+      console.log('❌ Middleware: BLOCKING - No valid session for API path:', path);
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    console.log('✅ Middleware: ALLOWING API request to', path, 'Role:', sessionData.role);
+    return NextResponse.next(); // Allow all authenticated API calls
+  }
+
+  // Redirect to login if no session (for page routes)
+  if (!sessionData) {
+    console.log('⚠️ Middleware: No session for path:', path);
     return NextResponse.redirect(new URL('/login', request.url));
   }
+
+  console.log('✅ Middleware: Session valid for', path, 'Role:', sessionData.role);
 
   // Check if route requires specific role
   for (const [route, allowedRoles] of Object.entries(protectedRoutes)) {

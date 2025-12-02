@@ -2,6 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { useMembers } from '@/hooks/useMembers';
+import { useCheckIns } from '@/hooks/useCheckIns';
+import { useAnalytics } from '@/hooks/useAnalytics';
 import { motion } from 'framer-motion';
 import QRScanner from '@/components/QRScanner';
 import WebcamQRScanner from '@/components/WebcamQRScanner';
@@ -39,12 +43,13 @@ import {
   UserCheck,
   Camera,
   Scan,
+  Trophy,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import AdminSidebar from '@/components/AdminSidebar';
-import type { Member, CheckIn } from '@/types';
+import type { Member } from '@/types';
 
 // Mock data for features not yet implemented (Classes, Events, Plans, Staff, Payments)
 // TODO: Replace with real API calls when backend is ready
@@ -80,25 +85,19 @@ const mockEvents = [
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const [user, setUser] = useState<{ id: string; email: string; role: string; firstName?: string } | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { members, isLoading: membersLoading, fetchMembers, searchMembers } = useMembers();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { checkIns, stats: checkInStats, isLoading: checkInsLoading, isCheckingIn, performCheckIn, fetchCheckIns, fetchStats } = useCheckIns();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { analytics, isLoading: analyticsLoading, fetchAnalytics } = useAnalytics();
   
   const [activeTab, setActiveTab] = useState<'overview' | 'checkin' | 'members' | 'classes' | 'events' | 'attendance' | 'payments' | 'plans' | 'staff' | 'analytics'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'momo' | 'cash' | 'card'>('momo');
   
-  // Real data states
-  const [members, setMembers] = useState<Member[]>([]);
-  const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
-  const [analytics, setAnalytics] = useState({
-    totalMembers: 0,
-    activeMembers: 0,
-    expiringSoon: 0,
-    todayCheckIns: 0,
-    monthlyRevenue: 0,
-    recentPayments: [] as Array<{id: string; member: string; amount: number; date: string}>
-  });
-  const [loading, setLoading] = useState(true);
+  const loading = authLoading;
   
   // Modal states (TODO: Implement modals for editing members and day passes)
   const [showNewMemberModal, setShowNewMemberModal] = useState(false);
@@ -128,166 +127,60 @@ export default function AdminDashboard() {
     memberId: '',
     method: 'qr' as 'qr' | 'manual'
   });
-  const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [showCheckInModal, setShowCheckInModal] = useState(false);
   const [checkInMode, setCheckInMode] = useState<'search' | 'scanner' | 'camera'>('search');
   const [showWebcamScanner, setShowWebcamScanner] = useState(false);
-  const [checkInStats, setCheckInStats] = useState({
-    today: 0,
-    activeNow: 0,
-    thisWeek: 0
-  });
 
-  // Fetch real data functions
-  const fetchMembers = async (limit?: number) => {
-    try {
-      const url = limit ? `/api/members?limit=${limit}` : '/api/members?limit=20';
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch members: ${response.status}`);
-      }
-      const data = await response.json();
-      if (data.success) {
-        setMembers(data.members || []);
-      }
-    } catch (error) {
-      console.error('Error fetching members:', error);
-      setMembers([]);
-    }
-  };
-
-  const fetchCheckIns = async () => {
-    try {
-      console.log('📥 Fetching check-ins...');
-      const response = await fetch('/api/checkins');
-      console.log('📥 Check-ins response status:', response.status);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch check-ins: ${response.status}`);
-      }
-      const data = await response.json();
-      console.log('📥 Check-ins data:', data);
-      if (data.success) {
-        setCheckIns(data.checkIns || []);
-      }
-      console.log('✅ Check-ins loaded:', data.checkIns?.length || 0);
-    } catch (error) {
-      console.error('❌ Error fetching check-ins:', error);
-      setCheckIns([]);
-    }
-  };
-
-  const fetchCheckInStats = async () => {
-    try {
-      console.log('📊 Fetching check-in stats...');
-      const response = await fetch('/api/checkins/stats');
-      if (!response.ok) {
-        throw new Error(`Failed to fetch check-in stats: ${response.status}`);
-      }
-      const data = await response.json();
-      console.log('📊 Check-in stats data:', data);
-      if (data.success) {
-        setCheckInStats(data.stats);
-      }
-      console.log('✅ Check-in stats loaded:', data.stats);
-    } catch (error) {
-      console.error('❌ Error fetching check-in stats:', error);
-      setCheckInStats({ today: 0, activeNow: 0, thisWeek: 0 });
-    }
-  };
-
-  const fetchAnalytics = async () => {
-    try {
-      console.log('📊 Fetching analytics...');
-      const response = await fetch('/api/analytics');
-      console.log('📊 Analytics response status:', response.status);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch analytics: ${response.status}`);
-      }
-      const data = await response.json();
-      console.log('📊 Analytics data:', data);
-      setAnalytics({
-        totalMembers: data.totalMembers || 0,
-        activeMembers: data.activeMembers || 0,
-        expiringSoon: data.expiringSoon || 0,
-        todayCheckIns: data.todayCheckIns || 0,
-        monthlyRevenue: data.monthlyRevenue || 0,
-        recentPayments: data.recentPayments || []
-      });
-      console.log('✅ Analytics loaded');
-    } catch (error) {
-      console.error('❌ Error fetching analytics:', error);
-      // Set default values on error to prevent infinite loading
-      setAnalytics({
-        totalMembers: 0,
-        activeMembers: 0,
-        expiringSoon: 0,
-        todayCheckIns: 0,
-        monthlyRevenue: 0,
-        recentPayments: []
-      });
-    }
-  };
-
+  // Fetch initial data when authenticated
   useEffect(() => {
-    // Check authentication
-    const checkAuth = async () => {
-      try {
-        console.log('🔍 Checking authentication...');
-        const response = await fetch('/api/auth/session');
-        const data = await response.json();
-        console.log('📊 Auth response:', data);
-        
-        if (data.user && ['ADMIN', 'MANAGER', 'RECEPTIONIST'].includes(data.user.role)) {
-          console.log('✅ User authenticated:', data.user.role);
-          setUser(data.user);
-          setIsAuthenticated(true);
-          setLoading(false); // Stop loading immediately after auth
-          
-          // Load data independently - don't block dashboard rendering
-          console.log('📥 Loading data independently...');
-          fetchMembers();
-          fetchCheckIns();
-          fetchCheckInStats();
-          fetchAnalytics();
-        } else {
-          console.log('❌ No valid user, redirecting to login');
-          setLoading(false);
-          router.push('/admin/login');
-        }
-      } catch (err) {
-        console.error('❌ Auth error:', err);
-        setLoading(false);
+    console.log('🔄 Dashboard useEffect triggered:', { isAuthenticated, authLoading, userRole: user?.role });
+    
+    if (!isAuthenticated) {
+      if (!authLoading) {
+        console.log('⚠️ Not authenticated, redirecting to login');
         router.push('/admin/login');
       }
-    };
-    
-    checkAuth();
-  }, [router]);
+      return;
+    }
+
+    // Check if user has admin role
+    if (user && !['ADMIN', 'MANAGER', 'RECEPTIONIST'].includes(user.role)) {
+      console.log('⚠️ User role not authorized:', user.role);
+      router.push('/admin/login');
+      return;
+    }
+
+    // Load initial data
+    console.log('✅ Loading dashboard data...');
+    fetchMembers(20);
+    fetchCheckIns();
+    fetchStats();
+    fetchAnalytics();
+  }, [isAuthenticated, authLoading, user, router, fetchMembers, fetchCheckIns, fetchStats, fetchAnalytics]);
 
   // Auto-refresh check-ins and stats every 30 seconds when on check-in tab
   useEffect(() => {
     if (isAuthenticated && activeTab === 'checkin') {
       const interval = setInterval(() => {
-        console.log('🔄 Auto-refreshing check-ins and stats...');
         fetchCheckIns();
-        fetchCheckInStats();
+        fetchStats();
       }, 30000); // 30 seconds
 
       return () => clearInterval(interval);
     }
-  }, [isAuthenticated, activeTab]);
+  }, [isAuthenticated, activeTab, fetchCheckIns, fetchStats]);
 
-  // Fetch members when tab changes
+  // Fetch appropriate data when tab changes
   useEffect(() => {
-    if (isAuthenticated && (activeTab === 'overview' || activeTab === 'members') && members.length === 0) {
-      fetchMembers(activeTab === 'overview' ? 10 : undefined);
+    if (!isAuthenticated) return;
+    
+    if (activeTab === 'checkin' || activeTab === 'members') {
+      fetchMembers(); // Fetch all members
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, isAuthenticated]);
+  }, [activeTab, isAuthenticated, fetchMembers]);
 
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/admin/login');
+    await logout();
   };
 
   // Handle member registration
@@ -335,41 +228,33 @@ export default function AdminDashboard() {
 
   // Handle check-in
   const handleCheckIn = async (overrideData?: { qrCode?: string; method?: 'qr' | 'manual' }) => {
-    setIsCheckingIn(true);
-
     const dataToSend = overrideData || checkInData;
 
+    // Validate QR code
+    if (!dataToSend.qrCode) {
+      alert('❌ Error: No QR code found for this member');
+      return;
+    }
+
     try {
-      const response = await fetch('/api/checkins', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          qrCode: dataToSend.qrCode,
-          method: dataToSend.method,
-          checkedBy: user?.email || 'admin'
-        }),
+      const result = await performCheckIn({
+        qrCode: dataToSend.qrCode,
+        method: dataToSend.method || 'qr'
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        alert(`✅ Check-in successful for ${data.checkIn.member}!`);
+      if (result.success) {
+        alert(`✅ Check-in successful for ${result.checkIn?.member}!`);
         setShowCheckInModal(false);
         setCheckInData({ qrCode: '', memberId: '', method: 'qr' });
-        // Refresh check-ins list and stats
-        fetchCheckIns();
-        fetchCheckInStats();
-        fetchAnalytics();
+        
+        // Refresh analytics
+        await fetchAnalytics();
       } else {
-        alert(data.error || 'Failed to check-in');
+        alert(`❌ ${result.error || 'Failed to check-in'}`);
       }
     } catch (error) {
-      console.error('Check-in error:', error);
-      alert('Failed to check-in');
-    } finally {
-      setIsCheckingIn(false);
+      console.error('❌ Check-in error:', error);
+      alert('❌ Failed to check-in. Please check your connection and try again.');
     }
   };
 
@@ -390,12 +275,16 @@ export default function AdminDashboard() {
   const canCreateEvents = true; // Both managers and receptionists can create events
 
   // Filtered members based on search
-  const filteredMembers = members.filter(member =>
-    member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    member.phone.includes(searchQuery) ||
-    member.qrCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    member.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredMembers = searchQuery ? searchMembers(searchQuery) : members;
+  
+  if (searchQuery && members.length > 0) {
+    console.log('📊 Search Results:', {
+      searchQuery,
+      totalMembers: members.length,
+      filteredCount: filteredMembers.length,
+      memberNames: members.map(m => m.name)
+    });
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -459,12 +348,12 @@ export default function AdminDashboard() {
             {/* Stats Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {[
-                { label: 'Total Members', value: analytics?.totalMembers?.toLocaleString() || '0', icon: Users, color: 'text-blue-500', bg: 'bg-blue-50', visible: true },
-                { label: 'Active Members', value: analytics?.activeMembers?.toLocaleString() || '0', icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-50', visible: true },
-                { label: 'Expiring Soon', value: analytics?.expiringSoon || '0', icon: AlertTriangle, color: 'text-yellow-500', bg: 'bg-yellow-50', visible: true },
-                { label: 'Checked In Today', value: analytics?.todayCheckIns || '0', icon: Activity, color: 'text-purple-500', bg: 'bg-purple-50', visible: true },
+                { label: 'Total Members', value: members.length.toLocaleString() || '0', icon: Users, color: 'text-blue-500', bg: 'bg-blue-50', visible: true },
+                { label: 'Active Members', value: members.filter(m => m.status === 'active').length.toLocaleString() || '0', icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-50', visible: true },
+                { label: 'Expiring Soon', value: analytics?.expiringSoon?.toString() || '0', icon: AlertTriangle, color: 'text-yellow-500', bg: 'bg-yellow-50', visible: true },
+                { label: 'Checked In Today', value: analytics?.todayCheckIns?.toString() || '0', icon: Activity, color: 'text-purple-500', bg: 'bg-purple-50', visible: true },
                 { label: 'Revenue (GH₵)', value: canViewFinancials ? analytics?.monthlyRevenue?.toLocaleString() || '0' : '***', icon: DollarSign, color: 'text-orange-500', bg: 'bg-orange-50', visible: canViewFinancials },
-                { label: 'Attendance Rate', value: '85%', icon: TrendingUp, color: 'text-cyan-500', bg: 'bg-cyan-50', visible: canViewFinancials },
+                { label: 'Attendance Rate', value: analytics?.attendanceRate || '0%', icon: TrendingUp, color: 'text-cyan-500', bg: 'bg-cyan-50', visible: true },
               ].filter(stat => stat.visible).map((stat, i) => (
                 <Card key={i} className="border-2 border-gray-100 hover:shadow-lg transition-shadow">
                   <CardContent className="p-4 sm:p-6">
@@ -522,7 +411,7 @@ export default function AdminDashboard() {
             {/* Recent Activity & Alerts */}
             <div className="grid lg:grid-cols-2 gap-6">
               {/* Expiring Soon Alert */}
-              {analytics?.expiringSoon > 0 && (
+              {analytics?.expiringSoon > 0 ? (
                 <Card className="border-2 border-yellow-200 bg-yellow-50">
                   <CardHeader>
                     <div className="flex items-center gap-2">
@@ -545,9 +434,27 @@ export default function AdminDashboard() {
                         </div>
                       ))}
                     </div>
-                    <Button variant="outline" className="w-full mt-4 border-2">
-                      View All Expiring
-                    </Button>
+                    {members.filter(m => m.status === 'expiring_soon').length > 3 && (
+                      <Button variant="outline" className="w-full mt-4 border-2" onClick={() => setActiveTab('members')}>
+                        View All Expiring
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="border-2 border-green-200 bg-green-50">
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      <CardTitle className="text-lg sm:text-xl text-green-900">All Good!</CardTitle>
+                    </div>
+                    <CardDescription className="text-green-700">No memberships expiring soon</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-center py-6">
+                      <Trophy className="h-12 w-12 text-green-500 mx-auto mb-3" />
+                      <p className="text-green-800 text-sm">All active memberships are valid for more than 3 days</p>
+                    </div>
                   </CardContent>
                 </Card>
               )}
@@ -559,30 +466,93 @@ export default function AdminDashboard() {
                   <CardDescription>{analytics?.todayCheckIns || 0} check-ins today</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {checkIns.map((checkin) => (
-                      <div key={checkin.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            checkin.method === 'qr' ? 'bg-green-100' : 'bg-blue-100'
-                          }`}>
-                            {checkin.method === 'qr' ? <QrCode className="h-4 w-4 text-green-600" /> : <UserCheck className="h-4 w-4 text-blue-600" />}
+                  {checkIns.length > 0 ? (
+                    <>
+                      <div className="space-y-3">
+                        {checkIns.slice(0, 5).map((checkin) => (
+                          <div key={checkin.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                checkin.method === 'qr' ? 'bg-green-100' : 'bg-blue-100'
+                              }`}>
+                                {checkin.method === 'qr' ? <QrCode className="h-4 w-4 text-green-600" /> : <UserCheck className="h-4 w-4 text-blue-600" />}
+                              </div>
+                              <div>
+                                <p className="font-semibold text-gray-900 text-sm sm:text-base">{checkin.member}</p>
+                                <p className="text-xs text-gray-500">{checkin.time} • {checkin.method === 'qr' ? 'QR Scan' : 'Manual'}</p>
+                              </div>
+                            </div>
+                            <CheckCircle2 className="h-5 w-5 text-green-500" />
                           </div>
-                          <div>
-                            <p className="font-semibold text-gray-900 text-sm sm:text-base">{checkin.member}</p>
-                            <p className="text-xs text-gray-500">{checkin.time} • {checkin.method === 'qr' ? 'QR Scan' : 'Manual'}</p>
-                          </div>
-                        </div>
-                        <CheckCircle2 className="h-5 w-5 text-green-500" />
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                  <Button onClick={() => setActiveTab('attendance')} variant="outline" className="w-full mt-4 border-2">
-                    View All Check-Ins
-                  </Button>
+                      <Button onClick={() => setActiveTab('attendance')} variant="outline" className="w-full mt-4 border-2">
+                        View All Check-Ins
+                      </Button>
+                    </>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Activity className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-500 text-sm mb-4">No check-ins yet today</p>
+                      <Button onClick={() => setActiveTab('checkin')} className="bg-orange-500 hover:bg-orange-600">
+                        <QrCode className="h-4 w-4 mr-2" />
+                        Check In Members
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
+
+            {/* Recent Members */}
+            <Card className="border-2 border-gray-100">
+              <CardHeader>
+                <CardTitle className="text-lg sm:text-xl">Recent Members</CardTitle>
+                <CardDescription>Latest member registrations</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {members.length > 0 ? (
+                  <>
+                    <div className="space-y-3">
+                      {members.slice(0, 5).map((member) => (
+                        <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold">
+                              {member.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-900 text-sm sm:text-base">{member.name}</p>
+                              <p className="text-xs text-gray-500">{member.phone} • {member.plan}</p>
+                            </div>
+                          </div>
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            member.status === 'active' ? 'bg-green-100 text-green-700' :
+                            member.status === 'expiring_soon' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-red-100 text-red-700'
+                          }`}>
+                            {member.status.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <Button onClick={() => setActiveTab('members')} variant="outline" className="w-full mt-4 border-2">
+                      View All Members ({analytics?.totalMembers || 0})
+                    </Button>
+                  </>
+                ) : (
+                  <div className="text-center py-8">
+                    <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500 text-sm mb-4">No members registered yet</p>
+                    {canRegisterMember && (
+                      <Button onClick={() => setShowNewMemberModal(true)} className="bg-orange-500 hover:bg-orange-600">
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Register First Member
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </motion.div>
         )}
 
@@ -680,8 +650,8 @@ export default function AdminDashboard() {
                               <Button 
                                 variant="ghost" 
                                 size="sm"
-                                onClick={() => {
-                                  setSelectedMember(member);
+                                onClick={() => { 
+                                  setSelectedMember(member as Member);
                                   setShowMemberModal(true);
                                 }}
                               >
@@ -941,7 +911,7 @@ export default function AdminDashboard() {
                 <Button
                   onClick={() => {
                     fetchCheckIns();
-                    fetchCheckInStats();
+                    fetchStats();
                   }}
                   variant="outline"
                   size="sm"
@@ -1034,11 +1004,35 @@ export default function AdminDashboard() {
                                 <p className="text-xs text-gray-500 mt-1 font-mono">ID: {member.qrCode?.slice(0, 20)}...</p>
                               </div>
                               <Button
-                                onClick={async () => {
+                                type="button"
+                                onClick={async (e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  
+                                  console.log('🖱️ Check-in button clicked for member:', {
+                                    name: member.name,
+                                    qrCode: member.qrCode,
+                                    status: member.status,
+                                    isCheckingIn: isCheckingIn
+                                  });
+                                  
+                                  if (isCheckingIn) {
+                                    console.log('⏸️ Already checking in, please wait...');
+                                    return;
+                                  }
+                                  
                                   if (member.status === 'expired') {
                                     alert('❌ Cannot check-in: Member subscription has expired');
                                     return;
                                   }
+                                  
+                                  if (!member.qrCode) {
+                                    console.error('❌ Member has no QR code!', member);
+                                    alert('❌ Error: This member has no QR code');
+                                    return;
+                                  }
+                                  
+                                  console.log('✅ Calling handleCheckIn with qrCode:', member.qrCode);
                                   await handleCheckIn({ qrCode: member.qrCode, method: 'manual' });
                                 }}
                                 disabled={isCheckingIn || member.status === 'expired'}
@@ -1186,7 +1180,7 @@ export default function AdminDashboard() {
                           <tr key={checkin.id} className="hover:bg-gray-50">
                             <td className="px-4 py-3 text-sm text-gray-900 font-medium">{checkin.time}</td>
                             <td className="px-4 py-3 text-sm text-gray-900">{checkin.member}</td>
-                            <td className="px-4 py-3 text-sm text-gray-600 font-mono text-xs">{checkin.memberId?.slice(0, 15)}...</td>
+                            <td className="px-4 py-3 text-sm text-gray-600 font-mono text-xs">{checkin.member}</td>
                             <td className="px-4 py-3">
                               <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                                 checkin.method === 'qr' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
@@ -1194,7 +1188,7 @@ export default function AdminDashboard() {
                                 {checkin.method.toUpperCase()}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-600 hidden sm:table-cell">{checkin.checkedBy}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600 hidden sm:table-cell">System</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1376,7 +1370,7 @@ export default function AdminDashboard() {
                         <tr key={checkin.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 text-sm font-medium text-gray-900">{checkin.time}</td>
                           <td className="px-4 py-3 text-sm text-gray-900">{checkin.member}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{checkin.memberId}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{checkin.member}</td>
                           <td className="px-4 py-3">
                             <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                               checkin.method === 'qr' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
@@ -1384,7 +1378,7 @@ export default function AdminDashboard() {
                               {checkin.method.toUpperCase()}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600 hidden sm:table-cell">{checkin.checkedBy}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600 hidden sm:table-cell">System</td>
                           <td className="px-4 py-3 hidden sm:table-cell">
                             <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
                               Valid

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
@@ -59,30 +60,24 @@ type UserData = {
 
 export default function MemberDashboardPage() {
   const router = useRouter();
-  const [user, setUser] = useState<UserData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
+  const [userData, setUserData] = useState<UserData | null>(null);
 
   useEffect(() => {
-    async function fetchUser() {
-      try {
-        const response = await fetch('/api/auth/session');
-        if (!response.ok) {
-          router.push('/login');
-          return;
-        }
-        const data = await response.json();
-        setUser(data.user);
-      } catch (error) {
-        console.error('Failed to fetch user:', error);
+    if (!isAuthenticated) {
+      if (!authLoading) {
         router.push('/login');
-      } finally {
-        setLoading(false);
       }
+      return;
     }
-    fetchUser();
-  }, [router]);
 
-  if (loading) {
+    // Set user data from auth context
+    if (user) {
+      setUserData(user as unknown as UserData);
+    }
+  }, [isAuthenticated, authLoading, user, router]);
+
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center">
         <div className="text-center">
@@ -93,12 +88,12 @@ export default function MemberDashboardPage() {
     );
   }
 
-  if (!user) {
+  if (!userData) {
     return null;
   }
 
-  const activeSubscription = user.subscriptions?.find((sub) => sub.status === 'ACTIVE');
-  const recentCheckIns = user.checkIns?.slice(0, 10) || [];
+  const activeSubscription = userData.subscriptions?.find((sub) => sub.status === 'ACTIVE');
+  const recentCheckIns = userData.checkIns?.slice(0, 10) || [];
   
   // Calculate streak (mock data for now - would be calculated from actual check-ins)
   const currentStreak = recentCheckIns.length > 0 ? 7 : 0;
@@ -157,8 +152,7 @@ export default function MemberDashboardPage() {
   ];
 
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/login');
+    await logout();
   };
 
   return (
@@ -175,7 +169,7 @@ export default function MemberDashboardPage() {
             </div>
             <div className="flex items-center gap-2 md:gap-4">
               <span className="text-xs md:text-sm text-gray-600 hidden sm:block">
-                Welcome, <strong className="truncate max-w-[100px] md:max-w-none inline-block align-bottom">{user.firstName}!</strong>
+                Welcome, <strong className="truncate max-w-[100px] md:max-w-none inline-block align-bottom">{userData.firstName}!</strong>
               </span>
               <Button 
                 onClick={handleLogout}
@@ -479,7 +473,7 @@ export default function MemberDashboardPage() {
                   <User className="w-4 h-4 md:w-5 md:h-5 text-orange-500 mt-1 flex-shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs md:text-sm text-gray-600">Full Name</p>
-                    <p className="font-semibold text-sm md:text-base truncate">{user.firstName} {user.lastName}</p>
+                    <p className="font-semibold text-sm md:text-base truncate">{userData.firstName} {userData.lastName}</p>
                   </div>
                 </div>
 
@@ -487,7 +481,7 @@ export default function MemberDashboardPage() {
                   <Mail className="w-4 h-4 md:w-5 md:h-5 text-orange-500 mt-1 flex-shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs md:text-sm text-gray-600">Email</p>
-                    <p className="font-semibold text-sm md:text-base truncate">{user.email}</p>
+                    <p className="font-semibold text-sm md:text-base truncate">{userData.email}</p>
                   </div>
                 </div>
 
@@ -495,7 +489,7 @@ export default function MemberDashboardPage() {
                   <Phone className="w-4 h-4 md:w-5 md:h-5 text-orange-500 mt-1 flex-shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs md:text-sm text-gray-600">Phone</p>
-                    <p className="font-semibold text-sm md:text-base">{user.phone}</p>
+                    <p className="font-semibold text-sm md:text-base">{userData.phone}</p>
                   </div>
                 </div>
 
@@ -504,24 +498,24 @@ export default function MemberDashboardPage() {
                   <div className="min-w-0 flex-1">
                     <p className="text-xs md:text-sm text-gray-600">Date of Birth</p>
                     <p className="font-semibold text-sm md:text-base">
-                      {new Date(user.dateOfBirth).toLocaleDateString()}
+                      {new Date(userData.dateOfBirth).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
 
-                {user.address && (
+                {userData.address && (
                   <div className="flex items-start gap-3 sm:col-span-2">
                     <MapPin className="w-4 h-4 md:w-5 md:h-5 text-orange-500 mt-1 flex-shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs md:text-sm text-gray-600">Address</p>
-                      <p className="font-semibold text-sm md:text-base">{user.address}</p>
+                      <p className="font-semibold text-sm md:text-base">{userData.address}</p>
                     </div>
                   </div>
                 )}
               </div>
 
               {/* Emergency Contact */}
-              {user.emergencyContact && (
+              {userData.emergencyContact && (
                 <div className="border-t pt-4">
                   <h3 className="font-semibold text-sm md:text-base text-gray-900 mb-3 flex items-center gap-2">
                     <Phone className="w-4 h-4 text-orange-500" />
@@ -530,24 +524,24 @@ export default function MemberDashboardPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                     <div>
                       <p className="text-xs md:text-sm text-gray-600">Name</p>
-                      <p className="font-semibold text-sm md:text-base">{user.emergencyContact}</p>
+                      <p className="font-semibold text-sm md:text-base">{userData.emergencyContact}</p>
                     </div>
                     <div>
                       <p className="text-xs md:text-sm text-gray-600">Phone</p>
-                      <p className="font-semibold text-sm md:text-base">{user.emergencyPhone}</p>
+                      <p className="font-semibold text-sm md:text-base">{userData.emergencyPhone}</p>
                     </div>
                   </div>
                 </div>
               )}
 
               {/* Fitness Goals */}
-              {user.fitnessGoals && (
+              {userData.fitnessGoals && (
                 <div className="border-t pt-4">
                   <h3 className="font-semibold text-sm md:text-base text-gray-900 mb-2 flex items-center gap-2">
                     <Target className="w-4 h-4 text-orange-500" />
                     Fitness Goals
                   </h3>
-                  <p className="text-sm md:text-base text-gray-700">{user.fitnessGoals}</p>
+                  <p className="text-sm md:text-base text-gray-700">{userData.fitnessGoals}</p>
                 </div>
               )}
             </CardContent>
@@ -563,10 +557,10 @@ export default function MemberDashboardPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <QRCodeDisplay 
-                data={user.qrCode}
+                data={userData.qrCode}
                 size={256}
                 showDownload={true}
-                label={user.qrCode}
+                label={userData.qrCode}
                 className="py-4"
               />
               <p className="text-xs md:text-sm text-gray-600 text-center">

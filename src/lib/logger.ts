@@ -78,4 +78,7 @@ export const logCheckIn = (userId: string, meta?: Record<string, unknown>) => {
   logger.info('CHECK-IN', { userId, ...meta });
 };
 
+// Export logger as named export
+export { logger };
+
 export default logger;

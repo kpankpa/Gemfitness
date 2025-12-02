@@ -30,11 +30,14 @@ type UserWithSubscriptions = Prisma.UserGetPayload<{
 
 // GET /api/members - Fetch all members
 export async function GET(request: NextRequest) {
+  console.log('🔍 /api/members GET endpoint hit');
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const plan = searchParams.get('plan');
     const limit = searchParams.get('limit');
+    
+    console.log('📋 Query params:', { status, plan, limit });
     
     const where: Prisma.UserWhereInput = { role: 'MEMBER' };
     
@@ -81,6 +84,13 @@ export async function GET(request: NextRequest) {
       ...(limit && { take: parseInt(limit) })
     }) as UserWithSubscriptions[];
 
+    console.log(`✅ Found ${members.length} members from database`);
+    
+    if (members.length === 0) {
+      console.log('⚠️ No members found, returning empty array');
+      return NextResponse.json({ success: true, members: [] });
+    }
+
     const formattedMembers = members.map(member => ({
       id: member.id,
       name: `${member.firstName} ${member.lastName}`,
@@ -96,6 +106,7 @@ export async function GET(request: NextRequest) {
       totalCheckIns: member._count.checkIns
     }));
 
+    console.log(`✅ Returning ${formattedMembers.length} formatted members`);
     return NextResponse.json({ success: true, members: formattedMembers });
   } catch (error) {
     console.error('Error fetching members:', error);
