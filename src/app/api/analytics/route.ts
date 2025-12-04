@@ -1,141 +1,153 @@
-/**
- * DASHBOARD ANALYTICS API
- * 
- * Endpoints:
- * - GET /api/analytics - Get dashboard statistics and recent data
- * 
- * Used by: Admin Dashboard (Overview tab)
- * Purpose: Real-time stats, revenue, member counts, recent payments
- */
-
 import { NextResponse } from 'next/server';
+import { getSession } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
-import { logger } from '@/lib/logger';
+import { $Enums } from '@prisma/client';
 
-// GET /api/analytics - Get dashboard analytics
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 export async function GET() {
+  const startTime = Date.now();
+  console.log('📊 [ANALYTICS] Request started');
+
   try {
-    logger.info('Fetching analytics data');
+    // Verify authentication
+    const session = await getSession();
+    if (!session) {
+      console.log('❌ [ANALYTICS] Unauthorized - no session');
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
 
-    // Get counts
+    console.log(`✅ [ANALYTICS] Session valid - Role: ${session.role} (${Date.now() - startTime}ms)`);
+
+    // Calculate date ranges
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    console.log('🔍 [ANALYTICS] Starting database queries...');
+
+    // Query 1: Total members count
+    console.log('  → Counting total members...');
     const totalMembers = await prisma.user.count({
-      where: { role: 'MEMBER' }
+      where: { role: $Enums.UserRole.MEMBER }
     });
+    console.log(`  ✓ Total members: ${totalMembers} (${Date.now() - startTime}ms)`);
 
-    const activeSubscriptions = await prisma.subscription.count({
-      where: { 
-        status: 'ACTIVE',
-        endDate: { gte: new Date() }
+    // Query 2: Active subscriptions count
+    console.log('  → Counting active subscriptions...');
+    const activeMembers = await prisma.subscription.count({
+      where: {
+        status: $Enums.SubscriptionStatus.ACTIVE,
+        endDate: { gte: now }
       }
     });
+    console.log(`  ✓ Active subscriptions: ${activeMembers} (${Date.now() - startTime}ms)`);
 
-    // Calculate today's date range (use UTC midnight to avoid timezone issues)
-    const now = new Date();
-    const today = new Date(now);
-    today.setUTCHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-
+    // Query 3: Today's check-ins count
+    console.log('  → Counting today\'s check-ins...');
     const todayCheckIns = await prisma.checkIn.count({
       where: {
-        checkInTime: {
-          gte: today,
-          lt: tomorrow
-        }
+        checkInTime: { gte: todayStart }
       }
     });
+    console.log(`  ✓ Today's check-ins: ${todayCheckIns} (${Date.now() - startTime}ms)`);
 
-    // Get revenue for this month
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const monthlyRevenue = await prisma.payment.aggregate({
-      where: {
-        status: 'SUCCESS',
-        paymentDate: { gte: startOfMonth }
-      },
-      _sum: { amount: true }
-    });
-
-    // Get expiring soon (next 3 days)
-    const threeDaysFromNow = new Date();
-    threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
-
+    // Query 4: Subscriptions expiring within 7 days
+    console.log('  → Counting expiring subscriptions...');
     const expiringSoon = await prisma.subscription.count({
       where: {
-        status: 'ACTIVE',
+        status: $Enums.SubscriptionStatus.ACTIVE,
         endDate: {
-          gte: new Date(),
-          lte: threeDaysFromNow
+          gte: now,
+          lte: weekFromNow
         }
       }
     });
+    console.log(`  ✓ Expiring soon: ${expiringSoon} (${Date.now() - startTime}ms)`);
 
-    // Get recent payments
-    const recentPayments = await prisma.payment.findMany({
-      where: { status: 'SUCCESS' },
-      include: {
+    // Query 5: Monthly revenue from successful payments
+    console.log('  → Calculating monthly revenue...');
+    const monthlyPayments = await prisma.payment.aggregate({
+      where: {
+        status: $Enums.PaymentStatus.SUCCESS,
+        paymentDate: { gte: monthStart }
+      },
+      _sum: {
+        amount: true
+      }
+    });
+    const monthlyRevenue = monthlyPayments._sum.amount || 0;
+    console.log(`  ✓ Monthly revenue: GH₵${monthlyRevenue} (${Date.now() - startTime}ms)`);
+
+    // Query 6: Recent payments (last 5)
+    console.log('  → Fetching recent payments...');
+    const recentPaymentsData = await prisma.payment.findMany({
+      where: {
+        status: $Enums.PaymentStatus.SUCCESS
+      },
+      orderBy: {
+        paymentDate: 'desc'
+      },
+      take: 5,
+      select: {
+        id: true,
+        amount: true,
+        paymentDate: true,
         subscription: {
-          include: {
+          select: {
             user: {
-              select: { firstName: true, lastName: true }
+              select: {
+                firstName: true,
+                lastName: true
+              }
             }
           }
         }
-      },
-      orderBy: { paymentDate: 'desc' },
-      take: 10
-    });
-
-    const formattedPayments = recentPayments.map(payment => ({
-      id: payment.id,
-      member: `${payment.subscription.user.firstName} ${payment.subscription.user.lastName}`,
-      amount: payment.amount,
-      plan: payment.subscription.plan.replace(/_/g, ' '),
-      date: payment.paymentDate.toISOString().split('T')[0],
-      reference: payment.reference
-    }));
-
-    // Calculate attendance rate (members who checked in today / total active members)
-    const attendanceRate = activeSubscriptions > 0 
-      ? Math.round((todayCheckIns / activeSubscriptions) * 100) 
-      : 0;
-
-    // Get this week's check-ins for trends
-    const startOfWeek = new Date(today);
-    const dayOfWeek = startOfWeek.getDay();
-    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    startOfWeek.setDate(startOfWeek.getDate() - daysToMonday);
-    startOfWeek.setHours(0, 0, 0, 0);
-
-    const weekCheckIns = await prisma.checkIn.count({
-      where: {
-        checkInTime: { gte: startOfWeek }
       }
     });
 
-    // Calculate average daily check-ins this week
-    const daysIntoWeek = Math.ceil((today.getTime() - startOfWeek.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    const avgDailyCheckIns = Math.round(weekCheckIns / daysIntoWeek);
+    const recentPayments = recentPaymentsData.map(payment => ({
+      id: payment.id,
+      member: `${payment.subscription.user.firstName} ${payment.subscription.user.lastName}`,
+      amount: payment.amount,
+      date: payment.paymentDate.toISOString()
+    }));
+    console.log(`  ✓ Recent payments: ${recentPayments.length} records (${Date.now() - startTime}ms)`);
 
-    const analyticsData = {
+    // Calculate attendance rate
+    const attendanceRate = activeMembers > 0
+      ? `${Math.round((todayCheckIns / activeMembers) * 100)}%`
+      : '0%';
+
+    const response = {
+      success: true,
       totalMembers,
-      activeMembers: activeSubscriptions,
-      todayCheckIns,
-      monthlyRevenue: monthlyRevenue._sum?.amount || 0,
+      activeMembers,
       expiringSoon,
-      recentPayments: formattedPayments,
-      attendanceRate: `${attendanceRate}%`,
-      weeklyCheckIns: weekCheckIns,
-      avgDailyCheckIns: avgDailyCheckIns
+      todayCheckIns,
+      monthlyRevenue,
+      recentPayments,
+      attendanceRate,
+      weeklyCheckIns: [], // TODO: Implement weekly chart data
+      expiringThisWeek: expiringSoon
     };
 
-    logger.info('Analytics data fetched successfully', analyticsData);
-
-    return NextResponse.json(analyticsData);
+    console.log(`✅ [ANALYTICS] Completed successfully (${Date.now() - startTime}ms)`);
+    return NextResponse.json(response);
 
   } catch (error) {
-    logger.error('Error fetching analytics:', error);
+    const elapsed = Date.now() - startTime;
+    console.error(`❌ [ANALYTICS] Error after ${elapsed}ms:`, error);
+    
     return NextResponse.json(
-      { error: 'Failed to fetch analytics' },
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch analytics'
+      },
       { status: 500 }
     );
   }

@@ -112,18 +112,21 @@ export function useCheckIns(): UseCheckInsReturn {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
-        console.log('⏰ 10-second timeout reached, aborting request');
+        console.log('⏰ 30-second timeout reached, aborting request');
         controller.abort();
-      }, 10000);
+      }, 30000); // Increased to 30 seconds
 
       console.log('📡 Sending POST request to /api/checkins...');
       console.log('📦 Request body:', JSON.stringify(data));
       
       const response = await fetch('/api/checkins', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(data),
         signal: controller.signal,
+        cache: 'no-store',
       });
 
       clearTimeout(timeoutId);
@@ -155,7 +158,8 @@ export function useCheckIns(): UseCheckInsReturn {
       isCheckingInRef.current = false;
       setIsCheckingIn(false);
     }
-  }, [fetchCheckIns, fetchStats]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - fetchCheckIns and fetchStats are called directly
 
   return {
     checkIns,

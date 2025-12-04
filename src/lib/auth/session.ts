@@ -1,7 +1,7 @@
 import 'server-only';
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
-import { UserRole } from '@prisma/client';
+import { $Enums } from '@prisma/client';
 
 const secretKey = process.env.SESSION_SECRET;
 const encodedKey = new TextEncoder().encode(secretKey);
@@ -9,7 +9,7 @@ const encodedKey = new TextEncoder().encode(secretKey);
 export interface SessionPayload {
   userId: string;
   email: string;
-  role: UserRole;
+  role: $Enums.UserRole;
   expiresAt: Date;
 }
 
@@ -44,7 +44,7 @@ export async function decrypt(session: string | undefined): Promise<SessionPaylo
 /**
  * Create a new session for a user
  */
-export async function createSession(userId: string, email: string, role: UserRole) {
+export async function createSession(userId: string, email: string, role: $Enums.UserRole) {
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
   const session = await encrypt({ userId, email, role, expiresAt });
 

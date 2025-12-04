@@ -51,47 +51,84 @@ import Image from 'next/image';
 import AdminSidebar from '@/components/AdminSidebar';
 import type { Member } from '@/types';
 
-// Mock data for features not yet implemented (Classes, Events, Plans, Staff, Payments)
-// TODO: Replace with real API calls when backend is ready
+// Mock data for features not yet implemented (Payments)
 const mockStats = {
   revenue: 45680,
   pendingPayments: 12,
   revenueGrowth: '+15%',
 };
 
-const mockStaff = [
-  { id: 1, name: 'Sarah Mensah', email: 'sarah@gemfitness.com', role: 'receptionist', status: 'active', joinDate: '2025-01-15' },
-  { id: 2, name: 'John Doe', email: 'john@gemfitness.com', role: 'receptionist', status: 'active', joinDate: '2025-03-20' },
-];
-
-const mockMembershipPlans = [
-  { id: 1, name: 'Monthly', price: 200, duration: '1 month', status: 'active', features: ['Full gym access', 'Group classes', 'Locker facility'] },
-  { id: 2, name: 'Quarterly', price: 500, duration: '3 months', status: 'active', features: ['Everything in Monthly', 'Priority booking', '1 free PT session'] },
-  { id: 3, name: 'Annual', price: 1800, duration: '12 months', status: 'active', features: ['Everything in Quarterly', '3 free PT sessions', 'Nutrition consultation'] },
-];
-
-const mockClasses = [
-  { id: 1, name: 'Early Birds Class', type: 'Cardio', instructor: 'Coach John', duration: 60, schedule: 'Mon-Fri - 6:30 AM', maxCapacity: 20, enrolled: 15, status: 'active', color: 'from-red-500 to-pink-500' },
-  { id: 2, name: 'Boot Camp', type: 'HIIT', instructor: 'Coach Sarah', duration: 90, schedule: 'Mon-Fri - 5:30 AM', maxCapacity: 25, enrolled: 22, status: 'active', color: 'from-orange-500 to-yellow-500' },
-  { id: 3, name: 'DM Class', type: 'Stepboard', instructor: 'Coach Mike', duration: 120, schedule: 'Tue, Thu - 7:00 AM', maxCapacity: 20, enrolled: 18, status: 'active', color: 'from-purple-500 to-pink-500' },
-  { id: 4, name: 'Weight Training', type: 'Strength', instructor: 'Coach David', duration: 90, schedule: 'Mon, Wed, Fri - 7:00 PM', maxCapacity: 15, enrolled: 12, status: 'active', color: 'from-orange-500 to-red-500' },
-];
-
-const mockEvents = [
-  { id: 1, title: 'New Year Fitness Challenge', description: 'Start 2026 strong with our month-long fitness challenge', eventDate: '2026-01-01', location: 'GemFitness Tema', maxAttendees: 100, registered: 45, status: 'upcoming', isFree: true, image: null },
-  { id: 2, title: 'Nutrition Workshop', description: 'Learn about proper nutrition for your fitness goals', eventDate: '2025-12-15', location: 'Main Hall', maxAttendees: 50, registered: 32, status: 'upcoming', isFree: false, price: 50, image: null },
-  { id: 3, title: 'Member Appreciation Day', description: 'Special event for all our valued members', eventDate: '2025-12-31', location: 'GemFitness Tema', maxAttendees: null, registered: 78, status: 'upcoming', isFree: true, image: null },
-];
-
 export default function AdminDashboard() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { members, isLoading: membersLoading, fetchMembers, searchMembers } = useMembers();
+  const { members, isLoading: _membersLoading, fetchMembers, searchMembers } = useMembers();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { checkIns, stats: checkInStats, isLoading: checkInsLoading, isCheckingIn, performCheckIn, fetchCheckIns, fetchStats } = useCheckIns();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { analytics, isLoading: analyticsLoading, fetchAnalytics } = useAnalytics();
+  
+  // Classes and Events state
+  const [classes, setClasses] = useState<Array<{
+    id: string;
+    name: string;
+    type: string;
+    instructor: string;
+    duration: number;
+    maxCapacity: number;
+    enrolled: number;
+    schedule: string;
+    color?: string;
+    status: string;
+  }>>([]);
+  const [events, setEvents] = useState<Array<{
+    id: string;
+    title: string;
+    description: string;
+    eventDate: string;
+    location: string;
+    maxAttendees?: number;
+    registered: number;
+    isFree: boolean;
+    price?: number;
+    status: string;
+    image?: string;
+  }>>([]);
+  const [isLoadingClasses, setIsLoadingClasses] = useState(false);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
+  
+  // Plans and Staff state
+  const [plans, setPlans] = useState<Array<{
+    id: string;
+    name: string;
+    slug?: string;
+    duration: string | number;
+    durationUnit?: string;
+    price: number;
+    currency: string;
+    description: string;
+    features: string[];
+    status: string;
+    popular?: boolean;
+    isFeatured?: boolean;
+    displayOrder?: number;
+    activeMembers: number;
+    totalRevenue: number;
+  }>>([]);
+  const [staff, setStaff] = useState<Array<{
+    id: string;
+    name: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    role: string;
+    status: string;
+    joinDate: string;
+    lastActive: string;
+    actionsCount: number;
+  }>>([]);
+  const [isLoadingPlans, setIsLoadingPlans] = useState(false);
+  const [isLoadingStaff, setIsLoadingStaff] = useState(false);
   
   const [activeTab, setActiveTab] = useState<'overview' | 'checkin' | 'members' | 'classes' | 'events' | 'attendance' | 'payments' | 'plans' | 'staff' | 'analytics'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
@@ -107,6 +144,99 @@ export default function AdminDashboard() {
   const [showDayPassModal, setShowDayPassModal] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+
+  // Staff modal states
+  const [showAddStaffModal, setShowAddStaffModal] = useState(false);
+  const [showEditStaffModal, setShowEditStaffModal] = useState(false);
+  const [showDeleteStaffModal, setShowDeleteStaffModal] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    role: string;
+  } | null>(null);
+  const [staffFormData, setStaffFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    password: '',
+    role: 'RECEPTIONIST' as 'RECEPTIONIST' | 'MANAGER',
+    dateOfBirth: '2000-01-01',
+  });
+  const [isSubmittingStaff, setIsSubmittingStaff] = useState(false);
+  const [staffError, setStaffError] = useState<string | null>(null);
+
+  // Plan modal states
+  const [showAddPlanModal, setShowAddPlanModal] = useState(false);
+  const [showEditPlanModal, setShowEditPlanModal] = useState(false);
+  const [showDeletePlanModal, setShowDeletePlanModal] = useState(false);
+  const [showChangeHistoryModal, setShowChangeHistoryModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<{
+    id: string;
+    name: string;
+    slug?: string;
+    description: string | null;
+    price: number;
+    duration: number | string;
+    durationUnit?: string;
+    features: string[];
+    status: string;
+    isPopular?: boolean;
+    isFeatured?: boolean;
+    displayOrder?: number;
+    popular?: boolean;
+    currency?: string;
+    activeMembers?: number;
+    totalRevenue?: number;
+  } | null>(null);
+  const [planFormData, setPlanFormData] = useState({
+    name: '',
+    slug: '',
+    description: '',
+    price: 0,
+    duration: 30,
+    durationUnit: 'days',
+    features: [] as string[],
+    isPopular: false,
+    isFeatured: false,
+    displayOrder: 0,
+  });
+  const [newFeature, setNewFeature] = useState('');
+  const [isSubmittingPlan, setIsSubmittingPlan] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
+  const [changeHistory, setChangeHistory] = useState<Array<{
+    id: string;
+    changeType: string;
+    description: string;
+    createdAt: string;
+    changedBy: string;
+  }>>([]);
+
+  // Attendance filter states
+  const [attendanceStartDate, setAttendanceStartDate] = useState('');
+  const [attendanceEndDate, setAttendanceEndDate] = useState('');
+  const [filteredCheckIns, setFilteredCheckIns] = useState<typeof checkIns>([]);
+
+  // Member edit modal states
+  const [showEditMemberModal, setShowEditMemberModal] = useState(false);
+  const [editMemberFormData, setEditMemberFormData] = useState({
+    id: '',
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    dateOfBirth: '',
+    address: '',
+    emergencyContact: '',
+    emergencyPhone: '',
+    fitnessGoals: '',
+    medicalConditions: '',
+  });
+  const [isUpdatingMember, setIsUpdatingMember] = useState(false);
+  const [memberEditError, setMemberEditError] = useState<string | null>(null);
 
   // Registration form state
   const [newMember, setNewMember] = useState({
@@ -131,7 +261,7 @@ export default function AdminDashboard() {
   const [checkInMode, setCheckInMode] = useState<'search' | 'scanner' | 'camera'>('search');
   const [showWebcamScanner, setShowWebcamScanner] = useState(false);
 
-  // Fetch initial data when authenticated
+  // Fetch initial data when authenticated (run ONCE on mount)
   useEffect(() => {
     console.log('🔄 Dashboard useEffect triggered:', { isAuthenticated, authLoading, userRole: user?.role });
     
@@ -156,7 +286,8 @@ export default function AdminDashboard() {
     fetchCheckIns();
     fetchStats();
     fetchAnalytics();
-  }, [isAuthenticated, authLoading, user, router, fetchMembers, fetchCheckIns, fetchStats, fetchAnalytics]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, authLoading, user?.role, router]);
 
   // Auto-refresh check-ins and stats every 30 seconds when on check-in tab
   useEffect(() => {
@@ -168,7 +299,8 @@ export default function AdminDashboard() {
 
       return () => clearInterval(interval);
     }
-  }, [isAuthenticated, activeTab, fetchCheckIns, fetchStats]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, activeTab]);
 
   // Fetch appropriate data when tab changes
   useEffect(() => {
@@ -177,7 +309,491 @@ export default function AdminDashboard() {
     if (activeTab === 'checkin' || activeTab === 'members') {
       fetchMembers(); // Fetch all members
     }
-  }, [activeTab, isAuthenticated, fetchMembers]);
+    
+    if (activeTab === 'classes') {
+      fetchClasses();
+    }
+    
+    if (activeTab === 'events') {
+      fetchEvents();
+    }
+    
+    if (activeTab === 'plans') {
+      fetchPlans();
+    }
+    
+    if (activeTab === 'staff') {
+      fetchStaff();
+    }
+
+    if (activeTab === 'attendance') {
+      setFilteredCheckIns(checkIns);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, isAuthenticated]);
+
+  // Fetch classes from API
+  const fetchClasses = async () => {
+    setIsLoadingClasses(true);
+    try {
+      const response = await fetch('/api/classes');
+      const data = await response.json();
+      if (data.success) {
+        setClasses(data.classes);
+      }
+    } catch (error) {
+      console.error('Error fetching classes:', error);
+    } finally {
+      setIsLoadingClasses(false);
+    }
+  };
+
+  // Fetch events from API
+  const fetchEvents = async () => {
+    setIsLoadingEvents(true);
+    try {
+      const response = await fetch('/api/events');
+      const data = await response.json();
+      if (data.success) {
+        setEvents(data.events);
+      }
+    } catch (error) {
+      console.error('Error fetching events:', error);
+    } finally {
+      setIsLoadingEvents(false);
+    }
+  };
+
+  // Fetch plans from API
+  const fetchPlans = async () => {
+    setIsLoadingPlans(true);
+    try {
+      const response = await fetch('/api/plans');
+      const data = await response.json();
+      if (data.success) {
+        setPlans(data.plans);
+      }
+    } catch (error) {
+      console.error('Error fetching plans:', error);
+    } finally {
+      setIsLoadingPlans(false);
+    }
+  };
+
+  // Fetch staff from API
+  const fetchStaff = async () => {
+    setIsLoadingStaff(true);
+    try {
+      const response = await fetch('/api/staff');
+      const data = await response.json();
+      if (data.success) {
+        setStaff(data.staff);
+      }
+    } catch (error) {
+      console.error('Error fetching staff:', error);
+    } finally {
+      setIsLoadingStaff(false);
+    }
+  };
+
+  // Fetch plan change history
+  const fetchPlanHistory = async (planId: string) => {
+    try {
+      const response = await fetch(`/api/plans/${planId}`);
+      const data = await response.json();
+      if (data.success && data.plan.changeHistory) {
+        setChangeHistory(data.plan.changeHistory);
+        setShowChangeHistoryModal(true);
+      }
+    } catch (error) {
+      console.error('Error fetching plan history:', error);
+    }
+  };
+
+  // Handle add staff member
+  const handleAddStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmittingStaff(true);
+    setStaffError(null);
+
+    try {
+      const response = await fetch('/api/staff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(staffFormData),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setShowAddStaffModal(false);
+        setStaffFormData({
+          firstName: '',
+          lastName: '',
+          email: '',
+          phone: '',
+          password: '',
+          role: 'RECEPTIONIST',
+          dateOfBirth: '2000-01-01',
+        });
+        fetchStaff(); // Refresh staff list
+      } else {
+        setStaffError(data.error || 'Failed to add staff member');
+      }
+    } catch (error) {
+      console.error('Error adding staff:', error);
+      setStaffError('Failed to add staff member');
+    } finally {
+      setIsSubmittingStaff(false);
+    }
+  };
+
+  // Handle edit staff member
+  const handleEditStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStaff) return;
+
+    setIsSubmittingStaff(true);
+    setStaffError(null);
+
+    try {
+      const response = await fetch(`/api/staff/${selectedStaff.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(staffFormData),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setShowEditStaffModal(false);
+        setSelectedStaff(null);
+        setStaffFormData({
+          firstName: '',
+          lastName: '',
+          email: '',
+          phone: '',
+          password: '',
+          role: 'RECEPTIONIST',
+          dateOfBirth: '2000-01-01',
+        });
+        fetchStaff(); // Refresh staff list
+      } else {
+        setStaffError(data.error || 'Failed to update staff member');
+      }
+    } catch (error) {
+      console.error('Error updating staff:', error);
+      setStaffError('Failed to update staff member');
+    } finally {
+      setIsSubmittingStaff(false);
+    }
+  };
+
+  // Handle delete staff member
+  const handleDeleteStaff = async () => {
+    if (!selectedStaff) return;
+
+    setIsSubmittingStaff(true);
+    setStaffError(null);
+
+    try {
+      const response = await fetch(`/api/staff/${selectedStaff.id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setShowDeleteStaffModal(false);
+        setSelectedStaff(null);
+        fetchStaff(); // Refresh staff list
+      } else {
+        setStaffError(data.error || 'Failed to delete staff member');
+      }
+    } catch (error) {
+      console.error('Error deleting staff:', error);
+      setStaffError('Failed to delete staff member');
+    } finally {
+      setIsSubmittingStaff(false);
+    }
+  };
+
+  // Handle add plan
+  const handleAddPlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmittingPlan(true);
+    setPlanError(null);
+
+    try {
+      const response = await fetch('/api/plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(planFormData),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setShowAddPlanModal(false);
+        setPlanFormData({
+          name: '',
+          slug: '',
+          description: '',
+          price: 0,
+          duration: 30,
+          durationUnit: 'days',
+          features: [],
+          isPopular: false,
+          isFeatured: false,
+          displayOrder: 0,
+        });
+        fetchPlans();
+      } else {
+        setPlanError(data.error || 'Failed to create plan');
+      }
+    } catch (error) {
+      setPlanError('An error occurred while creating plan');
+    } finally {
+      setIsSubmittingPlan(false);
+    }
+  };
+
+  // Handle edit plan
+  const handleEditPlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPlan) return;
+
+    setIsSubmittingPlan(true);
+    setPlanError(null);
+
+    try {
+      const response = await fetch(`/api/plans/${selectedPlan.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(planFormData),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setShowEditPlanModal(false);
+        setSelectedPlan(null);
+        fetchPlans();
+      } else {
+        setPlanError(data.error || 'Failed to update plan');
+      }
+    } catch (error) {
+      setPlanError('An error occurred while updating plan');
+    } finally {
+      setIsSubmittingPlan(false);
+    }
+  };
+
+  // Handle delete plan
+  const handleDeletePlan = async () => {
+    if (!selectedPlan) return;
+
+    setIsSubmittingPlan(true);
+    setPlanError(null);
+
+    try {
+      const response = await fetch(`/api/plans/${selectedPlan.id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setShowDeletePlanModal(false);
+        setSelectedPlan(null);
+        fetchPlans();
+      } else {
+        setPlanError(data.error || 'Failed to archive plan');
+      }
+    } catch (error) {
+      setPlanError('An error occurred while archiving plan');
+    } finally {
+      setIsSubmittingPlan(false);
+    }
+  };
+
+  // Handle toggle plan status
+  const handleTogglePlanStatus = async (plan: typeof selectedPlan) => {
+    if (!plan) return;
+
+    try {
+      const newStatus = plan.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+      const response = await fetch(`/api/plans/${plan.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        fetchPlans();
+      }
+    } catch (error) {
+      console.error('Error toggling plan status:', error);
+    }
+  };
+
+  // Add feature to plan form
+  const handleAddFeature = () => {
+    if (newFeature.trim() && planFormData.features.length < 20) {
+      setPlanFormData({
+        ...planFormData,
+        features: [...planFormData.features, newFeature.trim()],
+      });
+      setNewFeature('');
+    }
+  };
+
+  // Remove feature from plan form
+  const handleRemoveFeature = (index: number) => {
+    setPlanFormData({
+      ...planFormData,
+      features: planFormData.features.filter((_, i) => i !== index),
+    });
+  };
+
+  // Apply attendance filters
+  const handleApplyAttendanceFilter = () => {
+    if (!attendanceStartDate && !attendanceEndDate) {
+      setFilteredCheckIns(checkIns);
+      return;
+    }
+
+    const filtered = checkIns.filter((checkin) => {
+      const checkinDate = new Date(checkin.time);
+      const start = attendanceStartDate ? new Date(attendanceStartDate) : null;
+      const end = attendanceEndDate ? new Date(attendanceEndDate) : null;
+
+      if (start && end) {
+        return checkinDate >= start && checkinDate <= end;
+      } else if (start) {
+        return checkinDate >= start;
+      } else if (end) {
+        return checkinDate <= end;
+      }
+      return true;
+    });
+
+    setFilteredCheckIns(filtered);
+  };
+
+  // Export attendance to CSV
+  const handleExportAttendance = () => {
+    const dataToExport = filteredCheckIns.length > 0 ? filteredCheckIns : checkIns;
+    
+    const csvContent = [
+      ['Time', 'Member', 'Member ID', 'Method', 'Status'].join(','),
+      ...dataToExport.map(checkin => [
+        checkin.time,
+        checkin.member,
+        checkin.member,
+        checkin.method,
+        'Valid'
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `attendance_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Handle edit member
+  const handleEditMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUpdatingMember(true);
+    setMemberEditError(null);
+
+    try {
+      const response = await fetch(`/api/members/${editMemberFormData.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editMemberFormData),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setShowEditMemberModal(false);
+        setSelectedMember(null);
+        fetchMembers();
+      } else {
+        setMemberEditError(data.error || 'Failed to update member');
+      }
+    } catch (error) {
+      console.error('Edit member error:', error);
+      setMemberEditError('An error occurred while updating member');
+    } finally {
+      setIsUpdatingMember(false);
+    }
+  };
+
+  // Open edit member modal
+  const openEditMemberModal = (member: Member) => {
+    setSelectedMember(member);
+    setEditMemberFormData({
+      id: member.id,
+      firstName: member.firstName || '',
+      lastName: member.lastName || '',
+      email: member.email,
+      phone: member.phone,
+      dateOfBirth: member.dateOfBirth || '',
+      address: member.address || '',
+      emergencyContact: member.emergencyContact || '',
+      emergencyPhone: member.emergencyPhone || '',
+      fitnessGoals: member.fitnessGoals || '',
+      medicalConditions: member.medicalConditions || '',
+    });
+    setShowEditMemberModal(true);
+  };
+
+  // Open edit staff modal
+  const openEditStaffModal = (staffMember: typeof staff[0]) => {
+    setSelectedStaff({
+      id: staffMember.id,
+      firstName: staffMember.firstName,
+      lastName: staffMember.lastName,
+      email: staffMember.email,
+      phone: staffMember.phone,
+      role: staffMember.role,
+    });
+    setStaffFormData({
+      firstName: staffMember.firstName,
+      lastName: staffMember.lastName,
+      email: staffMember.email,
+      phone: staffMember.phone,
+      password: '', // Leave empty - only update if changed
+      role: staffMember.role as 'RECEPTIONIST' | 'MANAGER',
+      dateOfBirth: '2000-01-01',
+    });
+    setStaffError(null);
+    setShowEditStaffModal(true);
+  };
+
+  // Open delete staff modal
+  const openDeleteStaffModal = (staffMember: typeof staff[0]) => {
+    setSelectedStaff({
+      id: staffMember.id,
+      firstName: staffMember.firstName,
+      lastName: staffMember.lastName,
+      email: staffMember.email,
+      phone: staffMember.phone,
+      role: staffMember.role,
+    });
+    setStaffError(null);
+    setShowDeleteStaffModal(true);
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -658,7 +1274,11 @@ export default function AdminDashboard() {
                                 <Eye className="h-4 w-4" />
                               </Button>
                               {canUpdateBasicInfo && (
-                                <Button variant="ghost" size="sm">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => openEditMemberModal(member as Member)}
+                                >
                                   <Edit className="h-4 w-4" />
                                 </Button>
                               )}
@@ -711,8 +1331,17 @@ export default function AdminDashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {mockClasses.map((classItem) => (
+                {isLoadingClasses ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">Loading classes...</p>
+                  </div>
+                ) : classes.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">No classes found. Create your first class!</p>
+                  </div>
+                ) : (
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {classes.map((classItem) => (
                     <Card key={classItem.id} className="border-2 border-gray-200 hover:border-orange-300 transition-colors">
                       <CardContent className="p-6">
                         <div className="flex items-start justify-between mb-4">
@@ -772,6 +1401,7 @@ export default function AdminDashboard() {
                     </Card>
                   ))}
                 </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>
@@ -800,8 +1430,17 @@ export default function AdminDashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {mockEvents.map((event) => (
+                {isLoadingEvents ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">Loading events...</p>
+                  </div>
+                ) : events.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">No events found. Create your first event!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {events.map((event) => (
                     <Card key={event.id} className="border-2 border-gray-200 hover:border-orange-300 transition-colors">
                       <CardContent className="p-6">
                         <div className="flex flex-col md:flex-row gap-6">
@@ -890,6 +1529,7 @@ export default function AdminDashboard() {
                     </Card>
                   ))}
                 </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>
@@ -1338,7 +1978,11 @@ export default function AdminDashboard() {
                     <CardTitle className="text-xl sm:text-2xl">Attendance History</CardTitle>
                     <CardDescription>Daily member check-in records</CardDescription>
                   </div>
-                  <Button variant="outline" className="border-2">
+                  <Button 
+                    variant="outline" 
+                    className="border-2"
+                    onClick={handleExportAttendance}
+                  >
                     <Download className="mr-2 h-4 w-4" />
                     Export
                   </Button>
@@ -1347,9 +1991,25 @@ export default function AdminDashboard() {
               <CardContent>
                 {/* Date Filter */}
                 <div className="flex flex-col sm:flex-row gap-3 mb-6">
-                  <input type="date" className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-500" />
-                  <input type="date" className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-500" />
-                  <Button variant="outline" className="border-2">Apply Filter</Button>
+                  <input 
+                    type="date" 
+                    value={attendanceStartDate}
+                    onChange={(e) => setAttendanceStartDate(e.target.value)}
+                    className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-500" 
+                  />
+                  <input 
+                    type="date" 
+                    value={attendanceEndDate}
+                    onChange={(e) => setAttendanceEndDate(e.target.value)}
+                    className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-500" 
+                  />
+                  <Button 
+                    variant="outline" 
+                    className="border-2"
+                    onClick={handleApplyAttendanceFilter}
+                  >
+                    Apply Filter
+                  </Button>
                 </div>
 
                 {/* Attendance Table */}
@@ -1366,7 +2026,7 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {checkIns.map((checkin) => (
+                      {(filteredCheckIns.length > 0 ? filteredCheckIns : checkIns).map((checkin) => (
                         <tr key={checkin.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 text-sm font-medium text-gray-900">{checkin.time}</td>
                           <td className="px-4 py-3 text-sm text-gray-900">{checkin.member}</td>
@@ -1454,50 +2114,159 @@ export default function AdminDashboard() {
                     <CardTitle className="text-xl sm:text-2xl">Membership Plans</CardTitle>
                     <CardDescription>Monthly subscription plans (starts payment next month after registration)</CardDescription>
                   </div>
-                  <Button className="bg-orange-500 hover:bg-orange-600 w-full sm:w-auto">
+                  <Button 
+                    onClick={() => {
+                      setPlanFormData({
+                        name: '',
+                        slug: '',
+                        description: '',
+                        price: 0,
+                        duration: 30,
+                        durationUnit: 'days',
+                        features: [],
+                        isPopular: false,
+                        isFeatured: false,
+                        displayOrder: 0,
+                      });
+                      setShowAddPlanModal(true);
+                    }}
+                    className="bg-orange-500 hover:bg-orange-600 w-full sm:w-auto"
+                  >
                     <Package className="mr-2 h-5 w-5" />
                     Add New Plan
                   </Button>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid md:grid-cols-3 gap-6">
-                  {mockMembershipPlans.map((plan) => (
-                    <Card key={plan.id} className="border-2 border-gray-200 hover:border-orange-300 transition-colors">
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
-                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                            plan.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-                          }`}>
-                            {plan.status}
-                          </span>
-                        </div>
-                        <div className="mb-4">
-                          <span className="text-3xl font-bold text-orange-600">GH₵ {plan.price}</span>
-                          <span className="text-gray-600 ml-2">/ {plan.duration}</span>
-                        </div>
-                        <ul className="space-y-2 mb-6">
-                          {plan.features.map((feature, i) => (
-                            <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                              <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
-                              {feature}
-                            </li>
-                          ))}
-                        </ul>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm" className="flex-1">
-                            <Edit className="h-4 w-4 mr-1" />
-                            Edit
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            <Ban className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                {isLoadingPlans ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-600">Loading plans...</p>
+                  </div>
+                ) : plans.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-600">No membership plans available.</p>
+                  </div>
+                ) : (
+                  <div className="grid md:grid-cols-3 gap-6">
+                    {plans.map((plan) => (
+                      <Card key={plan.id} className={`border-2 transition-colors ${
+                        plan.popular ? 'border-orange-400 shadow-lg' : 'border-gray-200 hover:border-orange-300'
+                      }`}>
+                        <CardContent className="p-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
+                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                              plan.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 
+                              plan.status === 'INACTIVE' ? 'bg-gray-100 text-gray-700' :
+                              'bg-red-100 text-red-700'
+                            }`}>
+                              {plan.status}
+                            </span>
+                          </div>
+                          {plan.popular && (
+                            <div className="mb-3">
+                              <span className="px-2 py-1 bg-orange-500 text-white text-xs font-semibold rounded-full">
+                                Most Popular
+                              </span>
+                            </div>
+                          )}
+                          <div className="mb-4">
+                            <span className="text-3xl font-bold text-orange-600">{plan.currency} {plan.price}</span>
+                            <span className="text-gray-600 ml-2">/ {plan.duration}</span>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-4">{plan.description}</p>
+                          <ul className="space-y-2 mb-6">
+                            {plan.features.map((feature, i) => (
+                              <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                                <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                                {feature}
+                              </li>
+                            ))}
+                          </ul>
+                          <div className="pt-4 border-t border-gray-200 space-y-2 mb-4">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600">Active Members:</span>
+                              <span className="font-semibold text-gray-900">{plan.activeMembers}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600">Total Revenue:</span>
+                              <span className="font-semibold text-gray-900">{plan.currency} {plan.totalRevenue.toLocaleString()}</span>
+                            </div>
+                          </div>
+                          
+                          {/* Action Buttons */}
+                          <div className="flex flex-col gap-2">
+                            <div className="flex gap-2">
+                              <Button
+                                onClick={() => {
+                                  setSelectedPlan(plan);
+                                  setPlanFormData({
+                                    name: plan.name,
+                                    slug: plan.slug || '',
+                                    description: plan.description || '',
+                                    price: plan.price,
+                                    duration: typeof plan.duration === 'number' ? plan.duration : 30,
+                                    durationUnit: plan.durationUnit || 'days',
+                                    features: plan.features,
+                                    isPopular: plan.popular || false,
+                                    isFeatured: plan.isFeatured || false,
+                                    displayOrder: plan.displayOrder || 0,
+                                  });
+                                  setShowEditPlanModal(true);
+                                }}
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 border-2"
+                              >
+                                <Edit className="h-4 w-4 mr-1" />
+                                Edit
+                              </Button>
+                              <Button
+                                onClick={() => handleTogglePlanStatus(plan)}
+                                size="sm"
+                                variant="outline"
+                                className={`flex-1 border-2 ${
+                                  plan.status === 'ACTIVE' 
+                                    ? 'border-yellow-300 text-yellow-700 hover:bg-yellow-50' 
+                                    : 'border-green-300 text-green-700 hover:bg-green-50'
+                                }`}
+                              >
+                                {plan.status === 'ACTIVE' ? (
+                                  <><Ban className="h-4 w-4 mr-1" /> Disable</>
+                                ) : (
+                                  <><CheckCircle2 className="h-4 w-4 mr-1" /> Enable</>
+                                )}
+                              </Button>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                onClick={() => fetchPlanHistory(plan.id)}
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 border-2 border-blue-300 text-blue-700 hover:bg-blue-50"
+                              >
+                                <Clock className="h-4 w-4 mr-1" />
+                                History
+                              </Button>
+                              <Button
+                                onClick={() => {
+                                  setSelectedPlan(plan);
+                                  setShowDeletePlanModal(true);
+                                }}
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 border-2 border-red-300 text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Delete
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>
@@ -1517,58 +2286,102 @@ export default function AdminDashboard() {
                     <CardTitle className="text-xl sm:text-2xl">Staff Management</CardTitle>
                     <CardDescription>Manage receptionist accounts</CardDescription>
                   </div>
-                  <Button className="bg-orange-500 hover:bg-orange-600 w-full sm:w-auto">
+                  <Button 
+                    onClick={() => {
+                      setStaffFormData({
+                        firstName: '',
+                        lastName: '',
+                        email: '',
+                        phone: '',
+                        password: '',
+                        role: 'RECEPTIONIST',
+                        dateOfBirth: '2000-01-01',
+                      });
+                      setStaffError(null);
+                      setShowAddStaffModal(true);
+                    }}
+                    className="bg-orange-500 hover:bg-orange-600 w-full sm:w-auto"
+                  >
                     <UserCog className="mr-2 h-5 w-5" />
                     Add Staff Member
                   </Button>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b-2 border-gray-200">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Name</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Email</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Role</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Status</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Join Date</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {mockStaff.map((staff) => (
-                        <tr key={staff.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{staff.name}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{staff.email}</td>
-                          <td className="px-4 py-3">
-                            <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 capitalize">
-                              {staff.role}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                              staff.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-                            }`}>
-                              {staff.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{staff.joinDate}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex gap-1">
-                              <Button variant="ghost" size="sm">
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </td>
+                {isLoadingStaff ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-600">Loading staff...</p>
+                  </div>
+                ) : staff.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-600">No staff members found.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b-2 border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Name</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Email</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Phone</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Role</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Status</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Join Date</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Actions</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {staff.map((member) => (
+                          <tr key={member.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{member.name}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{member.email}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{member.phone}</td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-1 rounded-full text-xs font-semibold capitalize ${
+                                member.role === 'ADMIN' 
+                                  ? 'bg-purple-100 text-purple-700' 
+                                  : member.role === 'MANAGER'
+                                    ? 'bg-blue-100 text-blue-700'
+                                    : 'bg-cyan-100 text-cyan-700'
+                              }`}>
+                                {member.role.toLowerCase()}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                member.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                              }`}>
+                                {member.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{member.joinDate}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex gap-1">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  title="Edit staff member"
+                                  onClick={() => openEditStaffModal(member)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="text-red-600 hover:text-red-700" 
+                                  title="Delete staff member"
+                                  onClick={() => openDeleteStaffModal(member)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>
@@ -1619,6 +2432,123 @@ export default function AdminDashboard() {
         )}
         </div>
       </div>
+
+      {/* Edit Member Modal */}
+      {showEditMemberModal && selectedMember && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h2 className="text-2xl font-bold mb-4">Edit Member: {selectedMember.name}</h2>
+              {memberEditError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {memberEditError}
+                </div>
+              )}
+              <form onSubmit={handleEditMember} className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">First Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={editMemberFormData.firstName}
+                      onChange={(e) => setEditMemberFormData({ ...editMemberFormData, firstName: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Last Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={editMemberFormData.lastName}
+                      onChange={(e) => setEditMemberFormData({ ...editMemberFormData, lastName: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={editMemberFormData.email}
+                    onChange={(e) => setEditMemberFormData({ ...editMemberFormData, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Phone</label>
+                  <input
+                    type="tel"
+                    required
+                    value={editMemberFormData.phone}
+                    onChange={(e) => setEditMemberFormData({ ...editMemberFormData, phone: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Date of Birth</label>
+                  <input
+                    type="date"
+                    value={editMemberFormData.dateOfBirth}
+                    onChange={(e) => setEditMemberFormData({ ...editMemberFormData, dateOfBirth: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Address</label>
+                  <input
+                    type="text"
+                    value={editMemberFormData.address}
+                    onChange={(e) => setEditMemberFormData({ ...editMemberFormData, address: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Emergency Contact</label>
+                  <input
+                    type="text"
+                    value={editMemberFormData.emergencyContact}
+                    onChange={(e) => setEditMemberFormData({ ...editMemberFormData, emergencyContact: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Emergency Phone</label>
+                  <input
+                    type="tel"
+                    value={editMemberFormData.emergencyPhone}
+                    onChange={(e) => setEditMemberFormData({ ...editMemberFormData, emergencyPhone: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowEditMemberModal(false);
+                      setSelectedMember(null);
+                      setMemberEditError(null);
+                    }}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={isUpdatingMember}
+                    className="flex-1 bg-orange-500 hover:bg-orange-600"
+                  >
+                    {isUpdatingMember ? 'Updating...' : 'Update Member'}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Member Registration Modal */}
       {showNewMemberModal && (
@@ -1795,6 +2725,847 @@ export default function AdminDashboard() {
           }}
           onClose={() => setShowWebcamScanner(false)}
         />
+      )}
+
+      {/* Add Staff Member Modal */}
+      {showAddStaffModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h2 className="text-2xl font-bold mb-4">Add Staff Member</h2>
+              {staffError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {staffError}
+                </div>
+              )}
+              <form onSubmit={handleAddStaff} className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">First Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={staffFormData.firstName}
+                      onChange={(e) => setStaffFormData({ ...staffFormData, firstName: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Last Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={staffFormData.lastName}
+                      onChange={(e) => setStaffFormData({ ...staffFormData, lastName: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={staffFormData.email}
+                    onChange={(e) => setStaffFormData({ ...staffFormData, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Phone</label>
+                  <input
+                    type="tel"
+                    required
+                    value={staffFormData.phone}
+                    onChange={(e) => setStaffFormData({ ...staffFormData, phone: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Password</label>
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    value={staffFormData.password}
+                    onChange={(e) => setStaffFormData({ ...staffFormData, password: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Role</label>
+                  <select
+                    required
+                    value={staffFormData.role}
+                    onChange={(e) => setStaffFormData({ ...staffFormData, role: e.target.value as 'RECEPTIONIST' | 'MANAGER' })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    <option value="RECEPTIONIST">Receptionist</option>
+                    <option value="MANAGER">Manager</option>
+                  </select>
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowAddStaffModal(false);
+                      setStaffError(null);
+                    }}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={isSubmittingStaff}
+                    className="flex-1 bg-orange-500 hover:bg-orange-600"
+                  >
+                    {isSubmittingStaff ? 'Adding...' : 'Add Staff'}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Staff Member Modal */}
+      {showEditStaffModal && selectedStaff && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h2 className="text-2xl font-bold mb-4">Edit Staff Member</h2>
+              {staffError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {staffError}
+                </div>
+              )}
+              <form onSubmit={handleEditStaff} className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">First Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={staffFormData.firstName}
+                      onChange={(e) => setStaffFormData({ ...staffFormData, firstName: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Last Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={staffFormData.lastName}
+                      onChange={(e) => setStaffFormData({ ...staffFormData, lastName: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={staffFormData.email}
+                    onChange={(e) => setStaffFormData({ ...staffFormData, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Phone</label>
+                  <input
+                    type="tel"
+                    required
+                    value={staffFormData.phone}
+                    onChange={(e) => setStaffFormData({ ...staffFormData, phone: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">New Password (leave empty to keep current)</label>
+                  <input
+                    type="password"
+                    minLength={6}
+                    value={staffFormData.password}
+                    onChange={(e) => setStaffFormData({ ...staffFormData, password: e.target.value })}
+                    placeholder="Enter new password or leave empty"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Role</label>
+                  <select
+                    required
+                    value={staffFormData.role}
+                    onChange={(e) => setStaffFormData({ ...staffFormData, role: e.target.value as 'RECEPTIONIST' | 'MANAGER' })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    <option value="RECEPTIONIST">Receptionist</option>
+                    <option value="MANAGER">Manager</option>
+                  </select>
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowEditStaffModal(false);
+                      setSelectedStaff(null);
+                      setStaffError(null);
+                    }}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={isSubmittingStaff}
+                    className="flex-1 bg-orange-500 hover:bg-orange-600"
+                  >
+                    {isSubmittingStaff ? 'Updating...' : 'Update Staff'}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Staff Confirmation Modal */}
+      {showDeleteStaffModal && selectedStaff && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertTriangle className="h-6 w-6 text-red-600" />
+                </div>
+                <h2 className="text-2xl font-bold">Delete Staff Member</h2>
+              </div>
+              {staffError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {staffError}
+                </div>
+              )}
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to delete <span className="font-semibold">{selectedStaff.firstName} {selectedStaff.lastName}</span>? This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowDeleteStaffModal(false);
+                    setSelectedStaff(null);
+                    setStaffError(null);
+                  }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleDeleteStaff}
+                  disabled={isSubmittingStaff}
+                  className="flex-1 bg-red-600 hover:bg-red-700"
+                >
+                  {isSubmittingStaff ? 'Deleting...' : 'Delete Staff'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Plan Modal */}
+      {showAddPlanModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg max-w-2xl w-full my-8">
+            <div className="p-6">
+              <h2 className="text-2xl font-bold mb-6">Create New Plan</h2>
+              {planError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {planError}
+                </div>
+              )}
+              <form onSubmit={handleAddPlan} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Plan Name *</label>
+                    <input
+                      type="text"
+                      value={planFormData.name}
+                      onChange={(e) => setPlanFormData({ ...planFormData, name: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Slug (Uppercase, e.g., ONE_MONTH) *</label>
+                    <input
+                      type="text"
+                      value={planFormData.slug}
+                      onChange={(e) => setPlanFormData({ ...planFormData, slug: e.target.value.toUpperCase() })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Description</label>
+                  <textarea
+                    value={planFormData.description}
+                    onChange={(e) => setPlanFormData({ ...planFormData, description: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    rows={3}
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Price (GH₵) *</label>
+                    <input
+                      type="number"
+                      value={planFormData.price}
+                      onChange={(e) => setPlanFormData({ ...planFormData, price: parseFloat(e.target.value) })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      min="1"
+                      step="0.01"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Duration *</label>
+                    <input
+                      type="number"
+                      value={planFormData.duration}
+                      onChange={(e) => setPlanFormData({ ...planFormData, duration: parseInt(e.target.value) })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      min="1"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Unit *</label>
+                    <select
+                      value={planFormData.durationUnit}
+                      onChange={(e) => setPlanFormData({ ...planFormData, durationUnit: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    >
+                      <option value="days">Days</option>
+                      <option value="weeks">Weeks</option>
+                      <option value="months">Months</option>
+                      <option value="years">Years</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Features (Max 20)</label>
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={newFeature}
+                      onChange={(e) => setNewFeature(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddFeature())}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      placeholder="Add a feature..."
+                    />
+                    <Button type="button" onClick={handleAddFeature} variant="outline">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {planFormData.features.map((feature, index) => (
+                      <div key={index} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded">
+                        <span className="text-sm">{feature}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFeature(index)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="isPopular"
+                      checked={planFormData.isPopular}
+                      onChange={(e) => setPlanFormData({ ...planFormData, isPopular: e.target.checked })}
+                      className="w-4 h-4 text-orange-600"
+                    />
+                    <label htmlFor="isPopular" className="text-sm font-medium">Popular</label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="isFeatured"
+                      checked={planFormData.isFeatured}
+                      onChange={(e) => setPlanFormData({ ...planFormData, isFeatured: e.target.checked })}
+                      className="w-4 h-4 text-orange-600"
+                    />
+                    <label htmlFor="isFeatured" className="text-sm font-medium">Featured</label>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Display Order</label>
+                    <input
+                      type="number"
+                      value={planFormData.displayOrder}
+                      onChange={(e) => setPlanFormData({ ...planFormData, displayOrder: parseInt(e.target.value) })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      min="0"
+                      max="999"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowAddPlanModal(false);
+                      setPlanError(null);
+                    }}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={isSubmittingPlan}
+                    className="flex-1 bg-orange-500 hover:bg-orange-600"
+                  >
+                    {isSubmittingPlan ? 'Creating...' : 'Create Plan'}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Plan Modal */}
+      {showEditPlanModal && selectedPlan && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg max-w-2xl w-full my-8">
+            <div className="p-6">
+              <h2 className="text-2xl font-bold mb-6">Edit Plan: {selectedPlan.name}</h2>
+              {planError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {planError}
+                </div>
+              )}
+              <form onSubmit={handleEditPlan} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Plan Name</label>
+                  <input
+                    type="text"
+                    value={planFormData.name}
+                    onChange={(e) => setPlanFormData({ ...planFormData, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Description</label>
+                  <textarea
+                    value={planFormData.description}
+                    onChange={(e) => setPlanFormData({ ...planFormData, description: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    rows={3}
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Price (GH₵)</label>
+                    <input
+                      type="number"
+                      value={planFormData.price}
+                      onChange={(e) => setPlanFormData({ ...planFormData, price: parseFloat(e.target.value) })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      min="1"
+                      step="0.01"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Duration</label>
+                    <input
+                      type="number"
+                      value={planFormData.duration}
+                      onChange={(e) => setPlanFormData({ ...planFormData, duration: parseInt(e.target.value) })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      min="1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Unit</label>
+                    <select
+                      value={planFormData.durationUnit}
+                      onChange={(e) => setPlanFormData({ ...planFormData, durationUnit: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    >
+                      <option value="days">Days</option>
+                      <option value="weeks">Weeks</option>
+                      <option value="months">Months</option>
+                      <option value="years">Years</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Features (Max 20)</label>
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={newFeature}
+                      onChange={(e) => setNewFeature(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddFeature())}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      placeholder="Add a feature..."
+                    />
+                    <Button type="button" onClick={handleAddFeature} variant="outline">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {planFormData.features.map((feature, index) => (
+                      <div key={index} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded">
+                        <span className="text-sm">{feature}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFeature(index)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="editIsPopular"
+                      checked={planFormData.isPopular}
+                      onChange={(e) => setPlanFormData({ ...planFormData, isPopular: e.target.checked })}
+                      className="w-4 h-4 text-orange-600"
+                    />
+                    <label htmlFor="editIsPopular" className="text-sm font-medium">Popular</label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="editIsFeatured"
+                      checked={planFormData.isFeatured}
+                      onChange={(e) => setPlanFormData({ ...planFormData, isFeatured: e.target.checked })}
+                      className="w-4 h-4 text-orange-600"
+                    />
+                    <label htmlFor="editIsFeatured" className="text-sm font-medium">Featured</label>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Display Order</label>
+                    <input
+                      type="number"
+                      value={planFormData.displayOrder}
+                      onChange={(e) => setPlanFormData({ ...planFormData, displayOrder: parseInt(e.target.value) })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      min="0"
+                      max="999"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowEditPlanModal(false);
+                      setSelectedPlan(null);
+                      setPlanError(null);
+                    }}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={isSubmittingPlan}
+                    className="flex-1 bg-orange-500 hover:bg-orange-600"
+                  >
+                    {isSubmittingPlan ? 'Updating...' : 'Update Plan'}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Plan Confirmation Modal */}
+      {showDeletePlanModal && selectedPlan && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertTriangle className="h-6 w-6 text-red-600" />
+                </div>
+                <h2 className="text-2xl font-bold">Archive Plan</h2>
+              </div>
+              {planError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {planError}
+                </div>
+              )}
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to archive <span className="font-semibold">{selectedPlan.name}</span>? 
+                This will prevent new subscriptions but won&apos;t affect existing members.
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowDeletePlanModal(false);
+                    setSelectedPlan(null);
+                    setPlanError(null);
+                  }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleDeletePlan}
+                  disabled={isSubmittingPlan}
+                  className="flex-1 bg-red-600 hover:bg-red-700"
+                >
+                  {isSubmittingPlan ? 'Archiving...' : 'Archive Plan'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change History Modal */}
+      {showChangeHistoryModal && selectedPlan && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b">
+              <h2 className="text-2xl font-bold">Change History: {selectedPlan.name}</h2>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">
+              {changeHistory.length === 0 ? (
+                <p className="text-gray-600 text-center py-8">No change history available</p>
+              ) : (
+                <div className="space-y-4">
+                  {changeHistory.map((change) => (
+                    <div key={change.id} className="border-l-4 border-orange-500 pl-4 py-2">
+                      <div className="flex items-start justify-between mb-1">
+                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                          change.changeType === 'CREATED' ? 'bg-green-100 text-green-700' :
+                          change.changeType === 'PRICE_CHANGED' ? 'bg-yellow-100 text-yellow-700' :
+                          change.changeType === 'STATUS_CHANGED' ? 'bg-blue-100 text-blue-700' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {change.changeType}
+                        </span>
+                        <span className="text-sm text-gray-500">
+                          {new Date(change.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-gray-900">{change.description}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="p-6 border-t">
+              <Button
+                onClick={() => {
+                  setShowChangeHistoryModal(false);
+                  setSelectedPlan(null);
+                  setChangeHistory([]);
+                }}
+                className="w-full"
+                variant="outline"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Member Modal */}
+      {showEditMemberModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-2xl my-8">
+            <div className="p-6 border-b">
+              <h2 className="text-2xl font-bold text-gray-900">Edit Member Details</h2>
+              <p className="text-sm text-gray-600 mt-1">Update member information</p>
+            </div>
+            <form onSubmit={handleEditMember} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              {memberEditError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {memberEditError}
+                </div>
+              )}
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    First Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={editMemberFormData.firstName}
+                    onChange={(e) => setEditMemberFormData({ ...editMemberFormData, firstName: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Last Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={editMemberFormData.lastName}
+                    onChange={(e) => setEditMemberFormData({ ...editMemberFormData, lastName: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    value={editMemberFormData.email}
+                    onChange={(e) => setEditMemberFormData({ ...editMemberFormData, email: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone *
+                  </label>
+                  <input
+                    type="tel"
+                    value={editMemberFormData.phone}
+                    onChange={(e) => setEditMemberFormData({ ...editMemberFormData, phone: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Date of Birth
+                  </label>
+                  <input
+                    type="date"
+                    value={editMemberFormData.dateOfBirth}
+                    onChange={(e) => setEditMemberFormData({ ...editMemberFormData, dateOfBirth: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Emergency Contact
+                  </label>
+                  <input
+                    type="text"
+                    value={editMemberFormData.emergencyContact}
+                    onChange={(e) => setEditMemberFormData({ ...editMemberFormData, emergencyContact: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Emergency Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={editMemberFormData.emergencyPhone}
+                    onChange={(e) => setEditMemberFormData({ ...editMemberFormData, emergencyPhone: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Address
+                  </label>
+                  <input
+                    type="text"
+                    value={editMemberFormData.address}
+                    onChange={(e) => setEditMemberFormData({ ...editMemberFormData, address: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Fitness Goals
+                  </label>
+                  <textarea
+                    value={editMemberFormData.fitnessGoals}
+                    onChange={(e) => setEditMemberFormData({ ...editMemberFormData, fitnessGoals: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    rows={2}
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Medical Conditions
+                  </label>
+                  <textarea
+                    value={editMemberFormData.medicalConditions}
+                    onChange={(e) => setEditMemberFormData({ ...editMemberFormData, medicalConditions: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    rows={2}
+                  />
+                </div>
+              </div>
+            </form>
+            <div className="p-6 border-t flex gap-3">
+              <Button
+                type="button"
+                onClick={() => {
+                  setShowEditMemberModal(false);
+                  setSelectedMember(null);
+                  setMemberEditError(null);
+                }}
+                variant="outline"
+                className="flex-1"
+                disabled={isUpdatingMember}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleEditMember}
+                className="flex-1 bg-orange-600 hover:bg-orange-700"
+                disabled={isUpdatingMember}
+              >
+                {isUpdatingMember ? 'Updating...' : 'Update Member'}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
       </>
       )}

@@ -49,6 +49,14 @@ export interface Member {
   registrationPaid: boolean;
   registrationType: 'SELF' | 'WALK_IN' | 'ADMIN';
   totalCheckIns: number;
+  firstName?: string;
+  lastName?: string;
+  dateOfBirth?: string;
+  address?: string;
+  emergencyContact?: string;
+  emergencyPhone?: string;
+  fitnessGoals?: string;
+  medicalConditions?: string;
 }
 
 export interface Payment {

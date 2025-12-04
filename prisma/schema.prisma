@@ -264,3 +264,55 @@ model EventBooking {
   @@index([eventId])
   @@map("event_bookings")
 }
+
+// Plan model - Membership plan templates
+model Plan {
+  id              String             @id @default(cuid())
+  name            String             @unique // "Monthly", "Quarterly", "Annual", custom names
+  slug            String             @unique // "ONE_MONTH", "THREE_MONTHS", "ONE_YEAR"
+  description     String?
+  price           Float              // Price in GH₵
+  duration        Int                // Duration in days
+  durationUnit    String             @default("days") // "days", "months", "years"
+  currency        String             @default("GH₵")
+  features        String[]           // Array of feature descriptions
+  status          PlanStatus         @default(ACTIVE)
+  isPopular       Boolean            @default(false)
+  isFeatured      Boolean            @default(false)
+  displayOrder    Int                @default(0)
+  createdBy       String             // Admin who created the plan
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  
+  // Relations
+  changeHistory   PlanChangeHistory[]
+
+  @@index([status])
+  @@index([slug])
+  @@map("plans")
+}
+
+enum PlanStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+// PlanChangeHistory model - Track plan modifications
+model PlanChangeHistory {
+  id              String   @id @default(cuid())
+  planId          String
+  changedBy       String   // Admin who made the change
+  changeType      String   // "CREATED", "UPDATED", "PRICE_CHANGED", "STATUS_CHANGED"
+  oldValue        String?  // JSON string of old values
+  newValue        String?  // JSON string of new values
+  description     String?  // Human-readable change description
+  createdAt       DateTime @default(now())
+  
+  // Relations
+  plan            Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId])
+  @@index([changedBy])
+  @@map("plan_change_history")
+}

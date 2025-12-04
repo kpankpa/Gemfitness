@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import PageHero from '@/components/PageHero';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -7,56 +8,18 @@ import { motion } from 'framer-motion';
 import { Dumbbell, Heart, Users, Flame, Zap, Wind, Target, Clock, CheckCircle2, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
-const classTypes = [
-  {
-    icon: Heart,
-    title: 'Cardio Training',
-    description: 'Boost your cardiovascular health and stamina with our dynamic cardio sessions.',
-    features: ['Treadmill Training', 'Cycling', 'Rowing', 'Sprint Intervals'],
-    schedule: 'Mon-Fri - Early Birds 6:30 AM, Regular 5:30 AM & 7:00 PM',
-    color: 'from-red-500 to-pink-500',
-  },
-  {
-    icon: Flame,
-    title: 'Boot Camp',
-    description: 'High-intensity military-style training for maximum results and team spirit.',
-    features: ['Circuit Training', 'Team Drills', 'Obstacle Course', 'Core Conditioning'],
-    schedule: 'Mon-Fri - 5:30 AM - 7:00 AM or 7:00 PM - 8:30 PM',
-    color: 'from-orange-500 to-yellow-500',
-  },
-  {
-    icon: Dumbbell,
-    title: 'Weight Training',
-    description: 'Build muscle mass and strength with our comprehensive weight training programs.',
-    features: ['Free Weights', 'Resistance Machines', 'Powerlifting', 'Progressive Overload'],
-    schedule: 'Mon-Fri - 5:30 AM - 7:00 AM or 7:00 PM - 8:30 PM',
-    color: 'from-orange-500 to-red-500',
-  },
-  {
-    icon: Target,
-    title: 'Self Defense',
-    description: 'Learn practical self-defense techniques while getting a great workout.',
-    features: ['Basic Techniques', 'Situational Awareness', 'Confidence Building', 'Sparring'],
-    schedule: 'Available on request - Contact for schedule',
-    color: 'from-yellow-500 to-orange-500',
-  },
-  {
-    icon: Users,
-    title: 'Dance Class',
-    description: 'Burn calories and have fun with energetic dance-based fitness routines.',
-    features: ['Zumba', 'Hip Hop', 'Afrobeats', 'Cardio Dance'],
-    schedule: 'Tue, Thu, Sat - 6:00 PM - 7:30 PM',
-    color: 'from-purple-500 to-pink-500',
-  },
-  {
-    icon: Zap,
-    title: 'Core & Abs Training',
-    description: 'Strengthen your core and sculpt your abs with targeted exercises.',
-    features: ['Planks', 'Ab Circuits', 'Core Stability', 'Functional Core'],
-    schedule: 'Included in Boot Camp & Group Fitness sessions',
-    color: 'from-blue-500 to-cyan-500',
-  },
-];
+interface Class {
+  id: string;
+  name: string;
+  description?: string;
+  type: string;
+  instructor: string;
+  duration: number;
+  maxCapacity: number;
+  enrolled: number;
+  schedule: string;
+  status: string;
+}
 
 const weeklySchedule = [
   { day: 'Monday', classes: [
@@ -180,6 +143,43 @@ const pricingOptions = [
 ];
 
 export default function ClassesPage() {
+  const [classes, setClasses] = useState<Class[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchClasses();
+  }, []);
+
+  const fetchClasses = async () => {
+    try {
+      const response = await fetch('/api/classes?status=ACTIVE');
+      const data = await response.json();
+      if (data.success) {
+        setClasses(data.classes);
+      } else {
+        setError('Failed to load classes');
+      }
+    } catch (err) {
+      setError('Unable to fetch classes');
+      console.error('Error fetching classes:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getIconForType = (type: string) => {
+    const typeMap: { [key: string]: any } = {
+      'Cardio': Heart,
+      'HIIT': Flame,
+      'Strength': Dumbbell,
+      'Stepboard': Target,
+      'Dance': Users,
+      'Core': Zap,
+    };
+    return typeMap[type] || Dumbbell;
+  };
+
   return (
     <div className="min-h-screen bg-white">
       <PageHero
@@ -205,47 +205,74 @@ export default function ClassesPage() {
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {classTypes.map((classType, index) => (
-              <motion.div
-                key={classType.title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <Card className="bg-white border-2 border-gray-100 hover:border-orange-500 transition-all duration-300 h-full group cursor-pointer hover:shadow-lg">
-                  <div className="p-6">
-                    <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${classType.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-                      <classType.icon className="w-8 h-8 text-white" />
-                    </div>
-                    
-                    <h3 className="text-2xl font-bold text-gray-900 mb-3 group-hover:text-orange-500 transition-colors">
-                      {classType.title}
-                    </h3>
-                    
-                    <p className="text-gray-600 mb-4 leading-relaxed">
-                      {classType.description}
-                    </p>
-
-                    <div className="space-y-2 mb-4">
-                      {classType.features.map((feature) => (
-                        <div key={feature} className="flex items-center space-x-2">
-                          <CheckCircle2 className="w-4 h-4 text-orange-500" />
-                          <span className="text-sm text-gray-700">{feature}</span>
+          {isLoading ? (
+            <div className="col-span-full text-center py-12">
+              <p className="text-gray-600">Loading classes...</p>
+            </div>
+          ) : error ? (
+            <div className="col-span-full text-center py-12">
+              <p className="text-red-600">{error}</p>
+            </div>
+          ) : classes.length === 0 ? (
+            <div className="col-span-full text-center py-12">
+              <p className="text-gray-600">No classes available at the moment.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {classes.map((classItem, index) => {
+                const IconComponent = getIconForType(classItem.type);
+                const colorClass = 'from-orange-500 to-red-500';
+                
+                return (
+                  <motion.div
+                    key={classItem.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <Card className="bg-white border-2 border-gray-100 hover:border-orange-500 transition-all duration-300 h-full group cursor-pointer hover:shadow-lg">
+                      <div className="p-6">
+                        <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${colorClass} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                          <IconComponent className="w-8 h-8 text-white" />
                         </div>
-                      ))}
-                    </div>
+                        
+                        <h3 className="text-2xl font-bold text-gray-900 mb-3 group-hover:text-orange-500 transition-colors">
+                          {classItem.name}
+                        </h3>
+                        
+                        <p className="text-gray-600 mb-4 leading-relaxed">
+                          {classItem.description}
+                        </p>
 
-                    <div className="pt-4 border-t border-gray-200">
-                      <div className="flex items-start space-x-2 text-sm text-gray-600">
-                        <Clock className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
-                        <span>{classType.schedule}</span>
+                        <div className="space-y-2 mb-4">
+                          <div className="flex items-center space-x-2">
+                            <CheckCircle2 className="w-4 h-4 text-orange-500" />
+                            <span className="text-sm text-gray-700">Type: {classItem.type}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <CheckCircle2 className="w-4 h-4 text-orange-500" />
+                            <span className="text-sm text-gray-700">Max capacity: {classItem.maxCapacity}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <CheckCircle2 className="w-4 h-4 text-orange-500" />
+                            <span className="text-sm text-gray-700">Duration: {classItem.duration} minutes</span>
+                          </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-gray-200">
+                          <div className="flex items-start space-x-2 text-sm text-gray-600">
+                            <Clock className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
+                            <span>{classItem.schedule}</span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
+                    </Card>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
             ))}
           </div>
         </div>

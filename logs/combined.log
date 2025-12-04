@@ -228,3 +228,83 @@
 {"level":"info","message":"Fetching check-in stats","service":"gemfitness","timestamp":"2025-12-02 05:13:25","todayStart":"2025-12-02T00:00:00.000Z"}
 {"level":"info","message":"Fetching analytics data","service":"gemfitness","timestamp":"2025-12-02 05:13:26"}
 {"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2025-12-02 05:13:26","today":"2025-12-02T00:00:00.000Z","tomorrow":"2025-12-03T00:00:00.000Z"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-02 05:45:18","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-02 05:45:18","userId":"cmim96ft90005tpao07a5nf5y"}
+{"level":"info","message":"Fetching check-in stats","service":"gemfitness","timestamp":"2025-12-02 05:45:21","todayStart":"2025-12-02T00:00:00.000Z"}
+{"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2025-12-02 05:45:21","today":"2025-12-02T00:00:00.000Z","tomorrow":"2025-12-03T00:00:00.000Z"}
+{"level":"info","message":"Fetching analytics data","service":"gemfitness","timestamp":"2025-12-02 05:45:21"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-02 08:05:05","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-02 08:05:05","userId":"cmim96ft90005tpao07a5nf5y"}
+{"level":"info","message":"Fetching check-in stats","service":"gemfitness","timestamp":"2025-12-02 08:05:09","todayStart":"2025-12-02T00:00:00.000Z"}
+{"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2025-12-02 08:05:09","today":"2025-12-02T00:00:00.000Z","tomorrow":"2025-12-03T00:00:00.000Z"}
+{"level":"info","message":"Fetching analytics data","service":"gemfitness","timestamp":"2025-12-02 08:05:09"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2025-12-02 08:05:09"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-02 08:16:04","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-02 08:16:04","userId":"cmim96ft90005tpao07a5nf5y"}
+{"level":"info","message":"Fetching check-in stats","service":"gemfitness","timestamp":"2025-12-02 08:16:09","todayStart":"2025-12-02T00:00:00.000Z"}
+{"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2025-12-02 08:16:09","today":"2025-12-02T00:00:00.000Z","tomorrow":"2025-12-03T00:00:00.000Z"}
+{"level":"info","message":"Fetching analytics data","service":"gemfitness","timestamp":"2025-12-02 08:16:09"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2025-12-02 08:16:10"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-02 08:59:59","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-02 08:59:59","userId":"cmim96ft90005tpao07a5nf5y"}
+{"level":"info","message":"Fetching analytics data","service":"gemfitness","timestamp":"2025-12-02 09:00:02"}
+{"level":"info","message":"Fetching check-in stats","service":"gemfitness","timestamp":"2025-12-02 09:00:02","todayStart":"2025-12-02T00:00:00.000Z"}
+{"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2025-12-02 09:00:02","today":"2025-12-02T00:00:00.000Z","tomorrow":"2025-12-03T00:00:00.000Z"}
+{"email":"kaylonprince@gmail.com","level":"warn","message":"Login attempt with incorrect password","service":"gemfitness","timestamp":"2025-12-03 01:01:03","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-03 01:01:18","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-03 01:01:18","userId":"cmim96ft90005tpao07a5nf5y"}
+{"level":"info","message":"Fetching analytics data","service":"gemfitness","timestamp":"2025-12-03 01:01:22"}
+{"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2025-12-03 01:01:22","today":"2025-12-03T00:00:00.000Z","tomorrow":"2025-12-04T00:00:00.000Z"}
+{"level":"info","message":"Fetching check-in stats","service":"gemfitness","timestamp":"2025-12-03 01:01:22","todayStart":"2025-12-03T00:00:00.000Z"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-03 01:20:11","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-03 01:20:11","userId":"cmim96ft90005tpao07a5nf5y"}
+{"level":"info","message":"Fetching check-in stats","service":"gemfitness","timestamp":"2025-12-03 01:20:17","todayStart":"2025-12-03T00:00:00.000Z"}
+{"level":"info","message":"Fetching analytics data","service":"gemfitness","timestamp":"2025-12-03 01:20:17"}
+{"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2025-12-03 01:20:17","today":"2025-12-03T00:00:00.000Z","tomorrow":"2025-12-04T00:00:00.000Z"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-03 01:27:44","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-03 01:27:44","userId":"cmim96ft90005tpao07a5nf5y"}
+{"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2025-12-03 01:27:47","today":"2025-12-03T00:00:00.000Z","tomorrow":"2025-12-04T00:00:00.000Z"}
+{"level":"info","message":"Fetching check-in stats","service":"gemfitness","timestamp":"2025-12-03 01:27:47","todayStart":"2025-12-03T00:00:00.000Z"}
+{"level":"info","message":"Fetching analytics data","service":"gemfitness","timestamp":"2025-12-03 01:27:47"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-03 01:48:07","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-03 01:48:07","userId":"cmim96ft90005tpao07a5nf5y"}
+{"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2025-12-03 01:48:10","today":"2025-12-03T00:00:00.000Z","tomorrow":"2025-12-04T00:00:00.000Z"}
+{"level":"info","message":"Fetching analytics data","service":"gemfitness","timestamp":"2025-12-03 01:48:11"}
+{"level":"info","message":"Fetching check-in stats","service":"gemfitness","timestamp":"2025-12-03 01:48:11","todayStart":"2025-12-03T00:00:00.000Z"}
+{"email":"kaylonprince@gmail.com","level":"warn","message":"Login attempt with incorrect password","service":"gemfitness","timestamp":"2025-12-03 02:19:07","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-03 02:19:17","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-03 02:19:17","userId":"cmim96ft90005tpao07a5nf5y"}
+{"level":"info","message":"Fetching check-in stats","service":"gemfitness","timestamp":"2025-12-03 02:19:21","todayStart":"2025-12-03T00:00:00.000Z"}
+{"level":"info","message":"Fetching analytics data","service":"gemfitness","timestamp":"2025-12-03 02:19:21"}
+{"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2025-12-03 02:19:21","today":"2025-12-03T00:00:00.000Z","tomorrow":"2025-12-04T00:00:00.000Z"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-03 02:29:14","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-03 02:29:14","userId":"cmim96ft90005tpao07a5nf5y"}
+{"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2025-12-03 02:29:18","today":"2025-12-03T00:00:00.000Z","tomorrow":"2025-12-04T00:00:00.000Z"}
+{"level":"info","message":"Fetching analytics data","service":"gemfitness","timestamp":"2025-12-03 02:29:18"}
+{"level":"info","message":"Fetching check-in stats","service":"gemfitness","timestamp":"2025-12-03 02:29:19","todayStart":"2025-12-03T00:00:00.000Z"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2025-12-03 02:29:19"}
+{"activeNow":0,"level":"info","message":"Check-in stats calculated","service":"gemfitness","thisWeek":0,"timestamp":"2025-12-03 02:31:41","today":0}
+{"level":"info","message":"Fetching check-in stats","service":"gemfitness","timestamp":"2025-12-03 02:31:41","todayStart":"2025-12-03T00:00:00.000Z"}
+{"activeMembers":2,"attendanceRate":"0%","avgDailyCheckIns":0,"expiringSoon":0,"level":"info","message":"Analytics data fetched successfully","monthlyRevenue":750,"recentPayments":[{"amount":750,"date":"2025-12-01","id":"cmin5ks5a0004tpekfkd6ug7v","member":"Junior Kpankpa","plan":"THREE MONTHS","reference":"REF_1764593781255_6os0rolzo"},{"amount":750,"date":"2025-11-30","id":"cmim96fup0009tpaocax0j0im","member":"Prince Kpankpa","plan":"THREE MONTHS","reference":"REF_1764539364459_rp7snz17m"}],"service":"gemfitness","timestamp":"2025-12-03 02:31:41","todayCheckIns":0,"totalMembers":1,"weeklyCheckIns":0}
+{"activeNow":0,"level":"info","message":"Check-in stats calculated","service":"gemfitness","thisWeek":0,"timestamp":"2025-12-03 02:31:41","today":0}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-03 12:13:49","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-03 12:13:49","userId":"cmim96ft90005tpao07a5nf5y"}
+{"level":"info","message":"Fetching check-in stats","service":"gemfitness","timestamp":"2025-12-03 12:13:54","todayStart":"2025-12-04T00:00:00.000Z"}
+{"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2025-12-03 12:13:54","today":"2025-12-04T00:00:00.000Z","tomorrow":"2025-12-05T00:00:00.000Z"}
+{"level":"info","message":"Fetching analytics data","service":"gemfitness","timestamp":"2025-12-03 12:13:54"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-03 12:42:25","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-03 12:42:25","userId":"cmim96ft90005tpao07a5nf5y"}
+{"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2025-12-03 12:42:30","today":"2025-12-04T00:00:00.000Z","tomorrow":"2025-12-05T00:00:00.000Z"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2025-12-03 12:42:31"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-03 12:47:56","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-03 12:47:56","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-03 12:58:41","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2025-12-03 12:58:41","userId":"cmim96ft90005tpao07a5nf5y"}
+{"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2025-12-03 12:58:48","today":"2025-12-04T00:00:00.000Z","tomorrow":"2025-12-05T00:00:00.000Z"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2025-12-03 12:58:49"}
+{"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2025-12-03 13:12:03","today":"2025-12-04T00:00:00.000Z","tomorrow":"2025-12-05T00:00:00.000Z"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2025-12-03 13:12:03"}
+{"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2025-12-03 13:14:47","today":"2025-12-04T00:00:00.000Z","tomorrow":"2025-12-05T00:00:00.000Z"}
+{"level":"info","message":"Found 1 check-ins for today","service":"gemfitness","timestamp":"2025-12-03 13:14:47"}
+{"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2025-12-03 13:27:44","today":"2025-12-04T00:00:00.000Z","tomorrow":"2025-12-05T00:00:00.000Z"}
+{"level":"info","message":"Found 1 check-ins for today","service":"gemfitness","timestamp":"2025-12-03 13:27:44"}

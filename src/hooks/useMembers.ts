@@ -17,21 +17,41 @@ export function useMembers(): UseMembersReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isLoadingRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchMembers = useCallback(async (limit?: number) => {
-    if (isLoadingRef.current) return;
+    // Prevent duplicate requests
+    if (isLoadingRef.current) {
+      console.log('⏸️ useMembers: Request already in progress, skipping');
+      return;
+    }
+
+    // Cancel any pending request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
 
     isLoadingRef.current = true;
     setIsLoading(true);
     setError(null);
 
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
+
     try {
       const url = limit ? `/api/members?limit=${limit}` : '/api/members';
       console.log('🔍 Fetching members from:', url);
-      const response = await fetch(url);
+      
+      const response = await fetch(url, {
+        signal: abortControllerRef.current.signal,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store', // Prevent stale data
+      });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch members');
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
@@ -43,12 +63,19 @@ export function useMembers(): UseMembersReturn {
         throw new Error('Invalid response format');
       }
     } catch (err) {
+      // Don't set error if request was aborted (it's expected)
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.log('⏸️ useMembers: Request cancelled');
+        return;
+      }
+      
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch members';
       setError(errorMessage);
       console.error('❌ Error fetching members:', err);
     } finally {
       isLoadingRef.current = false;
       setIsLoading(false);
+      abortControllerRef.current = null;
     }
   }, []);
 

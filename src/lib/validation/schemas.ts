@@ -71,6 +71,33 @@ export const updateSubscriptionSchema = z.object({
   endDate: z.date().optional(),
 });
 
+// Plan Schemas
+export const createPlanSchema = z.object({
+  name: z.string().min(2, 'Plan name must be at least 2 characters').max(100),
+  slug: z.string().min(2).max(50).regex(/^[A-Z_]+$/, 'Slug must be uppercase with underscores only'),
+  description: z.string().max(500).optional(),
+  price: z.number().positive('Price must be greater than 0').min(1),
+  duration: z.number().int().positive('Duration must be positive').min(1),
+  durationUnit: z.enum(['days', 'weeks', 'months', 'years']).default('days'),
+  features: z.array(z.string().max(200)).max(20, 'Maximum 20 features allowed').default([]),
+  isPopular: z.boolean().default(false),
+  isFeatured: z.boolean().default(false),
+  displayOrder: z.number().int().min(0).max(999).default(0),
+});
+
+export const updatePlanSchema = z.object({
+  name: z.string().min(2).max(100).optional(),
+  description: z.string().max(500).optional().nullable(),
+  price: z.number().positive().min(1).optional(),
+  duration: z.number().int().positive().min(1).optional(),
+  durationUnit: z.enum(['days', 'weeks', 'months', 'years']).optional(),
+  features: z.array(z.string().max(200)).max(20).optional(),
+  isPopular: z.boolean().optional(),
+  isFeatured: z.boolean().optional(),
+  displayOrder: z.number().int().min(0).max(999).optional(),
+  status: z.enum(['ACTIVE', 'INACTIVE', 'ARCHIVED']).optional(),
+});
+
 // Type exports
 export type SignupInput = z.infer<typeof signupSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
@@ -79,3 +106,5 @@ export type CheckInInput = z.infer<typeof checkInSchema>;
 export type ScanQRInput = z.infer<typeof scanQRSchema>;
 export type CreateSubscriptionInput = z.infer<typeof createSubscriptionSchema>;
 export type UpdateSubscriptionInput = z.infer<typeof updateSubscriptionSchema>;
+export type CreatePlanInput = z.infer<typeof createPlanSchema>;
+export type UpdatePlanInput = z.infer<typeof updatePlanSchema>;

@@ -19,12 +19,19 @@ const publicRoutes = [
   '/contact',
   '/terms',
   '/privacy',
+  '/classes',
+  '/events',
+  '/trainers',
+  '/membership',
+  '/success',
 ];
 
 // API routes that don't require authentication
 const publicApiRoutes = [
   '/api/auth/signup',
   '/api/auth/login',
+  '/api/classes',
+  '/api/events',
 ];
 
 export async function middleware(request: NextRequest) {

@@ -2,118 +2,51 @@
  * ADMIN MEMBER MANAGEMENT API
  * 
  * Endpoints:
- * - GET /api/members - Fetch all members (for admin dashboard)
- * - POST /api/members - Register new member (admin registration)
+ * - GET /api/members - Fetch all members
+ * - POST /api/members - Register new member
  * 
- * Used by: Admin Dashboard (Receptionists & Managers)
- * Purpose: Member CRUD operations, registration, admin member management
+ * Used by: Admin Dashboard
+ * Purpose: Member CRUD operations
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hash } from 'bcryptjs';
-import { RegistrationType, UserRole, MembershipPlan } from '@prisma/client';
+import { $Enums } from '@prisma/client';
 import { generateMemberQRCode } from '@/lib/qr/generator';
-import type { Prisma } from '@prisma/client';
-
-// Type for user with included relations
-type UserWithSubscriptions = Prisma.UserGetPayload<{
-  include: {
-    subscriptions: true;
-    _count: {
-      select: {
-        checkIns: true;
-      };
-    };
-  };
-}>;
 
 // GET /api/members - Fetch all members
 export async function GET(request: NextRequest) {
-  console.log('🔍 /api/members GET endpoint hit');
   try {
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status');
-    const plan = searchParams.get('plan');
     const limit = searchParams.get('limit');
-    
-    console.log('📋 Query params:', { status, plan, limit });
-    
-    const where: Prisma.UserWhereInput = { role: 'MEMBER' };
-    
-    if (status && status !== 'All Status') {
-      const subscriptionStatus = status === 'active' ? 'ACTIVE' : 
-                                 status === 'expired' ? 'EXPIRED' : 
-                                 status === 'expiring_soon' ? 'ACTIVE' : undefined;
-      
-      if (subscriptionStatus) {
-        where.subscriptions = {
-          some: { 
-            status: subscriptionStatus,
-            ...(status === 'expiring_soon' && {
-              endDate: {
-                lte: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) // 3 days from now
-              }
-            })
-          }
-        };
-      }
-    }
-    
-    if (plan && plan !== 'All Plans') {
-      const membershipPlan = plan.replace(/\s+/g, '_').toUpperCase() as MembershipPlan;
-      where.subscriptions = {
-        some: { plan: membershipPlan }
-      };
-    }
 
-    const members = await prisma.user.findMany({
-      where,
-      include: {
-        subscriptions: {
-          orderBy: { createdAt: 'desc' },
-          take: 1
-        },
-        _count: {
-          select: { 
-            checkIns: true
-          }
-        }
-      },
+    // Simple query - just get users, no joins
+    const users = await prisma.user.findMany({
+      where: { role: 'MEMBER' },
       orderBy: { createdAt: 'desc' },
-      ...(limit && { take: parseInt(limit) })
-    }) as UserWithSubscriptions[];
+      take: limit ? parseInt(limit) : 50
+    });
 
-    console.log(`✅ Found ${members.length} members from database`);
-    
-    if (members.length === 0) {
-      console.log('⚠️ No members found, returning empty array');
-      return NextResponse.json({ success: true, members: [] });
-    }
-
-    const formattedMembers = members.map(member => ({
-      id: member.id,
-      name: `${member.firstName} ${member.lastName}`,
-      email: member.email,
-      phone: member.phone,
-      plan: member.subscriptions[0]?.plan?.replace(/_/g, ' ') || 'No Plan',
-      status: member.subscriptions[0]?.status?.toLowerCase() || 'inactive',
-      expiresAt: member.subscriptions[0]?.endDate?.toISOString().split('T')[0] || null,
-      joinDate: member.createdAt.toISOString().split('T')[0],
-      qrCode: member.qrCode,
-      registrationPaid: member.registrationPaid,
-      registrationType: member.registrationType,
-      totalCheckIns: member._count.checkIns
+    const members = users.map(user => ({
+      id: user.id,
+      name: `${user.firstName} ${user.lastName}`,
+      email: user.email,
+      phone: user.phone,
+      plan: 'N/A',
+      status: 'active',
+      expiresAt: null,
+      joinDate: user.createdAt.toISOString().split('T')[0],
+      qrCode: user.qrCode,
+      registrationPaid: user.registrationPaid,
+      registrationType: user.registrationType,
+      totalCheckIns: 0
     }));
 
-    console.log(`✅ Returning ${formattedMembers.length} formatted members`);
-    return NextResponse.json({ success: true, members: formattedMembers });
+    return NextResponse.json({ success: true, members });
   } catch (error) {
-    console.error('Error fetching members:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch members' },
-      { status: 500 }
-    );
+    console.error('Members error:', error);
+    return NextResponse.json({ error: 'Failed to fetch members' }, { status: 500 });
   }
 }
 
@@ -167,9 +100,9 @@ export async function POST(request: NextRequest) {
         email,
         phone,
         password: hashedPassword,
-        role: UserRole.MEMBER,
+        role: $Enums.UserRole.MEMBER,
         qrCode: '', // Will be generated after user creation
-        registrationType: registrationType as RegistrationType,
+        registrationType: registrationType as $Enums.RegistrationType,
         registrationPaid: false,
         emergencyContact: '',
         emergencyPhone: '',
@@ -216,12 +149,12 @@ export async function POST(request: NextRequest) {
     const subscription = await prisma.subscription.create({
       data: {
         userId: user.id,
-        plan: planKey as MembershipPlan,
+        plan: planKey as $Enums.MembershipPlan,
         amount,
         startDate,
         endDate,
         status: 'ACTIVE',
-        registrationType: registrationType as RegistrationType
+        registrationType: registrationType as $Enums.RegistrationType
       }
     });
 

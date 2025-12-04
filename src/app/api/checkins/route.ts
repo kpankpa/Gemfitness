@@ -15,6 +15,7 @@ import { logger } from '@/lib/logger';
 
 // GET /api/checkins - Get today's check-ins
 export async function GET(request: NextRequest) {
+  console.time('⏱️ TOTAL /api/checkins Request');
   try {
     const { searchParams } = new URL(request.url);
     const limit = searchParams.get('limit');
@@ -28,6 +29,7 @@ export async function GET(request: NextRequest) {
 
     logger.info('Fetching check-ins', { today: today.toISOString(), tomorrow: tomorrow.toISOString(), limit });
 
+    console.time('💾 Prisma Query - findMany checkIns');
     const checkIns = await prisma.checkIn.findMany({
       where: {
         checkInTime: {
@@ -47,9 +49,11 @@ export async function GET(request: NextRequest) {
       orderBy: { checkInTime: 'desc' },
       ...(limit && { take: parseInt(limit) })
     });
+    console.timeEnd('💾 Prisma Query - findMany checkIns');
 
     logger.info(`Found ${checkIns.length} check-ins for today`);
 
+    console.time('🔄 Format CheckIn Data');
     const formattedCheckIns = checkIns.map(checkIn => ({
       id: checkIn.id,
       member: `${checkIn.user.firstName} ${checkIn.user.lastName}`,
@@ -62,7 +66,9 @@ export async function GET(request: NextRequest) {
       checkedBy: checkIn.checkedBy || 'system',
       checkInTime: checkIn.checkInTime
     }));
+    console.timeEnd('🔄 Format CheckIn Data');
 
+    console.timeEnd('⏱️ TOTAL /api/checkins Request');
     return NextResponse.json({ success: true, checkIns: formattedCheckIns });
   } catch (error) {
     logger.error('Error fetching check-ins:', error);
