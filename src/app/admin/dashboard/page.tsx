@@ -263,6 +263,14 @@ export default function AdminDashboard() {
   const [showWebcamScanner, setShowWebcamScanner] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [registeredMemberData, setRegisteredMemberData] = useState<any>(null);
+  
+  // Duplicate check-in warning state
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+  const [duplicateCheckInInfo, setDuplicateCheckInInfo] = useState<{
+    message: string;
+    lastCheckIn: { time: string; method: string; checkedBy: string };
+    pendingData: { qrCode?: string; method?: 'qr' | 'manual' };
+  } | null>(null);
 
   // Class modal states
   const [showClassModal, setShowClassModal] = useState(false);
@@ -1172,7 +1180,7 @@ export default function AdminDashboard() {
   };
 
   // Handle check-in
-  const handleCheckIn = async (overrideData?: { qrCode?: string; method?: 'qr' | 'manual' }) => {
+  const handleCheckIn = async (overrideData?: { qrCode?: string; method?: 'qr' | 'manual'; forceCheckIn?: boolean }) => {
     const dataToSend = overrideData || checkInData;
 
     // Validate QR code
@@ -1185,16 +1193,27 @@ export default function AdminDashboard() {
       const result = await performCheckIn({
         qrCode: dataToSend.qrCode,
         method: dataToSend.method || 'qr',
-        checkedBy: user?.email || 'system'
+        checkedBy: user?.email || 'system',
+        forceCheckIn: dataToSend.forceCheckIn || false
       });
 
       if (result.success) {
         alert(`✅ Check-in successful for ${result.checkIn?.member}!`);
         setShowCheckInModal(false);
+        setShowDuplicateWarning(false);
+        setDuplicateCheckInInfo(null);
         setCheckInData({ qrCode: '', memberId: '', method: 'qr' });
         
         // Refresh analytics
         await fetchAnalytics();
+      } else if (result.duplicate && result.lastCheckIn) {
+        // Show duplicate warning modal
+        setDuplicateCheckInInfo({
+          message: result.message || 'Member already checked in recently',
+          lastCheckIn: result.lastCheckIn,
+          pendingData: dataToSend
+        });
+        setShowDuplicateWarning(true);
       } else {
         alert(`❌ ${result.error || 'Failed to check-in'}`);
       }
@@ -1202,6 +1221,16 @@ export default function AdminDashboard() {
       console.error('❌ Check-in error:', error);
       alert('❌ Failed to check-in. Please check your connection and try again.');
     }
+  };
+
+  // Handle force check-in (override duplicate warning)
+  const handleForceCheckIn = async () => {
+    if (!duplicateCheckInInfo) return;
+
+    await handleCheckIn({
+      ...duplicateCheckInInfo.pendingData,
+      forceCheckIn: true
+    });
   };
 
   // Permission checks
@@ -3130,6 +3159,73 @@ export default function AdminDashboard() {
           }}
           onClose={() => setShowWebcamScanner(false)}
         />
+      )}
+
+      {/* Duplicate Check-In Warning Modal */}
+      {showDuplicateWarning && duplicateCheckInInfo && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="flex-shrink-0">
+                <AlertTriangle className="h-6 w-6 text-orange-500" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-xl font-bold mb-1">Duplicate Check-In Detected</h2>
+                <p className="text-gray-600 text-sm">
+                  This member has already checked in recently.
+                </p>
+              </div>
+            </div>
+            
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
+              <p className="text-sm font-medium text-gray-700 mb-2">Last Check-In:</p>
+              <div className="space-y-1 text-sm text-gray-600">
+                <div className="flex justify-between">
+                  <span className="font-medium">Time:</span>
+                  <span>{duplicateCheckInInfo.lastCheckIn.time}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium">Method:</span>
+                  <span className="capitalize">{duplicateCheckInInfo.lastCheckIn.method}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium">Checked By:</span>
+                  <span>{duplicateCheckInInfo.lastCheckIn.checkedBy}</span>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              {user?.role === 'MANAGER' || user?.role === 'ADMIN' 
+                ? 'As a manager/admin, you can override this warning and check in again.'
+                : 'Please verify this is not a duplicate scan. Contact a manager if needed.'}
+            </p>
+
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowDuplicateWarning(false);
+                  setDuplicateCheckInInfo(null);
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              {(user?.role === 'MANAGER' || user?.role === 'ADMIN') && (
+                <Button
+                  type="button"
+                  onClick={handleForceCheckIn}
+                  disabled={isCheckingIn}
+                  className="flex-1 bg-orange-500 hover:bg-orange-600"
+                >
+                  {isCheckingIn ? 'Checking In...' : 'Continue Anyway'}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Class Modal (Create/Edit) */}

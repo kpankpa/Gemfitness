@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     console.log('📋 Check-in request body:', body);
-    const { userId, qrCode, method = 'qr', checkedBy } = body;
+    const { userId, qrCode, method = 'qr', checkedBy, forceCheckIn = false } = body;
 
     // Validate input
     if (!userId && !qrCode) {
@@ -145,6 +145,42 @@ export async function POST(request: NextRequest) {
         { error: 'Member does not have an active subscription' },
         { status: 403 }
       );
+    }
+
+    // Check for duplicate check-in within 30 minutes (unless forced)
+    if (!forceCheckIn) {
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+      
+      const recentCheckIn = await prisma.checkIn.findFirst({
+        where: {
+          userId: user.id,
+          checkInTime: {
+            gte: thirtyMinutesAgo
+          }
+        },
+        orderBy: {
+          checkInTime: 'desc'
+        }
+      });
+
+      if (recentCheckIn) {
+        console.log('⚠️ Duplicate check-in detected:', recentCheckIn.checkInTime);
+        const lastCheckInTime = recentCheckIn.checkInTime.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        
+        return NextResponse.json({
+          success: false,
+          duplicate: true,
+          message: `Member already checked in at ${lastCheckInTime}`,
+          lastCheckIn: {
+            time: lastCheckInTime,
+            method: recentCheckIn.method,
+            checkedBy: recentCheckIn.checkedBy
+          }
+        }, { status: 409 }); // 409 Conflict
+      }
     }
 
     // Create check-in record

@@ -17,7 +17,7 @@ interface UseCheckInsReturn {
   error: string | null;
   fetchCheckIns: () => Promise<void>;
   fetchStats: () => Promise<void>;
-  performCheckIn: (data: { qrCode?: string; userId?: string; method: 'qr' | 'manual'; checkedBy?: string }) => Promise<{ success: boolean; error?: string; checkIn?: CheckIn }>;
+  performCheckIn: (data: { qrCode?: string; userId?: string; method: 'qr' | 'manual'; checkedBy?: string; forceCheckIn?: boolean }) => Promise<{ success: boolean; error?: string; checkIn?: CheckIn; duplicate?: boolean; message?: string; lastCheckIn?: { time: string; method: string; checkedBy: string } }>;
 }
 
 export function useCheckIns(): UseCheckInsReturn {
@@ -96,7 +96,7 @@ export function useCheckIns(): UseCheckInsReturn {
     }
   }, []);
 
-  const performCheckIn = useCallback(async (data: { qrCode?: string; userId?: string; method: 'qr' | 'manual'; checkedBy?: string }) => {
+  const performCheckIn = useCallback(async (data: { qrCode?: string; userId?: string; method: 'qr' | 'manual'; checkedBy?: string; forceCheckIn?: boolean }) => {
     console.log('🚀 performCheckIn called with data:', data);
     
     if (isCheckingInRef.current) {
@@ -140,6 +140,15 @@ export function useCheckIns(): UseCheckInsReturn {
         // Refresh check-ins and stats after successful check-in
         await Promise.all([fetchCheckIns(), fetchStats()]);
         return { success: true, checkIn: result.checkIn };
+      } else if (response.status === 409 && result.duplicate) {
+        // Duplicate check-in detected
+        console.log('⚠️ Duplicate check-in detected:', result.message);
+        return { 
+          success: false, 
+          duplicate: true, 
+          message: result.message,
+          lastCheckIn: result.lastCheckIn 
+        };
       } else {
         console.log('❌ Check-in failed:', result.error);
         return { success: false, error: result.error || 'Check-in failed' };
