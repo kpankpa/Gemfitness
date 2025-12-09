@@ -84,7 +84,7 @@ export default function LoginPage() {
           <div className="space-y-6">
             <div className="flex items-center gap-3">
               <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <Image src="/logo.png" alt="GemFitness" width={48} height={48} className="w-12 h-12 object-contain" />
+                <Image src="/gemfitness.svg" alt="GemFitness" width={48} height={48} className="w-12 h-12 object-contain" />
               </div>
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">GemFitness</h1>

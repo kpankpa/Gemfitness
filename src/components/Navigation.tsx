@@ -50,13 +50,13 @@ export default function Navigation() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 sm:h-20">
           {/* Logo */}
-          <Link href="/" className="flex items-center group">
+          <Link href="/" className="flex items-center gap-2 group">
             <Image
-              src="/logo.png"
+              src="/gemfitness.svg"
               alt="GemFitness Logo"
               width={48}
               height={48}
-              className="w-full h-full object-contain"
+              className="w-12 h-12 object-contain"
             />
           </Link>
 

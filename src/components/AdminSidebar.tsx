@@ -65,7 +65,7 @@ export default function AdminSidebar({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Image
-              src="/logo.png"
+              src="/gemfitness.svg"
               alt="GemFitness"
               width={32}
               height={32}
@@ -108,7 +108,7 @@ export default function AdminSidebar({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Image
-                  src="/logo.png"
+                  src="/gemfitness.svg"
                   alt="GemFitness"
                   width={40}
                   height={40}

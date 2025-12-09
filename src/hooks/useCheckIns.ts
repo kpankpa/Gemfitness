@@ -17,7 +17,7 @@ interface UseCheckInsReturn {
   error: string | null;
   fetchCheckIns: () => Promise<void>;
   fetchStats: () => Promise<void>;
-  performCheckIn: (data: { qrCode?: string; userId?: string; method: 'qr' | 'manual' }) => Promise<{ success: boolean; error?: string; checkIn?: CheckIn }>;
+  performCheckIn: (data: { qrCode?: string; userId?: string; method: 'qr' | 'manual'; checkedBy?: string }) => Promise<{ success: boolean; error?: string; checkIn?: CheckIn }>;
 }
 
 export function useCheckIns(): UseCheckInsReturn {
@@ -96,7 +96,7 @@ export function useCheckIns(): UseCheckInsReturn {
     }
   }, []);
 
-  const performCheckIn = useCallback(async (data: { qrCode?: string; userId?: string; method: 'qr' | 'manual' }) => {
+  const performCheckIn = useCallback(async (data: { qrCode?: string; userId?: string; method: 'qr' | 'manual'; checkedBy?: string }) => {
     console.log('🚀 performCheckIn called with data:', data);
     
     if (isCheckingInRef.current) {

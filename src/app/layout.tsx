@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_GH",
-    url: "https://gemfitness.com",
+    url: "https://gemfitness.fit",
     siteName: "GemFitness",
     title: "GemFitness - We're What We Eat!",
     description: "Transform your body, transform your life. Located in Tema, Gbestile, Ghana.",
@@ -67,9 +67,9 @@ export const metadata: Metadata = {
     follow: true,
   },
   icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
-    shortcut: "/logo.png",
+    icon: "/gemfitness.svg",
+    apple: "/gemfitness.svg",
+    shortcut: "/gemfitness.svg",
   },
 };
 

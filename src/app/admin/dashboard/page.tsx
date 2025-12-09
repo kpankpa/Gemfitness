@@ -50,6 +50,7 @@ import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import AdminSidebar from '@/components/AdminSidebar';
 import type { Member } from '@/types';
+import { printRegistrationReceipt, generateReceiptNumber } from '@/lib/receipt-printer';
 
 // Mock data for features not yet implemented (Payments)
 const mockStats = {
@@ -260,6 +261,43 @@ export default function AdminDashboard() {
   const [showCheckInModal, setShowCheckInModal] = useState(false);
   const [checkInMode, setCheckInMode] = useState<'search' | 'scanner' | 'camera'>('search');
   const [showWebcamScanner, setShowWebcamScanner] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [registeredMemberData, setRegisteredMemberData] = useState<any>(null);
+
+  // Class modal states
+  const [showClassModal, setShowClassModal] = useState(false);
+  const [editingClass, setEditingClass] = useState<string | null>(null);
+  const [classFormData, setClassFormData] = useState({
+    name: '',
+    description: '',
+    type: '',
+    instructor: '',
+    duration: '',
+    maxCapacity: '20',
+    schedule: '',
+    color: 'from-orange-400 to-orange-600',
+    status: 'ACTIVE'
+  });
+  const [isSavingClass, setIsSavingClass] = useState(false);
+  const [classError, setClassError] = useState<string | null>(null);
+
+  // Event modal states
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<string | null>(null);
+  const [eventFormData, setEventFormData] = useState({
+    title: '',
+    description: '',
+    eventDate: '',
+    endDate: '',
+    location: 'GemFitness Tema',
+    image: '',
+    maxAttendees: '',
+    isFree: true,
+    price: '',
+    status: 'UPCOMING'
+  });
+  const [isSavingEvent, setIsSavingEvent] = useState(false);
+  const [eventError, setEventError] = useState<string | null>(null);
 
   // Fetch initial data when authenticated (run ONCE on mount)
   useEffect(() => {
@@ -370,8 +408,11 @@ export default function AdminDashboard() {
     try {
       const response = await fetch('/api/plans');
       const data = await response.json();
+      console.log('Plans API response:', data);
+      console.log('Plans array:', data.plans);
       if (data.success) {
         setPlans(data.plans);
+        console.log('Plans state updated:', data.plans.length, 'plans');
       }
     } catch (error) {
       console.error('Error fetching plans:', error);
@@ -816,18 +857,14 @@ export default function AdminDashboard() {
       const data = await response.json();
 
       if (response.ok) {
-        alert(`Member registered successfully! QR Code: ${data.user.qrCode}`);
-        setShowNewMemberModal(false);
-        setNewMember({
-          firstName: '',
-          lastName: '',
-          email: '',
-          phone: '',
-          password: '',
-          dateOfBirth: '',
-          registrationType: 'SELF',
-          plan: 'ONE_MONTH'
+        // Store registered member data for receipt
+        setRegisteredMemberData({
+          ...data.user,
+          plan: newMember.plan,
+          registrationType: newMember.registrationType
         });
+        setRegistrationSuccess(true);
+        
         // Refresh members list
         fetchMembers();
         fetchAnalytics();
@@ -839,6 +876,298 @@ export default function AdminDashboard() {
       alert('Failed to register member');
     } finally {
       setIsRegistering(false);
+    }
+  };
+
+  // Handle print receipt and close registration modal
+  const handlePrintReceipt = () => {
+    if (!registeredMemberData) return;
+
+    const planDetails = {
+      'ONE_MONTH': { name: 'Monthly', price: 200, duration: '1 Month' },
+      'THREE_MONTHS': { name: 'Quarterly', price: 450, duration: '3 Months' },
+      'SIX_MONTHS': { name: 'Semi-Annual', price: 1000, duration: '6 Months' },
+      'TWELVE_MONTHS': { name: 'Annual', price: 2000, duration: '12 Months' },
+      'DAILY': { name: 'Daily Walk-In', price: 50, duration: '1 Day' },
+    };
+
+    const regFees = {
+      'SINGLE': 250,
+      'COUPLE': 400,
+      'FAMILY': 1000,
+    };
+
+    const plan = planDetails[registeredMemberData.plan as keyof typeof planDetails];
+    const regFee = regFees[registeredMemberData.registrationType as keyof typeof regFees] || 250;
+
+    const nextMonth = new Date();
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+    printRegistrationReceipt({
+      receiptNumber: generateReceiptNumber(),
+      memberName: `${registeredMemberData.firstName} ${registeredMemberData.lastName}`,
+      memberId: registeredMemberData.id,
+      email: registeredMemberData.email,
+      phone: registeredMemberData.phone,
+      registrationType: registeredMemberData.registrationType,
+      registrationFee: regFee,
+      membershipPlan: plan.name,
+      planPrice: plan.price,
+      planDuration: plan.duration,
+      firstPaymentDate: nextMonth.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      paymentMethod: 'CASH', // Default, can be changed
+      qrCode: registeredMemberData.qrCode || 'N/A',
+      receivedBy: user?.email || 'Receptionist',
+    });
+  };
+
+  // Close registration modal and reset
+  const closeRegistrationModal = () => {
+    setShowNewMemberModal(false);
+    setRegistrationSuccess(false);
+    setRegisteredMemberData(null);
+    setNewMember({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      password: '',
+      dateOfBirth: '',
+      registrationType: 'SELF',
+      plan: 'ONE_MONTH'
+    });
+  };
+
+  // Open class modal for creating or editing
+  const openClassModal = (classData?: any) => {
+    if (classData) {
+      // Edit mode
+      setEditingClass(classData.id);
+      setClassFormData({
+        name: classData.name,
+        description: classData.description || '',
+        type: classData.type,
+        instructor: classData.instructor,
+        duration: classData.duration.toString(),
+        maxCapacity: classData.maxCapacity.toString(),
+        schedule: classData.schedule,
+        color: classData.color || 'from-orange-400 to-orange-600',
+        status: classData.status
+      });
+    } else {
+      // Create mode
+      setEditingClass(null);
+      setClassFormData({
+        name: '',
+        description: '',
+        type: '',
+        instructor: '',
+        duration: '',
+        maxCapacity: '20',
+        schedule: '',
+        color: 'from-orange-400 to-orange-600',
+        status: 'ACTIVE'
+      });
+    }
+    setClassError(null);
+    setShowClassModal(true);
+  };
+
+  // Close class modal
+  const closeClassModal = () => {
+    setShowClassModal(false);
+    setEditingClass(null);
+    setClassError(null);
+    setClassFormData({
+      name: '',
+      description: '',
+      type: '',
+      instructor: '',
+      duration: '',
+      maxCapacity: '20',
+      schedule: '',
+      color: 'from-orange-400 to-orange-600',
+      status: 'ACTIVE'
+    });
+  };
+
+  // Save class (create or update)
+  const handleSaveClass = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingClass(true);
+    setClassError(null);
+
+    try {
+      const url = editingClass 
+        ? `/api/classes/${editingClass}` 
+        : '/api/classes';
+      
+      const method = editingClass ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(classFormData)
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchClasses();
+        closeClassModal();
+        alert(editingClass ? '✅ Class updated successfully!' : '✅ Class created successfully!');
+      } else {
+        setClassError(data.error || 'Failed to save class');
+      }
+    } catch (error) {
+      console.error('Error saving class:', error);
+      setClassError('Failed to save class. Please try again.');
+    } finally {
+      setIsSavingClass(false);
+    }
+  };
+
+  // Delete class
+  const handleDeleteClass = async (classId: string) => {
+    if (!confirm('Are you sure you want to delete this class? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/classes/${classId}`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchClasses();
+        alert('✅ Class deleted successfully!');
+      } else {
+        alert('❌ Failed to delete class');
+      }
+    } catch (error) {
+      console.error('Error deleting class:', error);
+      alert('❌ Error deleting class');
+    }
+  };
+
+  // Open event modal for creating or editing
+  const openEventModal = (eventData?: any) => {
+    if (eventData) {
+      // Edit mode
+      setEditingEvent(eventData.id);
+      const eventDate = new Date(eventData.eventDate);
+      const endDate = eventData.endDate ? new Date(eventData.endDate) : null;
+      setEventFormData({
+        title: eventData.title,
+        description: eventData.description,
+        eventDate: eventDate.toISOString().split('T')[0],
+        endDate: endDate ? endDate.toISOString().split('T')[0] : '',
+        location: eventData.location || 'GemFitness Tema',
+        image: eventData.image || '',
+        maxAttendees: eventData.maxAttendees?.toString() || '',
+        isFree: eventData.isFree,
+        price: eventData.price?.toString() || '',
+        status: eventData.status
+      });
+    } else {
+      // Create mode
+      setEditingEvent(null);
+      setEventFormData({
+        title: '',
+        description: '',
+        eventDate: '',
+        endDate: '',
+        location: 'GemFitness Tema',
+        image: '',
+        maxAttendees: '',
+        isFree: true,
+        price: '',
+        status: 'UPCOMING'
+      });
+    }
+    setEventError(null);
+    setShowEventModal(true);
+  };
+
+  // Close event modal
+  const closeEventModal = () => {
+    setShowEventModal(false);
+    setEditingEvent(null);
+    setEventError(null);
+    setEventFormData({
+      title: '',
+      description: '',
+      eventDate: '',
+      endDate: '',
+      location: 'GemFitness Tema',
+      image: '',
+      maxAttendees: '',
+      isFree: true,
+      price: '',
+      status: 'UPCOMING'
+    });
+  };
+
+  // Save event (create or update)
+  const handleSaveEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingEvent(true);
+    setEventError(null);
+
+    try {
+      const url = editingEvent 
+        ? `/api/events/${editingEvent}` 
+        : '/api/events';
+      
+      const method = editingEvent ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(eventFormData)
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchEvents();
+        closeEventModal();
+        alert(editingEvent ? '✅ Event updated successfully!' : '✅ Event created successfully!');
+      } else {
+        setEventError(data.error || 'Failed to save event');
+      }
+    } catch (error) {
+      console.error('Error saving event:', error);
+      setEventError('Failed to save event. Please try again.');
+    } finally {
+      setIsSavingEvent(false);
+    }
+  };
+
+  // Delete event
+  const handleDeleteEvent = async (eventId: string) => {
+    if (!confirm('Are you sure you want to delete this event? This will also cancel all registrations.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/events/${eventId}`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchEvents();
+        alert('✅ Event deleted successfully!');
+      } else {
+        alert(`❌ ${data.error || 'Failed to delete event'}`);
+      }
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      alert('❌ Error deleting event');
     }
   };
 
@@ -855,7 +1184,8 @@ export default function AdminDashboard() {
     try {
       const result = await performCheckIn({
         qrCode: dataToSend.qrCode,
-        method: dataToSend.method || 'qr'
+        method: dataToSend.method || 'qr',
+        checkedBy: user?.email || 'system'
       });
 
       if (result.success) {
@@ -1323,7 +1653,10 @@ export default function AdminDashboard() {
                     <CardDescription>Manage gym classes and schedules</CardDescription>
                   </div>
                   {canManageClasses && (
-                    <Button className="bg-orange-500 hover:bg-orange-600 w-full sm:w-auto">
+                    <Button 
+                      onClick={() => openClassModal()}
+                      className="bg-orange-500 hover:bg-orange-600 w-full sm:w-auto"
+                    >
                       <Plus className="mr-2 h-5 w-5" />
                       Add New Class
                     </Button>
@@ -1349,7 +1682,7 @@ export default function AdminDashboard() {
                             <Dumbbell className="h-6 w-6 text-white" />
                           </div>
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                            classItem.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                            classItem.status?.toUpperCase() === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
                           }`}>
                             {classItem.status}
                           </span>
@@ -1388,11 +1721,20 @@ export default function AdminDashboard() {
 
                         {canManageClasses && (
                           <div className="flex gap-2">
-                            <Button variant="outline" size="sm" className="flex-1">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="flex-1"
+                              onClick={() => openClassModal(classItem)}
+                            >
                               <Edit className="h-4 w-4 mr-1" />
                               Edit
                             </Button>
-                            <Button variant="outline" size="sm">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleDeleteClass(classItem.id)}
+                            >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
@@ -1422,7 +1764,10 @@ export default function AdminDashboard() {
                     <CardDescription>Create and manage gym events (both staff roles can add events)</CardDescription>
                   </div>
                   {canCreateEvents && (
-                    <Button className="bg-orange-500 hover:bg-orange-600 w-full sm:w-auto">
+                    <Button 
+                      onClick={() => openEventModal()}
+                      className="bg-orange-500 hover:bg-orange-600 w-full sm:w-auto"
+                    >
                       <Plus className="mr-2 h-5 w-5" />
                       Create New Event
                     </Button>
@@ -1461,12 +1806,12 @@ export default function AdminDashboard() {
                                 <p className="text-sm text-gray-600">{event.description}</p>
                               </div>
                               <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ml-2 ${
-                                event.status === 'upcoming' ? 'bg-blue-100 text-blue-700' :
-                                event.status === 'ongoing' ? 'bg-green-100 text-green-700' :
-                                event.status === 'completed' ? 'bg-gray-100 text-gray-700' :
+                                event.status?.toUpperCase() === 'UPCOMING' ? 'bg-blue-100 text-blue-700' :
+                                event.status?.toUpperCase() === 'ONGOING' ? 'bg-green-100 text-green-700' :
+                                event.status?.toUpperCase() === 'COMPLETED' ? 'bg-gray-100 text-gray-700' :
                                 'bg-red-100 text-red-700'
                               }`}>
-                                {event.status.toUpperCase()}
+                                {event.status?.toUpperCase()}
                               </span>
                             </div>
 
@@ -1512,13 +1857,22 @@ export default function AdminDashboard() {
                               </Button>
                               {canCreateEvents && (
                                 <>
-                                  <Button variant="outline" size="sm">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => openEventModal(event)}
+                                  >
                                     <Edit className="h-4 w-4 mr-1" />
                                     Edit
                                   </Button>
-                                  <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="text-red-600 hover:text-red-700"
+                                    onClick={() => handleDeleteEvent(event.id)}
+                                  >
                                     <Trash2 className="h-4 w-4 mr-1" />
-                                    Cancel
+                                    Delete
                                   </Button>
                                 </>
                               )}
@@ -1820,7 +2174,7 @@ export default function AdminDashboard() {
                           <tr key={checkin.id} className="hover:bg-gray-50">
                             <td className="px-4 py-3 text-sm text-gray-900 font-medium">{checkin.time}</td>
                             <td className="px-4 py-3 text-sm text-gray-900">{checkin.member}</td>
-                            <td className="px-4 py-3 text-sm text-gray-600 font-mono text-xs">{checkin.member}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600 font-mono text-xs">{checkin.memberId}</td>
                             <td className="px-4 py-3">
                               <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                                 checkin.method === 'qr' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
@@ -1828,7 +2182,7 @@ export default function AdminDashboard() {
                                 {checkin.method.toUpperCase()}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-600 hidden sm:table-cell">System</td>
+                            <td className="px-4 py-3 text-sm text-gray-600 hidden sm:table-cell">{checkin.checkedBy}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -2554,6 +2908,55 @@ export default function AdminDashboard() {
       {showNewMemberModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4 max-h-screen overflow-y-auto">
+            {registrationSuccess ? (
+              /* Success View with Print Receipt */
+              <div className="text-center py-8">
+                <div className="mb-6">
+                  <CheckCircle2 className="h-20 w-20 text-green-500 mx-auto mb-4" />
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Registration Successful!</h2>
+                  <p className="text-gray-600 mb-1">Member has been registered successfully</p>
+                  <p className="text-sm text-gray-500">Member ID: {registeredMemberData?.id}</p>
+                  <p className="text-sm text-gray-500">QR Code: {registeredMemberData?.qrCode}</p>
+                </div>
+
+                <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-4 mb-6">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <AlertTriangle className="h-5 w-5 text-orange-600" />
+                    <p className="font-semibold text-orange-900">Print Receipt for Customer</p>
+                  </div>
+                  <p className="text-sm text-orange-700">Please print the receipt and hand it to the customer before they leave.</p>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <Button
+                    onClick={handlePrintReceipt}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white py-3 text-lg"
+                  >
+                    <Download className="mr-2 h-5 w-5" />
+                    Print Receipt
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      handlePrintReceipt();
+                      setTimeout(closeRegistrationModal, 500);
+                    }}
+                    variant="outline"
+                    className="w-full border-2"
+                  >
+                    Print & Close
+                  </Button>
+                  <Button
+                    onClick={closeRegistrationModal}
+                    variant="ghost"
+                    className="w-full"
+                  >
+                    Skip & Close
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              /* Registration Form */
+              <>
             <h2 className="text-xl font-bold mb-4">Register New Member</h2>
             <form onSubmit={handleRegisterMember} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
@@ -2662,6 +3065,8 @@ export default function AdminDashboard() {
                 </Button>
               </div>
             </form>
+            </>
+            )}
           </div>
         </div>
       )}
@@ -2725,6 +3130,347 @@ export default function AdminDashboard() {
           }}
           onClose={() => setShowWebcamScanner(false)}
         />
+      )}
+
+      {/* Class Modal (Create/Edit) */}
+      {showClassModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeClassModal();
+          }}
+        >
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6">
+              <h2 className="text-2xl font-bold mb-4">
+                {editingClass ? 'Edit Class' : 'Create New Class'}
+              </h2>
+              {classError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {classError}
+                </div>
+              )}
+              <form onSubmit={handleSaveClass} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Class Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={classFormData.name}
+                      onChange={(e) => setClassFormData({ ...classFormData, name: e.target.value })}
+                      placeholder="e.g., Weight Training"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Class Type *</label>
+                    <select
+                      required
+                      value={classFormData.type}
+                      onChange={(e) => setClassFormData({ ...classFormData, type: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    >
+                      <option value="">Select Type</option>
+                      <option value="Cardio">Cardio</option>
+                      <option value="Strength">Strength</option>
+                      <option value="HIIT">HIIT</option>
+                      <option value="Yoga">Yoga</option>
+                      <option value="Dance">Dance</option>
+                      <option value="Boxing">Boxing</option>
+                      <option value="Cycling">Cycling</option>
+                      <option value="Pilates">Pilates</option>
+                      <option value="CrossFit">CrossFit</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Description</label>
+                  <textarea
+                    value={classFormData.description}
+                    onChange={(e) => setClassFormData({ ...classFormData, description: e.target.value })}
+                    placeholder="Brief description of the class..."
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Instructor *</label>
+                    <input
+                      type="text"
+                      required
+                      value={classFormData.instructor}
+                      onChange={(e) => setClassFormData({ ...classFormData, instructor: e.target.value })}
+                      placeholder="Coach name"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Duration (minutes) *</label>
+                    <input
+                      type="number"
+                      required
+                      min="15"
+                      max="180"
+                      value={classFormData.duration}
+                      onChange={(e) => setClassFormData({ ...classFormData, duration: e.target.value })}
+                      placeholder="e.g., 60"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Max Capacity *</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      max="100"
+                      value={classFormData.maxCapacity}
+                      onChange={(e) => setClassFormData({ ...classFormData, maxCapacity: e.target.value })}
+                      placeholder="e.g., 20"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Status</label>
+                    <select
+                      value={classFormData.status}
+                      onChange={(e) => setClassFormData({ ...classFormData, status: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    >
+                      <option value="ACTIVE">Active</option>
+                      <option value="INACTIVE">Inactive</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Schedule *</label>
+                  <input
+                    type="text"
+                    required
+                    value={classFormData.schedule}
+                    onChange={(e) => setClassFormData({ ...classFormData, schedule: e.target.value })}
+                    placeholder="e.g., Mon, Wed, Fri - 6:30 AM"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Specify days and time (e.g., "Mon, Wed, Fri - 6:30 AM")</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Card Color</label>
+                  <select
+                    value={classFormData.color}
+                    onChange={(e) => setClassFormData({ ...classFormData, color: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    <option value="from-orange-400 to-orange-600">Orange</option>
+                    <option value="from-blue-400 to-blue-600">Blue</option>
+                    <option value="from-green-400 to-green-600">Green</option>
+                    <option value="from-purple-400 to-purple-600">Purple</option>
+                    <option value="from-pink-400 to-pink-600">Pink</option>
+                    <option value="from-red-400 to-red-600">Red</option>
+                    <option value="from-yellow-400 to-yellow-600">Yellow</option>
+                    <option value="from-indigo-400 to-indigo-600">Indigo</option>
+                  </select>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={closeClassModal}
+                    disabled={isSavingClass}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={isSavingClass}
+                    className="flex-1 bg-orange-500 hover:bg-orange-600"
+                  >
+                    {isSavingClass ? 'Saving...' : editingClass ? 'Update Class' : 'Create Class'}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Event Modal (Create/Edit) */}
+      {showEventModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeEventModal();
+          }}
+        >
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6">
+              <h2 className="text-2xl font-bold mb-4">
+                {editingEvent ? 'Edit Event' : 'Create New Event'}
+              </h2>
+              {eventError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {eventError}
+                </div>
+              )}
+              <form onSubmit={handleSaveEvent} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Event Title *</label>
+                  <input
+                    type="text"
+                    required
+                    value={eventFormData.title}
+                    onChange={(e) => setEventFormData({ ...eventFormData, title: e.target.value })}
+                    placeholder="e.g., Summer Fitness Challenge"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Description *</label>
+                  <textarea
+                    required
+                    value={eventFormData.description}
+                    onChange={(e) => setEventFormData({ ...eventFormData, description: e.target.value })}
+                    placeholder="Describe the event..."
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Event Date *</label>
+                    <input
+                      type="date"
+                      required
+                      value={eventFormData.eventDate}
+                      onChange={(e) => setEventFormData({ ...eventFormData, eventDate: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">End Date (Optional)</label>
+                    <input
+                      type="date"
+                      value={eventFormData.endDate}
+                      onChange={(e) => setEventFormData({ ...eventFormData, endDate: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Location</label>
+                    <input
+                      type="text"
+                      value={eventFormData.location}
+                      onChange={(e) => setEventFormData({ ...eventFormData, location: e.target.value })}
+                      placeholder="e.g., GemFitness Tema"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Max Attendees</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={eventFormData.maxAttendees}
+                      onChange={(e) => setEventFormData({ ...eventFormData, maxAttendees: e.target.value })}
+                      placeholder="Leave empty for unlimited"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Image URL (Optional)</label>
+                  <input
+                    type="url"
+                    value={eventFormData.image}
+                    onChange={(e) => setEventFormData({ ...eventFormData, image: e.target.value })}
+                    placeholder="https://example.com/event-banner.jpg"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Enter a URL to an event banner or poster image</p>
+                </div>
+
+                <div className="border-t pt-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <input
+                      type="checkbox"
+                      id="isFree"
+                      checked={eventFormData.isFree}
+                      onChange={(e) => setEventFormData({ ...eventFormData, isFree: e.target.checked, price: e.target.checked ? '' : eventFormData.price })}
+                      className="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
+                    />
+                    <label htmlFor="isFree" className="text-sm font-medium">This is a free event</label>
+                  </div>
+
+                  {!eventFormData.isFree && (
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Ticket Price (GH₵) *</label>
+                      <input
+                        type="number"
+                        required={!eventFormData.isFree}
+                        min="0"
+                        step="0.01"
+                        value={eventFormData.price}
+                        onChange={(e) => setEventFormData({ ...eventFormData, price: e.target.value })}
+                        placeholder="e.g., 50.00"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Status</label>
+                  <select
+                    value={eventFormData.status}
+                    onChange={(e) => setEventFormData({ ...eventFormData, status: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    <option value="UPCOMING">Upcoming</option>
+                    <option value="ONGOING">Ongoing</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="CANCELLED">Cancelled</option>
+                  </select>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={closeEventModal}
+                    disabled={isSavingEvent}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={isSavingEvent}
+                    className="flex-1 bg-orange-500 hover:bg-orange-600"
+                  >
+                    {isSavingEvent ? 'Saving...' : editingEvent ? 'Update Event' : 'Create Event'}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Add Staff Member Modal */}
