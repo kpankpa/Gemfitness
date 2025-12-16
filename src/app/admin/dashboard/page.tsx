@@ -44,6 +44,8 @@ import {
   Camera,
   Scan,
   Trophy,
+  X,
+  Upload,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -62,16 +64,15 @@ const mockStats = {
 export default function AdminDashboard() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
-  const { members, isLoading: _membersLoading, fetchMembers, searchMembers } = useMembers();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { checkIns, stats: checkInStats, isLoading: checkInsLoading, isCheckingIn, performCheckIn, fetchCheckIns, fetchStats } = useCheckIns();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { analytics, isLoading: analyticsLoading, fetchAnalytics } = useAnalytics();
+  const { members, fetchMembers, searchMembers } = useMembers();
+  const { checkIns, stats: checkInStats, isCheckingIn, performCheckIn, fetchCheckIns, fetchStats } = useCheckIns();
+  const { analytics, fetchAnalytics } = useAnalytics();
   
   // Classes and Events state
   const [classes, setClasses] = useState<Array<{
     id: string;
     name: string;
+    description?: string;
     type: string;
     instructor: string;
     duration: number;
@@ -86,6 +87,7 @@ export default function AdminDashboard() {
     title: string;
     description: string;
     eventDate: string;
+    endDate?: string | null;
     location: string;
     maxAttendees?: number;
     registered: number;
@@ -141,9 +143,6 @@ export default function AdminDashboard() {
   const [showNewMemberModal, setShowNewMemberModal] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showMemberModal, setShowMemberModal] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [showDayPassModal, setShowDayPassModal] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
   // Staff modal states
@@ -262,14 +261,23 @@ export default function AdminDashboard() {
   const [checkInMode, setCheckInMode] = useState<'search' | 'scanner' | 'camera'>('search');
   const [showWebcamScanner, setShowWebcamScanner] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
-  const [registeredMemberData, setRegisteredMemberData] = useState<any>(null);
+  const [registeredMemberData, setRegisteredMemberData] = useState<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    qrCode?: string;
+    plan: string;
+    registrationType: string;
+  } | null>(null);
   
   // Duplicate check-in warning state
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
   const [duplicateCheckInInfo, setDuplicateCheckInInfo] = useState<{
     message: string;
     lastCheckIn: { time: string; method: string; checkedBy: string };
-    pendingData: { qrCode?: string; method?: 'qr' | 'manual' };
+    pendingData: { qrCode?: string; method?: 'qr' | 'manual'; forceCheckIn?: boolean };
   } | null>(null);
 
   // Class modal states
@@ -306,6 +314,8 @@ export default function AdminDashboard() {
   });
   const [isSavingEvent, setIsSavingEvent] = useState(false);
   const [eventError, setEventError] = useState<string | null>(null);
+  const [eventImagePreview, setEventImagePreview] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Fetch initial data when authenticated (run ONCE on mount)
   useEffect(() => {
@@ -600,7 +610,7 @@ export default function AdminDashboard() {
       } else {
         setPlanError(data.error || 'Failed to create plan');
       }
-    } catch (error) {
+    } catch {
       setPlanError('An error occurred while creating plan');
     } finally {
       setIsSubmittingPlan(false);
@@ -631,7 +641,7 @@ export default function AdminDashboard() {
       } else {
         setPlanError(data.error || 'Failed to update plan');
       }
-    } catch (error) {
+    } catch {
       setPlanError('An error occurred while updating plan');
     } finally {
       setIsSubmittingPlan(false);
@@ -659,7 +669,7 @@ export default function AdminDashboard() {
       } else {
         setPlanError(data.error || 'Failed to archive plan');
       }
-    } catch (error) {
+    } catch {
       setPlanError('An error occurred while archiving plan');
     } finally {
       setIsSubmittingPlan(false);
@@ -683,8 +693,8 @@ export default function AdminDashboard() {
       if (data.success) {
         fetchPlans();
       }
-    } catch (error) {
-      console.error('Error toggling plan status:', error);
+    } catch {
+      // Error already logged
     }
   };
 
@@ -917,7 +927,7 @@ export default function AdminDashboard() {
       memberId: registeredMemberData.id,
       email: registeredMemberData.email,
       phone: registeredMemberData.phone,
-      registrationType: registeredMemberData.registrationType,
+      registrationType: registeredMemberData.registrationType as 'SINGLE' | 'COUPLE' | 'FAMILY',
       registrationFee: regFee,
       membershipPlan: plan.name,
       planPrice: plan.price,
@@ -947,7 +957,7 @@ export default function AdminDashboard() {
   };
 
   // Open class modal for creating or editing
-  const openClassModal = (classData?: any) => {
+  const openClassModal = (classData?: typeof classes[0]) => {
     if (classData) {
       // Edit mode
       setEditingClass(classData.id);
@@ -1061,7 +1071,7 @@ export default function AdminDashboard() {
   };
 
   // Open event modal for creating or editing
-  const openEventModal = (eventData?: any) => {
+  const openEventModal = (eventData?: typeof events[0]) => {
     if (eventData) {
       // Edit mode
       setEditingEvent(eventData.id);
@@ -1079,6 +1089,8 @@ export default function AdminDashboard() {
         price: eventData.price?.toString() || '',
         status: eventData.status
       });
+      // Set preview for existing image
+      setEventImagePreview(eventData.image || null);
     } else {
       // Create mode
       setEditingEvent(null);
@@ -1094,6 +1106,8 @@ export default function AdminDashboard() {
         price: '',
         status: 'UPCOMING'
       });
+      // Clear preview for new event
+      setEventImagePreview(null);
     }
     setEventError(null);
     setShowEventModal(true);
@@ -1104,6 +1118,8 @@ export default function AdminDashboard() {
     setShowEventModal(false);
     setEditingEvent(null);
     setEventError(null);
+    setEventImagePreview(null);
+    setIsUploadingImage(false);
     setEventFormData({
       title: '',
       description: '',
@@ -1179,6 +1195,48 @@ export default function AdminDashboard() {
     }
   };
 
+  // Handle event image upload
+  const handleEventImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('❌ Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('❌ Image size must be less than 5MB');
+      return;
+    }
+
+    setIsUploadingImage(true);
+
+    try {
+      // Convert to base64 for preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setEventImagePreview(base64String);
+        setEventFormData({ ...eventFormData, image: base64String });
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      alert('❌ Failed to upload image');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  // Remove event image
+  const handleRemoveEventImage = () => {
+    setEventImagePreview(null);
+    setEventFormData({ ...eventFormData, image: '' });
+  };
+
   // Handle check-in
   const handleCheckIn = async (overrideData?: { qrCode?: string; method?: 'qr' | 'manual'; forceCheckIn?: boolean }) => {
     const dataToSend = overrideData || checkInData;
@@ -1194,7 +1252,7 @@ export default function AdminDashboard() {
         qrCode: dataToSend.qrCode,
         method: dataToSend.method || 'qr',
         checkedBy: user?.email || 'system',
-        forceCheckIn: dataToSend.forceCheckIn || false
+        forceCheckIn: ('forceCheckIn' in dataToSend) ? dataToSend.forceCheckIn || false : false
       });
 
       if (result.success) {
@@ -1211,7 +1269,11 @@ export default function AdminDashboard() {
         setDuplicateCheckInInfo({
           message: result.message || 'Member already checked in recently',
           lastCheckIn: result.lastCheckIn,
-          pendingData: dataToSend
+          pendingData: {
+            qrCode: dataToSend.qrCode,
+            method: dataToSend.method || 'qr',
+            forceCheckIn: false
+          }
         });
         setShowDuplicateWarning(true);
       } else {
@@ -1234,18 +1296,17 @@ export default function AdminDashboard() {
   };
 
   // Permission checks
-  const isManager = user?.role === 'MANAGER';
+  const isManager = user?.role === 'MANAGER' || user?.role === 'ADMIN';
   const canViewReports = isManager;
   const canManagePayments = isManager;
   const canViewFinancials = isManager;
   const canManagePlans = isManager;
   const canManageStaff = isManager;
   const canSuspendMembers = isManager;
-  const canManageClasses = isManager; // Only managers can add/edit/delete classes
+  const canManageClasses = isManager; // Managers and Admins can add/edit/delete classes
   
   // Receptionist permissions (both roles can do these)
   const canRegisterMember = true;
-  const canSellDayPass = true;
   const canUpdateBasicInfo = true;
   const canCreateEvents = true; // Both managers and receptionists can create events
 
@@ -1363,12 +1424,6 @@ export default function AdminDashboard() {
                     <QrCode className="h-6 w-6" />
                     <span className="text-xs sm:text-sm">Check-In</span>
                   </Button>
-                  {canSellDayPass && (
-                    <Button onClick={() => setShowDayPassModal(true)} variant="outline" className="h-auto flex-col gap-2 py-4 border-2">
-                      <Ticket className="h-6 w-6" />
-                      <span className="text-xs sm:text-sm">Day Pass</span>
-                    </Button>
-                  )}
                   <Button onClick={() => setActiveTab('members')} variant="outline" className="h-auto flex-col gap-2 py-4 border-2">
                     <Search className="h-6 w-6" />
                     <span className="text-xs sm:text-sm">Find Member</span>
@@ -1818,12 +1873,24 @@ export default function AdminDashboard() {
                     <Card key={event.id} className="border-2 border-gray-200 hover:border-orange-300 transition-colors">
                       <CardContent className="p-6">
                         <div className="flex flex-col md:flex-row gap-6">
-                          {/* Event Image Placeholder */}
-                          <div className="w-full md:w-48 h-32 bg-gradient-to-br from-orange-100 to-orange-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                          {/* Event Image */}
+                          <div className="w-full md:w-56 h-36 bg-gradient-to-br from-orange-100 to-orange-200 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden relative">
                             {event.image ? (
-                              <Image src={event.image} alt={event.title} width={192} height={128} className="w-full h-full object-cover rounded-lg" />
+                              <Image 
+                                src={event.image} 
+                                alt={event.title} 
+                                fill
+                                className="object-cover rounded-lg"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                }}
+                              />
                             ) : (
-                              <ImageIcon className="h-12 w-12 text-orange-400" />
+                              <div className="flex flex-col items-center justify-center text-orange-400">
+                                <ImageIcon className="h-12 w-12 mb-2" />
+                                <p className="text-xs text-gray-500">No image</p>
+                              </div>
                             )}
                           </div>
 
@@ -3356,7 +3423,7 @@ export default function AdminDashboard() {
                     placeholder="e.g., Mon, Wed, Fri - 6:30 AM"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Specify days and time (e.g., "Mon, Wed, Fri - 6:30 AM")</p>
+                  <p className="text-xs text-gray-500 mt-1">Specify days and time (e.g., &quot;Mon, Wed, Fri - 6:30 AM&quot;)</p>
                 </div>
 
                 <div>
@@ -3491,15 +3558,65 @@ export default function AdminDashboard() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Image URL (Optional)</label>
-                  <input
-                    type="url"
-                    value={eventFormData.image}
-                    onChange={(e) => setEventFormData({ ...eventFormData, image: e.target.value })}
-                    placeholder="https://example.com/event-banner.jpg"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Enter a URL to an event banner or poster image</p>
+                  <label className="block text-sm font-medium mb-2">Event Image (Optional)</label>
+                  
+                  {/* File Upload Button */}
+                  <div className="mb-3">
+                    <label className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors cursor-pointer">
+                      <Upload className="h-4 w-4" />
+                      {isUploadingImage ? 'Processing...' : 'Choose Image from Device'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleEventImageUpload}
+                        disabled={isUploadingImage}
+                        className="hidden"
+                      />
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1">Select from your computer (Max 5MB: JPG, PNG, WEBP, GIF)</p>
+                  </div>
+                  
+                  {/* Image Preview */}
+                  {eventImagePreview && (
+                    <div className="mt-3 relative">
+                      <p className="text-xs font-medium text-gray-700 mb-2">Image Preview:</p>
+                      <div className="relative w-full h-40 bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                        <Image 
+                          src={eventImagePreview} 
+                          alt="Event preview" 
+                          fill
+                          className="object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const parent = target.parentElement;
+                            if (parent) {
+                              parent.innerHTML = '<div class="flex items-center justify-center h-full text-sm text-red-500"><p>⚠️ Failed to load image</p></div>';
+                            }
+                          }}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemoveEventImage}
+                        className="absolute top-6 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                        title="Remove image"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                  
+                  {/* Upload Tips */}
+                  <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs">
+                    <p className="font-semibold text-blue-900 mb-1">📸 Image Guidelines:</p>
+                    <ul className="list-disc list-inside space-y-1 text-gray-700 ml-2">
+                      <li>Recommended size: 1200x675px (16:9 ratio)</li>
+                      <li>Maximum file size: 5MB</li>
+                      <li>Supported formats: JPG, PNG, WEBP, GIF</li>
+                      <li>Use high-quality, landscape-oriented images for best results</li>
+                    </ul>
+                  </div>
                 </div>
 
                 <div className="border-t pt-4">
@@ -3532,17 +3649,27 @@ export default function AdminDashboard() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Status</label>
-                  <select
-                    value={eventFormData.status}
-                    onChange={(e) => setEventFormData({ ...eventFormData, status: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  >
-                    <option value="UPCOMING">Upcoming</option>
-                    <option value="ONGOING">Ongoing</option>
-                    <option value="COMPLETED">Completed</option>
-                    <option value="CANCELLED">Cancelled</option>
-                  </select>
+                  <label className="block text-sm font-medium mb-1">Event Status</label>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <input
+                        type="checkbox"
+                        id="cancelEvent"
+                        checked={eventFormData.status === 'CANCELLED'}
+                        onChange={(e) => setEventFormData({ 
+                          ...eventFormData, 
+                          status: e.target.checked ? 'CANCELLED' : 'UPCOMING'
+                        })}
+                        className="w-4 h-4 text-red-500 border-gray-300 rounded focus:ring-red-500"
+                      />
+                      <label htmlFor="cancelEvent" className="text-sm font-medium text-gray-700">
+                        Mark event as CANCELLED
+                      </label>
+                    </div>
+                    <p className="text-xs text-gray-600 bg-gray-50 p-2 rounded border border-gray-200">
+                      ℹ️ <strong>Status is auto-calculated:</strong> UPCOMING, ONGOING, and COMPLETED are determined by event dates. Only use the checkbox above to manually cancel an event.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="flex gap-3 pt-4">

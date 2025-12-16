@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifySession } from '@/lib/auth/dal';
 import { prisma } from '@/lib/prisma';
 import { $Enums } from '@prisma/client';
+import { getEventStatus } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySession();
@@ -19,8 +20,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { id } = await params;
     const event = await prisma.event.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         _count: {
           select: { bookings: true }
@@ -31,6 +33,9 @@ export async function GET(
     if (!event) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
+
+    // Auto-calculate status based on dates (preserves CANCELLED)
+    const calculatedStatus = getEventStatus(event.eventDate, event.endDate, event.status);
 
     return NextResponse.json({
       success: true,
@@ -46,7 +51,7 @@ export async function GET(
         registered: event._count.bookings,
         isFree: event.isFree,
         price: event.price,
-        status: event.status,
+        status: calculatedStatus,
         createdBy: event.createdBy,
         createdAt: event.createdAt.toISOString(),
         updatedAt: event.updatedAt.toISOString()
@@ -68,7 +73,7 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySession();
@@ -83,6 +88,7 @@ export async function PUT(
       );
     }
 
+    const { id } = await params;
     const body = await request.json();
     const {
       title,
@@ -98,11 +104,33 @@ export async function PUT(
     } = body;
 
     const existingEvent = await prisma.event.findUnique({
-      where: { id: params.id }
+      where: { id }
     });
 
     if (!existingEvent) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
+    }
+
+    // Status validation: Only allow manually setting CANCELLED
+    if (status && status !== existingEvent.status) {
+      // Calculate what the status should be based on dates
+      const autoStatus = getEventStatus(existingEvent.eventDate, existingEvent.endDate, existingEvent.status);
+      
+      // Only allow setting CANCELLED manually
+      if (status !== 'CANCELLED') {
+        return NextResponse.json(
+          { error: 'Status is auto-calculated based on event dates. Only CANCELLED can be set manually.' },
+          { status: 400 }
+        );
+      }
+      
+      // Prevent un-cancelling if event is COMPLETED
+      if (existingEvent.status === 'CANCELLED' && autoStatus === 'COMPLETED') {
+        return NextResponse.json(
+          { error: 'Cannot un-cancel a past event' },
+          { status: 400 }
+        );
+      }
     }
 
     // Validate pricing if changing
@@ -114,7 +142,7 @@ export async function PUT(
     }
 
     const updatedEvent = await prisma.event.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(title && { title }),
         ...(description && { description }),
@@ -162,7 +190,7 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySession();
@@ -177,8 +205,9 @@ export async function DELETE(
       );
     }
 
+    const { id } = await params;
     const existingEvent = await prisma.event.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         _count: {
           select: { bookings: true }
@@ -199,7 +228,7 @@ export async function DELETE(
     }
 
     await prisma.event.delete({
-      where: { id: params.id }
+      where: { id }
     });
 
     return NextResponse.json({

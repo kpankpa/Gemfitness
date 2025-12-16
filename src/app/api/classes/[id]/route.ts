@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySession();
@@ -19,8 +19,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { id } = await params;
     const classData = await prisma.class.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         _count: {
           select: { bookings: true }
@@ -68,7 +69,7 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySession();
@@ -83,6 +84,7 @@ export async function PUT(
       );
     }
 
+    const { id } = await params;
     const body = await request.json();
     const {
       name,
@@ -97,7 +99,7 @@ export async function PUT(
     } = body;
 
     const existingClass = await prisma.class.findUnique({
-      where: { id: params.id }
+      where: { id }
     });
 
     if (!existingClass) {
@@ -105,7 +107,7 @@ export async function PUT(
     }
 
     const updatedClass = await prisma.class.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(name && { name }),
         ...(description !== undefined && { description }),
@@ -151,7 +153,7 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySession();
@@ -161,13 +163,14 @@ export async function DELETE(
 
     if (!session.role || !['MANAGER', 'ADMIN'].includes(session.role)) {
       return NextResponse.json(
-        { error: ' Manager or Admin role required' },
+        { error: 'Manager or Admin role required' },
         { status: 403 }
       );
     }
 
+    const { id } = await params;
     const existingClass = await prisma.class.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         _count: {
           select: { bookings: true }
@@ -188,7 +191,7 @@ export async function DELETE(
     }
 
     await prisma.class.delete({
-      where: { id: params.id }
+      where: { id }
     });
 
     return NextResponse.json({

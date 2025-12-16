@@ -153,3 +153,39 @@ export function getMembershipStatus(expiryDate: Date): 'active' | 'expiring' | '
 export function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+/**
+ * Calculate event status based on dates
+ * CANCELLED status is preserved (manually set by admin)
+ * Other statuses are auto-calculated:
+ * - UPCOMING: eventDate is in the future
+ * - ONGOING: current date is between eventDate and endDate
+ * - COMPLETED: event has ended
+ */
+export function getEventStatus(
+  eventDate: Date | string,
+  endDate: Date | string | null,
+  currentStatus?: string
+): 'UPCOMING' | 'ONGOING' | 'COMPLETED' | 'CANCELLED' {
+  // Preserve manual CANCELLED status
+  if (currentStatus === 'CANCELLED') {
+    return 'CANCELLED';
+  }
+
+  const now = new Date();
+  const start = typeof eventDate === 'string' ? new Date(eventDate) : eventDate;
+  const end = endDate ? (typeof endDate === 'string' ? new Date(endDate) : endDate) : start;
+
+  // Reset time to midnight for accurate date comparison
+  now.setHours(0, 0, 0, 0);
+  start.setHours(0, 0, 0, 0);
+  end.setHours(23, 59, 59, 999);
+
+  if (now < start) {
+    return 'UPCOMING';
+  } else if (now > end) {
+    return 'COMPLETED';
+  } else {
+    return 'ONGOING';
+  }
+}

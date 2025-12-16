@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,7 +20,6 @@ import {
   Trophy,
   TrendingUp,
   Clock,
-  Dumbbell,
   Target,
   Award,
   CalendarDays,
@@ -58,10 +57,28 @@ type UserData = {
   }>;
 };
 
+type Event = {
+  id: string;
+  title: string;
+  description: string;
+  eventDate: string;
+  endDate: string | null;
+  location: string;
+  image: string | null;
+  maxAttendees: number | null;
+  registered: number;
+  isFree: boolean;
+  price: number | null;
+  status: 'UPCOMING' | 'ONGOING' | 'COMPLETED' | 'CANCELLED';
+};
+
 export default function MemberDashboardPage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
-  const [userData, setUserData] = useState<UserData | null>(null);
+  const [events, setEvents] = useState<Event[]>([]);
+
+  // Use user directly from context instead of duplicating in state
+  const userData = user as unknown as UserData | null;
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -71,11 +88,36 @@ export default function MemberDashboardPage() {
       return;
     }
 
-    // Set user data from auth context
-    if (user) {
-      setUserData(user as unknown as UserData);
-    }
-  }, [isAuthenticated, authLoading, user, router]);
+    // Fetch events
+    const fetchEvents = async () => {
+      try {
+        const response = await fetch('/api/events');
+        if (response.ok) {
+          const data = await response.json();
+          // Filter to show upcoming and ongoing events (including cancelled for transparency)
+          const relevantEvents = data.events.filter(
+            (e: Event) => e.status !== 'COMPLETED'
+          );
+          setEvents(relevantEvents);
+        }
+      } catch (error) {
+        console.error('Error fetching events:', error);
+      }
+    };
+
+    fetchEvents();
+  }, [isAuthenticated, authLoading, router]);
+
+  // Calculate values using useMemo before conditional returns
+  const activeSubscription = userData?.subscriptions?.find((sub) => sub.status === 'ACTIVE');
+  const recentCheckIns = userData?.checkIns?.slice(0, 10) || [];
+  
+  // Calculate days until subscription expires
+  const daysUntilExpiry = useMemo(() => {
+    if (!activeSubscription) return 0;
+    const now = new Date();
+    return Math.ceil((new Date(activeSubscription.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  }, [activeSubscription]);
 
   if (authLoading) {
     return (
@@ -91,26 +133,11 @@ export default function MemberDashboardPage() {
   if (!userData) {
     return null;
   }
-
-  const activeSubscription = userData.subscriptions?.find((sub) => sub.status === 'ACTIVE');
-  const recentCheckIns = userData.checkIns?.slice(0, 10) || [];
   
   // Calculate streak (mock data for now - would be calculated from actual check-ins)
   const currentStreak = recentCheckIns.length > 0 ? 7 : 0;
   const longestStreak = 15;
   const totalCheckIns = recentCheckIns.length;
-
-  // Mock upcoming events
-  const upcomingEvents = [
-    { id: 1, title: 'Yoga Session', date: new Date(Date.now() + 86400000), instructor: 'Sarah Johnson', type: 'Yoga' },
-    { id: 2, title: 'HIIT Training', date: new Date(Date.now() + 172800000), instructor: 'Mike Chen', type: 'HIIT' },
-    { id: 3, title: 'Boxing Class', date: new Date(Date.now() + 259200000), instructor: 'Alex Rivera', type: 'Boxing' },
-  ];
-
-  // Calculate days until subscription expires
-  const daysUntilExpiry = activeSubscription 
-    ? Math.ceil((new Date(activeSubscription.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-    : 0;
 
   // Generate attendance heatmap data (last 30 days)
   const generateHeatmapData = () => {
@@ -136,7 +163,8 @@ export default function MemberDashboardPage() {
   // Weekly activity stats
   const weeklyStats = {
     thisWeek: recentCheckIns.filter((ci) => {
-      const diff = Date.now() - new Date(ci.checkInTime).getTime();
+      const now = new Date();
+      const diff = now.getTime() - new Date(ci.checkInTime).getTime();
       return diff < 7 * 24 * 60 * 60 * 1000;
     }).length,
     lastWeek: 5, // Mock data
@@ -556,16 +584,24 @@ export default function MemberDashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <QRCodeDisplay 
-                data={userData.qrCode}
-                size={256}
-                showDownload={true}
-                label={userData.qrCode}
-                className="py-4"
-              />
-              <p className="text-xs md:text-sm text-gray-600 text-center">
-                Show this QR code at reception to check in
-              </p>
+              {userData.qrCode ? (
+                <>
+                  <QRCodeDisplay 
+                    data={userData.qrCode}
+                    size={256}
+                    showDownload={true}
+                    label={userData.qrCode}
+                    className="py-4"
+                  />
+                  <p className="text-xs md:text-sm text-gray-600 text-center">
+                    Show this QR code at reception to check in
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-8">
+                  QR code not available
+                </p>
+              )}
             </CardContent>
           </Card>
 
@@ -652,35 +688,77 @@ export default function MemberDashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {upcomingEvents.map((event) => (
-                  <div
-                    key={event.id}
-                    className="p-3 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-lg hover:shadow-md transition-shadow cursor-pointer"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-sm md:text-base text-gray-900 truncate">{event.title}</h4>
-                        <p className="text-[10px] md:text-xs text-gray-600 mt-1">
-                          <Dumbbell className="w-3 h-3 inline mr-1" />
-                          {event.instructor}
-                        </p>
+              {events.length > 0 ? (
+                <div className="space-y-3">
+                  {events.slice(0, 5).map((event) => {
+                    const eventDate = new Date(event.eventDate);
+                    const statusStyles = {
+                      UPCOMING: 'bg-blue-100 text-blue-700 border-blue-200',
+                      ONGOING: 'bg-green-100 text-green-700 border-green-200',
+                      CANCELLED: 'bg-red-100 text-red-700 border-red-200',
+                      COMPLETED: 'bg-gray-100 text-gray-700 border-gray-200'
+                    };
+                    const isCancelled = event.status === 'CANCELLED';
+                    
+                    return (
+                      <div
+                        key={event.id}
+                        className={`p-3 rounded-lg hover:shadow-md transition-shadow border ${
+                          isCancelled 
+                            ? 'bg-red-50 border-red-200 opacity-75'
+                            : 'bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className={`font-semibold text-sm md:text-base truncate ${
+                                isCancelled ? 'text-gray-500 line-through' : 'text-gray-900'
+                              }`}>
+                                {event.title}
+                              </h4>
+                              <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full border ${
+                                statusStyles[event.status]
+                              }`}>
+                                {event.status}
+                              </span>
+                            </div>
+                            <p className="text-[10px] md:text-xs text-gray-600 mt-1">
+                              <MapPin className="w-3 h-3 inline mr-1" />
+                              {event.location}
+                            </p>
+                            {!event.isFree && (
+                              <p className="text-[10px] md:text-xs text-orange-600 font-semibold mt-1">
+                                GH₵ {event.price?.toFixed(2)}
+                              </p>
+                            )}
+                            {isCancelled && (
+                              <p className="text-[10px] md:text-xs text-red-600 font-semibold mt-1">
+                                ⚠️ This event has been cancelled
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="text-[10px] md:text-xs font-semibold text-orange-600">
+                              {eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </p>
+                            <p className="text-[10px] md:text-xs text-gray-500">
+                              {eventDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-[10px] md:text-xs font-semibold text-orange-600">
-                          {event.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        </p>
-                        <p className="text-[10px] md:text-xs text-gray-500">
-                          {event.date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <Button variant="outline" className="w-full mt-4 border-orange-500 text-orange-500 hover:bg-orange-50 text-xs md:text-sm">
-                View All Classes
-              </Button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-4">No upcoming events</p>
+              )}
+              {events.length > 5 && (
+                <Button variant="outline" className="w-full mt-4 border-orange-500 text-orange-500 hover:bg-orange-50 text-xs md:text-sm">
+                  View All Events ({events.length})
+                </Button>
+              )}
             </CardContent>
           </Card>
 

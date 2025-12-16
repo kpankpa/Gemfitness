@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifySession } from '@/lib/auth/dal';
 import { prisma } from '@/lib/prisma';
 import { $Enums } from '@prisma/client';
+import { getEventStatus } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,23 +36,28 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    const formattedEvents = events.map(e => ({
-      id: e.id,
-      title: e.title,
-      description: e.description,
-      eventDate: e.eventDate.toISOString(),
-      endDate: e.endDate?.toISOString() || null,
-      location: e.location,
-      image: e.image,
-      maxAttendees: e.maxAttendees,
-      registered: e._count.bookings,
-      isFree: e.isFree,
-      price: e.price,
-      status: e.status,
-      createdBy: e.createdBy,
-      createdAt: e.createdAt.toISOString(),
-      updatedAt: e.updatedAt.toISOString()
-    }));
+    const formattedEvents = events.map(e => {
+      // Auto-calculate status based on dates (preserves CANCELLED)
+      const calculatedStatus = getEventStatus(e.eventDate, e.endDate, e.status);
+      
+      return {
+        id: e.id,
+        title: e.title,
+        description: e.description,
+        eventDate: e.eventDate.toISOString(),
+        endDate: e.endDate?.toISOString() || null,
+        location: e.location,
+        image: e.image,
+        maxAttendees: e.maxAttendees,
+        registered: e._count.bookings,
+        isFree: e.isFree,
+        price: e.price,
+        status: calculatedStatus,
+        createdBy: e.createdBy,
+        createdAt: e.createdAt.toISOString(),
+        updatedAt: e.updatedAt.toISOString()
+      };
+    });
 
     return NextResponse.json({
       success: true,
