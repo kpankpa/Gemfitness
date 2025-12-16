@@ -13,30 +13,47 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
-// GET /api/checkins - Get today's check-ins
+// GET /api/checkins - Get check-ins (today by default, or date range)
 export async function GET(request: NextRequest) {
   console.time('⏱️ TOTAL /api/checkins Request');
   try {
     const { searchParams } = new URL(request.url);
     const limit = searchParams.get('limit');
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
     
-    // Get today in UTC (database stores timestamps in UTC)
-    const now = new Date();
-    const today = new Date(now);
-    today.setUTCHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-
-    logger.info('Fetching check-ins', { today: today.toISOString(), tomorrow: tomorrow.toISOString(), limit });
-
-    console.time('💾 Prisma Query - findMany checkIns');
-    const checkIns = await prisma.checkIn.findMany({
-      where: {
+    // Build date filter
+    let dateFilter = {};
+    
+    if (startDate || endDate) {
+      // Use provided date range
+      dateFilter = {
+        checkInTime: {
+          ...(startDate && { gte: new Date(startDate) }),
+          ...(endDate && { lte: new Date(endDate) })
+        }
+      };
+    } else {
+      // Default to today in UTC (database stores timestamps in UTC)
+      const now = new Date();
+      const today = new Date(now);
+      today.setUTCHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+      
+      dateFilter = {
         checkInTime: {
           gte: today,
           lt: tomorrow
         }
-      },
+      };
+    }
+
+    logger.info('Fetching check-ins', { dateFilter, limit });
+
+    console.time('💾 Prisma Query - findMany checkIns');
+    const checkIns = await prisma.checkIn.findMany({
+      where: dateFilter,
       include: {
         user: {
           select: {

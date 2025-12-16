@@ -34,6 +34,7 @@ export interface CheckIn {
   method: 'qr' | 'manual';
   checkedBy: string;
   date?: string;
+  checkInTime: Date | string; // Full timestamp for filtering
 }
 
 export interface Member {

@@ -218,7 +218,7 @@ export default function AdminDashboard() {
   // Attendance filter states
   const [attendanceStartDate, setAttendanceStartDate] = useState('');
   const [attendanceEndDate, setAttendanceEndDate] = useState('');
-  const [filteredCheckIns, setFilteredCheckIns] = useState<typeof checkIns>([]);
+  const [filteredCheckIns, setFilteredCheckIns] = useState<Array<typeof checkIns[0] & { checkInTime: Date | string }>>([]);
 
   // Member edit modal states
   const [showEditMemberModal, setShowEditMemberModal] = useState(false);
@@ -383,7 +383,7 @@ export default function AdminDashboard() {
     }
 
     if (activeTab === 'attendance') {
-      setFilteredCheckIns(checkIns);
+      fetchAttendanceHistory();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, isAuthenticated]);
@@ -452,6 +452,40 @@ export default function AdminDashboard() {
       console.error('Error fetching staff:', error);
     } finally {
       setIsLoadingStaff(false);
+    }
+  };
+
+  // Fetch attendance history (last 30 days or custom range)
+  const fetchAttendanceHistory = async (startDate?: string, endDate?: string) => {
+    try {
+      console.log('📊 Fetching attendance history...');
+      
+      // Default to last 30 days if no dates provided
+      const params = new URLSearchParams();
+      if (startDate) {
+        params.append('startDate', startDate);
+      } else {
+        // Default start: 30 days ago
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        params.append('startDate', thirtyDaysAgo.toISOString());
+      }
+      if (endDate) {
+        params.append('endDate', endDate);
+      } else {
+        // Default end: now
+        params.append('endDate', new Date().toISOString());
+      }
+
+      const response = await fetch(`/api/checkins?${params.toString()}`);
+      const data = await response.json();
+      
+      if (data.success && Array.isArray(data.checkIns)) {
+        console.log(`✅ Fetched ${data.checkIns.length} attendance records`);
+        setFilteredCheckIns(data.checkIns);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching attendance history:', error);
     }
   };
 
@@ -720,26 +754,15 @@ export default function AdminDashboard() {
   // Apply attendance filters
   const handleApplyAttendanceFilter = () => {
     if (!attendanceStartDate && !attendanceEndDate) {
-      setFilteredCheckIns(checkIns);
+      // Reset to default (last 30 days)
+      fetchAttendanceHistory();
       return;
     }
 
-    const filtered = checkIns.filter((checkin) => {
-      const checkinDate = new Date(checkin.time);
-      const start = attendanceStartDate ? new Date(attendanceStartDate) : null;
-      const end = attendanceEndDate ? new Date(attendanceEndDate) : null;
-
-      if (start && end) {
-        return checkinDate >= start && checkinDate <= end;
-      } else if (start) {
-        return checkinDate >= start;
-      } else if (end) {
-        return checkinDate <= end;
-      }
-      return true;
-    });
-
-    setFilteredCheckIns(filtered);
+    // Fetch with custom date range
+    const startISO = attendanceStartDate ? new Date(attendanceStartDate).toISOString() : undefined;
+    const endISO = attendanceEndDate ? new Date(new Date(attendanceEndDate).setHours(23, 59, 59, 999)).toISOString() : undefined;
+    fetchAttendanceHistory(startISO, endISO);
   };
 
   // Export attendance to CSV
@@ -1251,7 +1274,7 @@ export default function AdminDashboard() {
       const result = await performCheckIn({
         qrCode: dataToSend.qrCode,
         method: dataToSend.method || 'qr',
-        checkedBy: user?.email || 'system',
+        checkedBy: user ? `${user.firstName} ${user.lastName}` : 'system',
         forceCheckIn: ('forceCheckIn' in dataToSend) ? dataToSend.forceCheckIn || false : false
       });
 
@@ -2421,84 +2444,213 @@ export default function AdminDashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Card className="border-2 border-gray-100">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                      <Activity className="h-5 w-5 text-blue-500" />
+                    </div>
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
+                    {checkInStats?.today || 0}
+                  </div>
+                  <div className="text-xs sm:text-sm text-gray-600 font-medium">Today&apos;s Check-Ins</div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 border-gray-100">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="h-10 w-10 rounded-lg bg-green-50 flex items-center justify-center">
+                      <UserCheck className="h-5 w-5 text-green-500" />
+                    </div>
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
+                    {checkInStats?.activeNow || 0}
+                  </div>
+                  <div className="text-xs sm:text-sm text-gray-600 font-medium">Active Now</div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 border-gray-100">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="h-10 w-10 rounded-lg bg-purple-50 flex items-center justify-center">
+                      <BarChart3 className="h-5 w-5 text-purple-500" />
+                    </div>
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
+                    {checkInStats?.thisWeek || 0}
+                  </div>
+                  <div className="text-xs sm:text-sm text-gray-600 font-medium">This Week</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Attendance Table */}
             <Card className="border-2 border-gray-100">
               <CardHeader>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
-                    <CardTitle className="text-xl sm:text-2xl">Attendance History</CardTitle>
-                    <CardDescription>Daily member check-in records</CardDescription>
+                    <CardTitle className="text-xl sm:text-2xl">Attendance Records</CardTitle>
+                    <CardDescription>
+                      {filteredCheckIns.length > 0 
+                        ? `Showing ${filteredCheckIns.length} filtered records` 
+                        : `All check-in records (${checkIns.length} total)`}
+                    </CardDescription>
                   </div>
                   <Button 
                     variant="outline" 
-                    className="border-2"
+                    className="border-2 w-full sm:w-auto"
                     onClick={handleExportAttendance}
                   >
                     <Download className="mr-2 h-4 w-4" />
-                    Export
+                    Export to CSV
                   </Button>
                 </div>
               </CardHeader>
               <CardContent>
                 {/* Date Filter */}
-                <div className="flex flex-col sm:flex-row gap-3 mb-6">
-                  <input 
-                    type="date" 
-                    value={attendanceStartDate}
-                    onChange={(e) => setAttendanceStartDate(e.target.value)}
-                    className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-500" 
-                  />
-                  <input 
-                    type="date" 
-                    value={attendanceEndDate}
-                    onChange={(e) => setAttendanceEndDate(e.target.value)}
-                    className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-500" 
-                  />
-                  <Button 
-                    variant="outline" 
-                    className="border-2"
-                    onClick={handleApplyAttendanceFilter}
-                  >
-                    Apply Filter
-                  </Button>
+                <div className="mb-6 space-y-3">
+                  <label className="text-sm font-semibold text-gray-700">Filter by Date Range</label>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="flex-1">
+                      <label className="text-xs text-gray-600 mb-1 block">Start Date</label>
+                      <input 
+                        type="date" 
+                        value={attendanceStartDate}
+                        onChange={(e) => setAttendanceStartDate(e.target.value)}
+                        className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-500" 
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-xs text-gray-600 mb-1 block">End Date</label>
+                      <input 
+                        type="date" 
+                        value={attendanceEndDate}
+                        onChange={(e) => setAttendanceEndDate(e.target.value)}
+                        className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-500" 
+                      />
+                    </div>
+                    <div className="flex gap-2 items-end">
+                      <Button 
+                        variant="outline" 
+                        className="border-2 flex-1 sm:flex-none"
+                        onClick={handleApplyAttendanceFilter}
+                      >
+                        <Search className="mr-2 h-4 w-4" />
+                        Apply
+                      </Button>
+                      {(attendanceStartDate || attendanceEndDate) && (
+                        <Button 
+                          variant="outline" 
+                          className="border-2"
+                          onClick={() => {
+                            setAttendanceStartDate('');
+                            setAttendanceEndDate('');
+                            fetchAttendanceHistory(); // Fetch default (last 30 days)
+                          }}
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Attendance Table */}
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b-2 border-gray-200">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Time</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Member</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Member ID</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Method</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase hidden sm:table-cell">Checked By</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase hidden sm:table-cell">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {(filteredCheckIns.length > 0 ? filteredCheckIns : checkIns).map((checkin) => (
-                        <tr key={checkin.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{checkin.time}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900">{checkin.member}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{checkin.member}</td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                              checkin.method === 'qr' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
-                            }`}>
-                              {checkin.method.toUpperCase()}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600 hidden sm:table-cell">System</td>
-                          <td className="px-4 py-3 hidden sm:table-cell">
-                            <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
-                              Valid
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                {filteredCheckIns.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Activity className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Check-Ins Yet</h3>
+                    <p className="text-gray-600 mb-6">Start checking in members to see attendance records</p>
+                    <Button onClick={() => setActiveTab('checkin')} className="bg-orange-500 hover:bg-orange-600">
+                      <QrCode className="mr-2 h-4 w-4" />
+                      Go to Check-In
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-gray-50 border-b-2 border-gray-200">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Date & Time</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Member Name</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase hidden md:table-cell">Member ID</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Method</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase hidden lg:table-cell">Checked By</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase hidden sm:table-cell">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {filteredCheckIns.slice(0, 50).map((checkin) => {
+                            const checkInDate = new Date(checkin.checkInTime);
+                            const formattedDate = checkInDate.toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric',
+                              year: 'numeric'
+                            });
+                            const formattedTime = checkInDate.toLocaleTimeString('en-US', { 
+                              hour: '2-digit', 
+                              minute: '2-digit'
+                            });
+                            
+                            return (
+                              <tr key={checkin.id} className="hover:bg-gray-50 transition-colors">
+                                <td className="px-4 py-3">
+                                  <div className="text-sm font-medium text-gray-900">{formattedDate}</div>
+                                  <div className="text-xs text-gray-600">{formattedTime}</div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center gap-2">
+                                    <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center">
+                                      <span className="text-sm font-semibold text-orange-600">
+                                        {checkin.member.split(' ').map(n => n[0]).join('')}
+                                      </span>
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-900">{checkin.member}</span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-600 font-mono hidden md:table-cell">
+                                  {checkin.memberId.slice(0, 8)}...
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                    checkin.method === 'qr' 
+                                      ? 'bg-green-100 text-green-700' 
+                                      : 'bg-blue-100 text-blue-700'
+                                  }`}>
+                                    {checkin.method === 'qr' ? <QrCode className="h-3 w-3" /> : <User className="h-3 w-3" />}
+                                    {checkin.method === 'qr' ? 'QR Scan' : 'Manual'}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-600 hidden lg:table-cell">
+                                  {checkin.checkedBy || 'System'}
+                                </td>
+                                <td className="px-4 py-3 hidden sm:table-cell">
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                                    <CheckCircle2 className="h-3 w-3" />
+                                    Valid
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                    {/* Pagination Info */}
+                    {filteredCheckIns.length > 50 && (
+                      <div className="mt-4 pt-4 border-t-2 text-sm text-gray-600 text-center">
+                        Showing 50 of {filteredCheckIns.length} records
+                      </div>
+                    )}
+                  </>
+                )}
               </CardContent>
             </Card>
           </motion.div>
