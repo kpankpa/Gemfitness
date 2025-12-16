@@ -133,6 +133,40 @@ export default function AdminDashboard() {
   const [isLoadingPlans, setIsLoadingPlans] = useState(false);
   const [isLoadingStaff, setIsLoadingStaff] = useState(false);
   
+  // Plan analytics state
+  const [planAnalytics, setPlanAnalytics] = useState<{
+    totalActivePlans: number;
+    totalActiveSubscriptions: number;
+    totalRevenue: number;
+    monthlyRecurringRevenue: number;
+    annualRecurringRevenue: number;
+    newSubscriptionsLast7Days: number;
+    newSubscriptionsLast30Days: number;
+    expiringInNext30Days: number;
+    churnRate: number;
+    topPerformingPlan: string;
+    revenueBreakdown: Array<{ plan: string; revenue: number; count: number; percentage: number }>;
+    planMetrics: Array<{
+      plan: string;
+      newSubscriptions7Days: number;
+      newSubscriptions30Days: number;
+      expiringSoon: number;
+      renewalRate: number;
+    }>;
+  } | null>(null);
+  
+  // Registration fees state
+  const [registrationFees, setRegistrationFees] = useState<Array<{
+    id: string;
+    type: string;
+    name: string;
+    price: number;
+    description: string | null;
+    maxMembers: number | null;
+    currency: string;
+  }>>([]);
+  const [isLoadingFees, setIsLoadingFees] = useState(false);
+  
   const [activeTab, setActiveTab] = useState<'overview' | 'checkin' | 'members' | 'classes' | 'events' | 'attendance' | 'payments' | 'plans' | 'staff' | 'analytics'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'momo' | 'cash' | 'card'>('momo');
@@ -376,6 +410,8 @@ export default function AdminDashboard() {
     
     if (activeTab === 'plans') {
       fetchPlans();
+      fetchPlanAnalytics();
+      fetchRegistrationFees();
     }
     
     if (activeTab === 'staff') {
@@ -436,6 +472,35 @@ export default function AdminDashboard() {
       console.error('Error fetching plans:', error);
     } finally {
       setIsLoadingPlans(false);
+    }
+  };
+
+  // Fetch plan analytics
+  const fetchPlanAnalytics = async () => {
+    try {
+      const response = await fetch('/api/plans/analytics');
+      const data = await response.json();
+      if (data.success) {
+        setPlanAnalytics(data.analytics);
+      }
+    } catch (error) {
+      console.error('Error fetching plan analytics:', error);
+    }
+  };
+
+  // Fetch registration fees
+  const fetchRegistrationFees = async () => {
+    setIsLoadingFees(true);
+    try {
+      const response = await fetch('/api/registration-fees');
+      const data = await response.json();
+      if (data.success) {
+        setRegistrationFees(data.fees);
+      }
+    } catch (error) {
+      console.error('Error fetching registration fees:', error);
+    } finally {
+      setIsLoadingFees(false);
     }
   };
 
@@ -2663,6 +2728,87 @@ export default function AdminDashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
+            {/* Analytics Overview Cards */}
+            {planAnalytics && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <Card className="border-2 border-green-100 bg-gradient-to-br from-green-50 to-white">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600 mb-1">Monthly Revenue (MRR)</p>
+                        <p className="text-2xl font-bold text-green-600">
+                          GH₵ {planAnalytics.monthlyRecurringRevenue.toLocaleString()}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          ARR: GH₵ {planAnalytics.annualRecurringRevenue.toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
+                        <DollarSign className="h-6 w-6 text-green-600" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-2 border-blue-100 bg-gradient-to-br from-blue-50 to-white">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600 mb-1">Active Subscriptions</p>
+                        <p className="text-2xl font-bold text-blue-600">
+                          {planAnalytics.totalActiveSubscriptions}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {planAnalytics.totalActivePlans} active plans
+                        </p>
+                      </div>
+                      <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
+                        <Users className="h-6 w-6 text-blue-600" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-2 border-purple-100 bg-gradient-to-br from-purple-50 to-white">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600 mb-1">New (Last 30 Days)</p>
+                        <p className="text-2xl font-bold text-purple-600">
+                          +{planAnalytics.newSubscriptionsLast30Days}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          +{planAnalytics.newSubscriptionsLast7Days} last 7 days
+                        </p>
+                      </div>
+                      <div className="h-12 w-12 bg-purple-100 rounded-full flex items-center justify-center">
+                        <TrendingUp className="h-6 w-6 text-purple-600" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-2 border-orange-100 bg-gradient-to-br from-orange-50 to-white">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600 mb-1">Expiring Soon</p>
+                        <p className="text-2xl font-bold text-orange-600">
+                          {planAnalytics.expiringInNext30Days}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Churn rate: {planAnalytics.churnRate}%
+                        </p>
+                      </div>
+                      <div className="h-12 w-12 bg-orange-100 rounded-full flex items-center justify-center">
+                        <Clock className="h-6 w-6 text-orange-600" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
             {/* Registration Fees Section */}
             <Card className="border-2 border-orange-100 bg-gradient-to-br from-orange-50 to-white">
               <CardHeader>
@@ -2680,32 +2826,28 @@ export default function AdminDashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div className="bg-white border-2 border-orange-200 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <User className="h-5 w-5 text-orange-600" />
-                      <h3 className="font-bold text-gray-900">Single</h3>
-                    </div>
-                    <p className="text-3xl font-bold text-orange-600">GH₵ 250</p>
-                    <p className="text-sm text-gray-600 mt-1">Individual membership</p>
+                {isLoadingFees ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-600">Loading registration fees...</p>
                   </div>
-                  <div className="bg-white border-2 border-orange-200 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Users className="h-5 w-5 text-orange-600" />
-                      <h3 className="font-bold text-gray-900">Couple</h3>
-                    </div>
-                    <p className="text-3xl font-bold text-orange-600">GH₵ 400</p>
-                    <p className="text-sm text-gray-600 mt-1">2 members package</p>
+                ) : (
+                  <div className="grid md:grid-cols-3 gap-4">
+                    {registrationFees.map((fee) => (
+                      <div key={fee.id} className="bg-white border-2 border-orange-200 rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          {fee.maxMembers === 1 ? (
+                            <User className="h-5 w-5 text-orange-600" />
+                          ) : (
+                            <Users className="h-5 w-5 text-orange-600" />
+                          )}
+                          <h3 className="font-bold text-gray-900">{fee.name}</h3>
+                        </div>
+                        <p className="text-3xl font-bold text-orange-600">{fee.currency} {fee.price}</p>
+                        <p className="text-sm text-gray-600 mt-1">{fee.description}</p>
+                      </div>
+                    ))}
                   </div>
-                  <div className="bg-white border-2 border-orange-200 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Users className="h-5 w-5 text-orange-600" />
-                      <h3 className="font-bold text-gray-900">Family</h3>
-                    </div>
-                    <p className="text-3xl font-bold text-orange-600">GH₵ 1,000</p>
-                    <p className="text-sm text-gray-600 mt-1">Up to 5 members</p>
-                  </div>
-                </div>
+                )}
               </CardContent>
             </Card>
 
@@ -2794,6 +2936,45 @@ export default function AdminDashboard() {
                               <span className="text-gray-600">Total Revenue:</span>
                               <span className="font-semibold text-gray-900">{plan.currency} {plan.totalRevenue.toLocaleString()}</span>
                             </div>
+                            
+                            {/* Enhanced Metrics */}
+                            {planAnalytics && planAnalytics.planMetrics && (() => {
+                              const planMetric = planAnalytics.planMetrics.find(m => m.plan === (plan.slug || plan.name));
+                              if (planMetric) {
+                                return (
+                                  <>
+                                    <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
+                                      <span className="text-gray-600 flex items-center gap-1">
+                                        <TrendingUp className="h-3 w-3" />
+                                        New (7d / 30d):
+                                      </span>
+                                      <span className="font-semibold text-green-600">
+                                        +{planMetric.newSubscriptions7Days} / +{planMetric.newSubscriptions30Days}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                      <span className="text-gray-600 flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        Expiring Soon:
+                                      </span>
+                                      <span className="font-semibold text-orange-600">
+                                        {planMetric.expiringSoon}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                      <span className="text-gray-600 flex items-center gap-1">
+                                        <Activity className="h-3 w-3" />
+                                        Renewal Rate:
+                                      </span>
+                                      <span className="font-semibold text-blue-600">
+                                        {planMetric.renewalRate}%
+                                      </span>
+                                    </div>
+                                  </>
+                                );
+                              }
+                              return null;
+                            })()}
                           </div>
                           
                           {/* Action Buttons */}

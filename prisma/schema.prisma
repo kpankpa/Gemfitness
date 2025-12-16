@@ -316,3 +316,21 @@ model PlanChangeHistory {
   @@index([changedBy])
   @@map("plan_change_history")
 }
+
+// RegistrationFee model - Dynamic registration fees
+model RegistrationFee {
+  id          String   @id @default(cuid())
+  type        String   @unique // "SINGLE", "COUPLE", "FAMILY"
+  name        String   // Display name: "Single", "Couple", "Family"
+  price       Float    // Price in GH₵
+  description String?  // Description text
+  maxMembers  Int?     // NULL for single, 2 for couple, 5 for family
+  status      String   @default("ACTIVE") // "ACTIVE" or "INACTIVE"
+  currency    String   @default("GH₵")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([type])
+  @@index([status])
+  @@map("registration_fees")
+}

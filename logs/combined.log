@@ -441,3 +441,7 @@
 {"level":"info","message":"Found 3 check-ins for today","service":"gemfitness","timestamp":"2025-12-15 14:21:52"}
 {"dateFilter":{"checkInTime":{"gte":"2025-11-16T02:22:59.835Z","lte":"2025-12-16T02:22:59.835Z"}},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2025-12-15 14:22:59"}
 {"level":"info","message":"Found 3 check-ins for today","service":"gemfitness","timestamp":"2025-12-15 14:22:59"}
+{"dateFilter":{"checkInTime":{"gte":"2025-11-16T02:34:26.389Z","lte":"2025-12-16T02:34:26.389Z"}},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2025-12-15 14:34:26"}
+{"level":"info","message":"Found 3 check-ins for today","service":"gemfitness","timestamp":"2025-12-15 14:34:26"}
+{"dateFilter":{"checkInTime":{"gte":"2025-12-16T00:00:00.000Z","lt":"2025-12-17T00:00:00.000Z"}},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2025-12-15 14:46:18"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2025-12-15 14:46:20"}
