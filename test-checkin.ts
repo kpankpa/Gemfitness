@@ -4,6 +4,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
+import { generateMemberQRCode } from './src/lib/qr/generator';
 
 const prisma = new PrismaClient({
   log: ['query', 'info', 'warn', 'error'],
@@ -46,6 +47,8 @@ async function testCheckIn() {
       console.log('Creating a test member with subscription...\n');
       
       // Create test member
+      const tokenResult = await generateMemberQRCode('test');
+
       const testMember = await prisma.user.create({
         data: {
           email: `test${Date.now()}@gemfitness.com`,
@@ -57,7 +60,7 @@ async function testCheckIn() {
           emergencyPhone: '0241234567',
           password: 'hashedpassword123',
           role: 'MEMBER',
-          qrCode: `GYM-test-${Date.now()}`,
+          qrCode: tokenResult.token,
           registrationPaid: true,
         }
       });
@@ -81,7 +84,7 @@ async function testCheckIn() {
         id: testMember.id,
         name: `${testMember.firstName} ${testMember.lastName}`,
         email: testMember.email,
-        qrCode: testMember.qrCode
+        qrCode: `GYM|${testMember.qrCode}`
       });
       console.log('✅ Active subscription created\n');
       
@@ -165,6 +168,7 @@ async function createTestCheckIn() {
       console.log('✅ Check-in verified in database:', {
         id: savedCheckIn.id,
         member: `${savedCheckIn.user.firstName} ${savedCheckIn.user.lastName}`,
+        qrCode: savedCheckIn.user.qrCode ? `GYM|${savedCheckIn.user.qrCode}` : null,
         time: savedCheckIn.checkInTime.toLocaleString(),
         method: savedCheckIn.method
       });

@@ -83,7 +83,7 @@ export default function WebcamQRScanner({ onScan, onClose }: WebcamQRScannerProp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Simplified QR detection - looks for GYM- pattern in pixel data
+  // Simplified QR detection - looks for GYM|<token> pattern in pixel data
   // In production, use jsQR library for proper QR decoding
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const decodeQRFromImageData = (_imageData: ImageData): string | null => {

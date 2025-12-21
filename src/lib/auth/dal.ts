@@ -19,6 +19,20 @@ export const verifySession = cache(async () => {
 });
 
 /**
+ * Verify session for API routes (no React cache)
+ * Avoid using `cache()` here so session is evaluated per-request
+ */
+export async function verifySessionForApi() {
+  const session = await getSession();
+
+  if (!session?.userId) {
+    return { isAuth: false, userId: null, role: null };
+  }
+
+  return { isAuth: true, userId: session.userId, role: session.role };
+}
+
+/**
  * Get the current authenticated user
  * Returns null if not authenticated
  */

@@ -12,6 +12,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { extractTokenFromQR, validateQRCode } from '@/lib/qr/generator';
+import { rateLimit } from '@/lib/rateLimiter';
 
 // GET /api/checkins - Get check-ins (today by default, or date range)
 export async function GET(request: NextRequest) {
@@ -57,6 +59,7 @@ export async function GET(request: NextRequest) {
       include: {
         user: {
           select: {
+            id: true,
             firstName: true,
             lastName: true,
             qrCode: true
@@ -70,11 +73,11 @@ export async function GET(request: NextRequest) {
 
     logger.info(`Found ${checkIns.length} check-ins for today`);
 
-    console.time('🔄 Format CheckIn Data');
+    console.time(' Format CheckIn Data');
     const formattedCheckIns = checkIns.map(checkIn => ({
       id: checkIn.id,
       member: `${checkIn.user.firstName} ${checkIn.user.lastName}`,
-      memberId: checkIn.user.qrCode,
+      memberId: checkIn.user.qrCode ? `GYM|${checkIn.user.qrCode}` : checkIn.user.id,
       time: checkIn.checkInTime.toLocaleTimeString('en-US', { 
         hour: '2-digit', 
         minute: '2-digit'
@@ -101,7 +104,7 @@ export async function POST(request: NextRequest) {
   console.log('🔍 /api/checkins POST endpoint hit');
   try {
     const body = await request.json();
-    console.log('📋 Check-in request body:', body);
+    console.log('📋 Check-in request received - sanitized');
     const { userId, qrCode, method = 'qr', checkedBy, forceCheckIn = false } = body;
 
     // Validate input
@@ -113,7 +116,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('🔍 Looking up user...');
+    console.log('🔍 Looking up user... (sanitized)');
     let user;
     if (userId) {
       user = await prisma.user.findUnique({
@@ -130,19 +133,52 @@ export async function POST(request: NextRequest) {
         }
       });
     } else if (qrCode) {
-      user = await prisma.user.findUnique({
-        where: { qrCode },
-        include: {
-          subscriptions: {
-            where: {
-              status: 'ACTIVE',
-              endDate: { gte: new Date() }
-            },
-            orderBy: { endDate: 'desc' },
-            take: 1
+      // Validate QR format early
+      if (!validateQRCode(qrCode)) {
+        return NextResponse.json({ error: 'Invalid QR format' }, { status: 400 });
+      }
+
+      // Rate limit per QR to prevent enumeration
+      const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'anon';
+      const rl = rateLimit(`checkin:${ip}:${qrCode}`, 30, 60);
+      if (!rl.allowed) {
+        return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+      }
+
+      // Support new format: GYM|<token>
+      const token = extractTokenFromQR(qrCode);
+      if (token) {
+        user = await prisma.user.findUnique({
+          where: { qrCode: token },
+          include: {
+            subscriptions: {
+              where: {
+                status: 'ACTIVE',
+                endDate: { gte: new Date() }
+              },
+              orderBy: { endDate: 'desc' },
+              take: 1
+            }
           }
-        }
-      });
+        });
+      }
+
+      // Backwards compatible lookup: try raw QR string match if token lookup failed
+      if (!user) {
+        user = await prisma.user.findUnique({
+          where: { qrCode },
+          include: {
+            subscriptions: {
+              where: {
+                status: 'ACTIVE',
+                endDate: { gte: new Date() }
+              },
+              orderBy: { endDate: 'desc' },
+              take: 1
+            }
+          }
+        });
+      }
     }
 
     if (!user) {

@@ -39,8 +39,7 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await hashPassword(data.password);
 
-    // Generate QR code
-    const { qrCodeString } = await generateMemberQRCode('temp-id');
+    // QR token will be generated after creating user (to store token only)
 
     // Map plan to database enum
     const planMap: Record<string, 'ONE_MONTH' | 'THREE_MONTHS' | 'ONE_YEAR'> = {
@@ -108,15 +107,15 @@ export async function POST(request: NextRequest) {
           medicalConditions: data.medicalConditions || null,
           dateOfBirth: new Date(data.dateOfBirth),
           role: 'MEMBER',
-          qrCode: qrCodeString.replace('temp-id', ''), // Will update with actual user ID
+          qrCode: '',
         },
       });
 
-      // Update QR code with actual user ID
-      const actualQRCode = `GYM-${user.id}-${qrCodeString.split('-').pop()}`;
+      // Generate QR token and update the user record with the token (store token only)
+      const qrCodeResult = await generateMemberQRCode(user.id);
       await tx.user.update({
         where: { id: user.id },
-        data: { qrCode: actualQRCode },
+        data: { qrCode: qrCodeResult.token },
       });
 
       // Create subscription
@@ -144,7 +143,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      return { user, subscription, qrCode: actualQRCode };
+      return { user, subscription, qrCode: `GYM|${qrCodeResult.token}` };
     });
 
     logger.info('✅ User registered successfully', {
@@ -158,7 +157,7 @@ export async function POST(request: NextRequest) {
       plan: dbPlan,
     });
 
-    // Send welcome email (mock)
+    // Send welcome email (mock) with full QR payload
     await sendWelcomeEmail(
       result.user.email,
       result.user.firstName,

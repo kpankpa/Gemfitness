@@ -21,7 +21,7 @@ export async function GET() {
           lastName: user.lastName,
           phone: user.phone,
           role: user.role,
-          qrCode: user.qrCode,
+          qrCode: user.qrCode ? `GYM|${user.qrCode}` : '',
           createdAt: user.createdAt,
         },
       },

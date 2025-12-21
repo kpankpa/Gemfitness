@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       status: 'active',
       expiresAt: null,
       joinDate: user.createdAt.toISOString().split('T')[0],
-      qrCode: user.qrCode,
+      qrCode: user.qrCode ? `GYM|${user.qrCode}` : null,
       registrationPaid: user.registrationPaid,
       registrationType: user.registrationType,
       totalCheckIns: 0
@@ -110,11 +110,11 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Generate QR code with user ID
+    // Generate QR token and store token (not full payload) in DB
     const qrCodeResult = await generateMemberQRCode(user.id);
     await prisma.user.update({
       where: { id: user.id },
-      data: { qrCode: qrCodeResult.qrCodeString }
+      data: { qrCode: qrCodeResult.token }
     });
 
     // For now, automatically mark registration as paid and create subscription
@@ -178,11 +178,11 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ 
       success: true, 
-      user: {
+        user: {
         id: user.id,
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
-        qrCode: user.qrCode,
+        qrCode: `GYM|${qrCodeResult.token}`,
         registrationPaid: updatedUser.registrationPaid
       }
     });

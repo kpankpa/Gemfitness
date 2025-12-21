@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "migrate:qr": "tsx scripts/migrate-qr-tokens.ts",
+    "test": "vitest"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -54,5 +56,7 @@
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5"
+    ,
+    "vitest": "^1.0.0"
   }
 }

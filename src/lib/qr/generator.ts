@@ -2,18 +2,19 @@ import QRCode from 'qrcode';
 import { nanoid } from 'nanoid';
 
 /**
- * Generate a unique QR code for a member
- * Returns both the QR code data URL and the unique code string
+ * New QR format: `GYM|<token>` where `<token>` is a nanoid stored in `User.qrCode`.
+ * This avoids embedding user IDs in the QR payload and makes lookup/simple rotation easier.
  */
 export async function generateMemberQRCode(userId: string): Promise<{
   qrCodeData: string;
   qrCodeString: string;
+  token: string;
 }> {
-  // Generate a unique code combining userId with a random string
-  const qrCodeString = `GYM-${userId}-${nanoid(10)}`;
+  // Generate a random token to store in DB and embed in the QR payload
+  const token = nanoid(24);
+  const qrCodeString = `GYM|${token}`;
 
   try {
-    // Generate QR code as data URL
     const qrCodeData = await QRCode.toDataURL(qrCodeString, {
       errorCorrectionLevel: 'H',
       type: 'image/png',
@@ -28,6 +29,7 @@ export async function generateMemberQRCode(userId: string): Promise<{
     return {
       qrCodeData,
       qrCodeString,
+      token,
     };
   } catch (error) {
     console.error('Failed to generate QR code:', error);
@@ -53,24 +55,19 @@ export async function generateQRCodeBuffer(data: string): Promise<Buffer> {
 }
 
 /**
- * Validate QR code format
+ * Validate new QR code format `GYM|<token>`
  */
 export function validateQRCode(qrCode: string): boolean {
-  // Check if QR code matches our format: GYM-{userId}-{nanoId}
-  const qrPattern = /^GYM-[a-f0-9-]{36}-[a-zA-Z0-9_-]{10}$/;
+  // Token is generated with nanoid(24) so expect exactly 24 characters
+  const qrPattern = /^GYM\|[A-Za-z0-9_-]{24}$/;
   return qrPattern.test(qrCode);
 }
 
 /**
- * Extract user ID from QR code
+ * Extract token from QR code. Returns the token or null if invalid.
  */
-export function extractUserIdFromQR(qrCode: string): string | null {
-  if (!validateQRCode(qrCode)) {
-    return null;
-  }
-
-  const parts = qrCode.split('-');
-  // QR format: GYM-{uuid-with-dashes}-{nanoid}
-  // Extract UUID (parts 1-5)
-  return parts.slice(1, 6).join('-');
+export function extractTokenFromQR(qrCode: string): string | null {
+  if (!validateQRCode(qrCode)) return null;
+  const parts = qrCode.split('|');
+  return parts[1] ?? null;
 }

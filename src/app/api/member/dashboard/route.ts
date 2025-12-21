@@ -168,7 +168,7 @@ export async function GET(request: NextRequest) {
         email: user.email,
         phone: user.phone,
         role: user.role as 'MEMBER' | 'RECEPTIONIST' | 'MANAGER' | 'ADMIN',
-        qrCode: user.qrCode || '',
+        qrCode: user.qrCode ? `GYM|${user.qrCode}` : '',
         registrationPaid: user.registrationPaid,
         registrationType: user.registrationType as 'SELF' | 'WALK_IN' | 'ADMIN',
         createdAt: user.createdAt.toISOString(),

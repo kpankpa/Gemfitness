@@ -50,12 +50,16 @@ export const createMemberSchema = z.object({
 
 // Check-in Schemas
 export const checkInSchema = z.object({
-  userId: z.string().uuid('Invalid user ID'),
+  userId: z.string().uuid('Invalid user ID').optional(),
+  qrCode: z.string().regex(/^GYM\|[A-Za-z0-9_-]{24}$/, 'Invalid QR code format').optional(),
   checkInTime: z.date().optional(),
+}).refine((data) => !!data.userId || !!data.qrCode, {
+  message: 'Either userId or qrCode is required',
+  path: ['userId', 'qrCode'],
 });
 
 export const scanQRSchema = z.object({
-  qrCode: z.string().min(10, 'Invalid QR code'),
+  qrCode: z.string().regex(/^GYM\|[A-Za-z0-9_-]{24}$/, 'Invalid QR code format'),
 });
 
 // Subscription Schemas
