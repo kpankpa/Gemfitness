@@ -18,11 +18,11 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifySession } from '@/lib/auth/dal';
+import { verifySessionForApi } from '@/lib/auth/dal';
 
 export async function GET() {
   try {
-    const session = await verifySession();
+    const session = await verifySessionForApi();
     if (!session.isAuth) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }

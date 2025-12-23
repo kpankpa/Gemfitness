@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySession } from '@/lib/auth/dal';
+import { verifySessionForApi } from '@/lib/auth/dal';
 import { prisma } from '@/lib/prisma';
 import { $Enums } from '@prisma/client';
 import { getEventStatus } from '@/lib/utils';
@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await verifySession();
+    const session = await verifySessionForApi();
     if (!session.isAuth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await verifySession();
+    const session = await verifySessionForApi();
     if (!session.isAuth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

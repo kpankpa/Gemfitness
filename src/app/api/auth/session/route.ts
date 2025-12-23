@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { getUser } from '@/lib/auth/dal';
+import { getUserForApi } from '@/lib/auth/dal';
 
 export async function GET() {
   try {
-    const user = await getUser();
+    const user = await getUserForApi();
 
     if (!user) {
       return NextResponse.json(

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifySession } from '@/lib/auth/dal';
+import { verifySessionForApi } from '@/lib/auth/dal';
 import { isAdminOrManager, isAdmin } from '@/lib/auth/permissions';
 import bcrypt from 'bcryptjs';
 import { Prisma } from '@prisma/client';
@@ -8,7 +8,7 @@ import { Prisma } from '@prisma/client';
 // GET /api/staff - List all staff members
 export async function GET(req: NextRequest) {
   try {
-    const session = await verifySession();
+    const session = await verifySessionForApi();
     if (!session.isAuth) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
 // POST /api/staff - Create new staff member
 export async function POST(req: NextRequest) {
   try {
-    const session = await verifySession();
+    const session = await verifySessionForApi();
     if (!session.isAuth) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }

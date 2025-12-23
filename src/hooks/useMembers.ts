@@ -7,19 +7,25 @@ interface UseMembersReturn {
   members: Member[];
   isLoading: boolean;
   error: string | null;
-  fetchMembers: (limit?: number) => Promise<void>;
+  fetchMembers: (page?: number, limit?: number) => Promise<void>;
   searchMembers: (query: string) => Member[];
   filterByStatus: (status: 'active' | 'expired' | 'expiring_soon') => Member[];
+  currentPage: number;
+  pageSize: number;
+  totalMembers: number;
 }
 
 export function useMembers(): UseMembersReturn {
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(25);
+  const [totalMembers, setTotalMembers] = useState<number>(0);
   const isLoadingRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const fetchMembers = useCallback(async (limit?: number) => {
+  const fetchMembers = useCallback(async (page?: number, limit?: number, q?: string, status?: string, plan?: string) => {
     // Prevent duplicate requests
     if (isLoadingRef.current) {
       console.log('⏸️ useMembers: Request already in progress, skipping');
@@ -39,7 +45,15 @@ export function useMembers(): UseMembersReturn {
     abortControllerRef.current = new AbortController();
 
     try {
-      const url = limit ? `/api/members?limit=${limit}` : '/api/members';
+      const p = page && page > 0 ? page : 1;
+      const l = limit && limit > 0 ? limit : pageSize;
+      const params = new URLSearchParams();
+      params.set('page', String(p));
+      params.set('limit', String(l));
+      if (q) params.set('q', q);
+      if (status) params.set('status', status);
+      if (plan) params.set('plan', plan);
+      const url = `/api/members?${params.toString()}`;
       console.log('🔍 Fetching members from:', url);
       
       const response = await fetch(url, {
@@ -59,6 +73,9 @@ export function useMembers(): UseMembersReturn {
 
       if (data.success && Array.isArray(data.members)) {
         setMembers(data.members);
+        setTotalMembers(typeof data.totalMembers === 'number' ? data.totalMembers : data.members.length);
+        setCurrentPage(typeof data.page === 'number' ? data.page : p);
+        setPageSize(typeof data.limit === 'number' ? data.limit : l);
       } else {
         throw new Error('Invalid response format');
       }
@@ -103,5 +120,8 @@ export function useMembers(): UseMembersReturn {
     fetchMembers,
     searchMembers,
     filterByStatus,
+    currentPage,
+    pageSize,
+    totalMembers,
   };
 }

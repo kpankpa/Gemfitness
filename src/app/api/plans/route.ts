@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifySession } from '@/lib/auth/dal';
+import { verifySessionForApi } from '@/lib/auth/dal';
 import { isAdmin } from '@/lib/auth/permissions';
 import { createPlanSchema } from '@/lib/validation/schemas';
 
 // GET /api/plans - List all membership plans with statistics
 export async function GET() {
   try {
-    const session = await verifySession();
+    const session = await verifySessionForApi();
     if (!session.isAuth) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
@@ -76,7 +76,7 @@ export async function GET() {
 // POST /api/plans - Create new custom plan
 export async function POST(req: Request) {
   try {
-    const session = await verifySession();
+    const session = await verifySessionForApi();
     if (!session.isAuth) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }

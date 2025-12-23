@@ -1,6 +1,8 @@
 ﻿'use client';
 
 import { useState, useEffect } from 'react';
+import { z } from 'zod';
+import { useToast } from '@/components/ToastProvider';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMembers } from '@/hooks/useMembers';
@@ -64,7 +66,7 @@ const mockStats = {
 export default function AdminDashboard() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
-  const { members, fetchMembers, searchMembers } = useMembers();
+  const { members, fetchMembers, searchMembers, currentPage, pageSize, totalMembers } = useMembers();
   const { checkIns, stats: checkInStats, isCheckingIn, performCheckIn, fetchCheckIns, fetchStats } = useCheckIns();
   const { analytics, fetchAnalytics } = useAnalytics();
   
@@ -169,6 +171,8 @@ export default function AdminDashboard() {
   
   const [activeTab, setActiveTab] = useState<'overview' | 'checkin' | 'members' | 'classes' | 'events' | 'attendance' | 'payments' | 'plans' | 'staff' | 'analytics'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
+  const [memberStatusFilter, setMemberStatusFilter] = useState<'all' | 'active' | 'expiring_soon' | 'expired'>('all');
+  const [planFilter, setPlanFilter] = useState<string>('all');
   const [paymentMethod, setPaymentMethod] = useState<'momo' | 'cash' | 'card'>('momo');
   
   const loading = authLoading;
@@ -178,6 +182,9 @@ export default function AdminDashboard() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [showDeleteMemberModal, setShowDeleteMemberModal] = useState(false);
+  const [isSubmittingMember, setIsSubmittingMember] = useState(false);
+  const [memberError, setMemberError] = useState<string | null>(null);
 
   // Staff modal states
   const [showAddStaffModal, setShowAddStaffModal] = useState(false);
@@ -271,6 +278,8 @@ export default function AdminDashboard() {
   });
   const [isUpdatingMember, setIsUpdatingMember] = useState(false);
   const [memberEditError, setMemberEditError] = useState<string | null>(null);
+  const [editMemberFieldErrors, setEditMemberFieldErrors] = useState<Record<string, string>>({});
+  const [editMemberProfileFile, setEditMemberProfileFile] = useState<File | null>(null);
 
   // Registration form state
   const [newMember, setNewMember] = useState({
@@ -284,6 +293,35 @@ export default function AdminDashboard() {
     plan: 'ONE_MONTH'
   });
   const [isRegistering, setIsRegistering] = useState(false);
+  const [newMemberErrors, setNewMemberErrors] = useState<Record<string, string>>({});
+  const [newMemberProfileFile, setNewMemberProfileFile] = useState<File | null>(null);
+
+  const { push: pushToast } = useToast();
+
+  const memberCreateSchema = z.object({
+    firstName: z.string().min(2, 'First name is required'),
+    lastName: z.string().min(2, 'Last name is required'),
+    email: z.string().email('Invalid email'),
+    phone: z.string().min(7, 'Invalid phone'),
+    password: z.string().min(6, 'Password must be at least 6 characters'),
+    dateOfBirth: z.string().optional(),
+    registrationType: z.enum(['SELF', 'WALK_IN', 'ADMIN']).optional(),
+    plan: z.enum(['ONE_MONTH', 'THREE_MONTHS', 'ONE_YEAR', 'SIX_MONTHS', 'TWELVE_MONTHS', 'DAILY']).optional()
+  });
+
+  const memberEditSchema = z.object({
+    id: z.string().min(1),
+    firstName: z.string().min(2).optional(),
+    lastName: z.string().min(2).optional(),
+    email: z.string().email().optional(),
+    phone: z.string().min(7).optional(),
+    dateOfBirth: z.string().optional(),
+    address: z.string().max(200).optional(),
+    emergencyContact: z.string().max(100).optional(),
+    emergencyPhone: z.string().max(15).optional(),
+    fitnessGoals: z.string().max(500).optional(),
+    medicalConditions: z.string().max(500).optional(),
+  });
 
   // Check-in form state
   const [checkInData, setCheckInData] = useState({
@@ -372,7 +410,7 @@ export default function AdminDashboard() {
 
     // Load initial data
     console.log('✅ Loading dashboard data...');
-    fetchMembers(20);
+    fetchMembers(1, 20);
     fetchCheckIns();
     fetchStats();
     fetchAnalytics();
@@ -397,7 +435,7 @@ export default function AdminDashboard() {
     if (!isAuthenticated) return;
     
     if (activeTab === 'checkin' || activeTab === 'members') {
-      fetchMembers(); // Fetch all members
+      fetchMembers(currentPage, pageSize);
     }
     
     if (activeTab === 'classes') {
@@ -676,6 +714,38 @@ export default function AdminDashboard() {
     }
   };
 
+  // Handle delete member
+  const handleDeleteMember = async () => {
+    if (!selectedMember) return;
+
+    setIsSubmittingMember(true);
+    setMemberError(null);
+
+    try {
+      const response = await fetch(`/api/members/${selectedMember.id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setShowDeleteMemberModal(false);
+        setSelectedMember(null);
+        fetchMembers(currentPage, pageSize); // Refresh members list
+        pushToast('Member deleted', 'success');
+      } else {
+        setMemberError(data.error || 'Failed to delete member');
+        pushToast(data.error || 'Failed to delete member', 'error');
+      }
+    } catch (error) {
+      console.error('Error deleting member:', error);
+      setMemberError('Failed to delete member');
+      pushToast('Failed to delete member', 'error');
+    } finally {
+      setIsSubmittingMember(false);
+    }
+  };
+
   // Handle add plan
   const handleAddPlan = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -861,26 +931,68 @@ export default function AdminDashboard() {
     e.preventDefault();
     setIsUpdatingMember(true);
     setMemberEditError(null);
+    setEditMemberFieldErrors({});
 
     try {
+      // Client-side validation
+      const parsed = memberEditSchema.safeParse(editMemberFormData);
+      if (!parsed.success) {
+        const issues: Record<string, string> = {};
+        parsed.error.issues.forEach((iss) => {
+          if (iss.path && iss.path[0]) issues[String(iss.path[0])] = iss.message;
+        });
+        setEditMemberFieldErrors(issues);
+        pushToast('Please fix the highlighted fields', 'error');
+        return;
+      }
+
+      // Use FormData for potential file upload
+      const form = new FormData();
+      Object.entries(editMemberFormData).forEach(([k, v]) => {
+        if (v !== undefined && v !== null) form.append(k, String(v));
+      });
+      if (editMemberProfileFile) form.append('profileImage', editMemberProfileFile, editMemberProfileFile.name);
+
       const response = await fetch(`/api/members/${editMemberFormData.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editMemberFormData),
+        body: form,
       });
 
       const data = await response.json();
+      if (response.status === 400 && data?.details) {
+        // Map Zod issues to field errors
+        const issues: Record<string, string> = {};
+        (data.details || []).forEach((iss: any) => {
+          if (iss.path && iss.path[0]) issues[String(iss.path[0])] = iss.message;
+        });
+        setEditMemberFieldErrors(issues);
+        pushToast('Please fix the highlighted fields', 'error');
+        return;
+      }
+
+      if (response.status === 409 && data?.fields) {
+        const issues: Record<string, string> = {};
+        const target = data.fields;
+        if (Array.isArray(target)) target.forEach((f: any) => { issues[String(f)] = 'Already in use'; });
+        else issues[String(target)] = 'Already in use';
+        setEditMemberFieldErrors(issues);
+        pushToast('Please fix the highlighted fields', 'error');
+        return;
+      }
 
       if (data.success) {
         setShowEditMemberModal(false);
         setSelectedMember(null);
-        fetchMembers();
+        fetchMembers(currentPage, pageSize);
+        pushToast('Member updated successfully', 'success');
       } else {
         setMemberEditError(data.error || 'Failed to update member');
+        pushToast(data.error || 'Failed to update member', 'error');
       }
     } catch (error) {
       console.error('Edit member error:', error);
       setMemberEditError('An error occurred while updating member');
+      pushToast('An error occurred while updating member', 'error');
     } finally {
       setIsUpdatingMember(false);
     }
@@ -903,6 +1015,13 @@ export default function AdminDashboard() {
       medicalConditions: member.medicalConditions || '',
     });
     setShowEditMemberModal(true);
+  };
+
+  // Open delete member modal
+  const openDeleteMemberModal = (member: Member) => {
+    setSelectedMember(member);
+    setMemberError(null);
+    setShowDeleteMemberModal(true);
   };
 
   // Open edit staff modal
@@ -950,17 +1069,51 @@ export default function AdminDashboard() {
   const handleRegisterMember = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsRegistering(true);
-
+    setNewMemberErrors({});
     try {
+      const parsed = memberCreateSchema.safeParse(newMember);
+      if (!parsed.success) {
+        const issues: Record<string, string> = {};
+        parsed.error.issues.forEach((iss) => {
+          if (iss.path && iss.path[0]) issues[String(iss.path[0])] = iss.message;
+        });
+        setNewMemberErrors(issues);
+        pushToast('Please fix the highlighted fields', 'error');
+        return;
+      }
+
+      // Use FormData to support file upload
+      const form = new FormData();
+      Object.entries(newMember).forEach(([k, v]) => {
+        if (v !== undefined && v !== null) form.append(k, String(v));
+      });
+      if (newMemberProfileFile) form.append('profileImage', newMemberProfileFile, newMemberProfileFile.name);
+
       const response = await fetch('/api/members', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newMember),
+        body: form,
       });
 
       const data = await response.json();
+      if (response.status === 400 && data?.details) {
+        const issues: Record<string, string> = {};
+        (data.details || []).forEach((iss: any) => {
+          if (iss.path && iss.path[0]) issues[String(iss.path[0])] = iss.message;
+        });
+        setNewMemberErrors(issues);
+        pushToast('Please fix the highlighted fields', 'error');
+        return;
+      }
+
+      if (response.status === 409 && data?.fields) {
+        const issues: Record<string, string> = {};
+        const target = data.fields;
+        if (Array.isArray(target)) target.forEach((f: any) => { issues[String(f)] = 'Already in use'; });
+        else issues[String(target)] = 'Already in use';
+        setNewMemberErrors(issues);
+        pushToast('Please fix the highlighted fields', 'error');
+        return;
+      }
 
       if (response.ok) {
         // Store registered member data for receipt
@@ -970,16 +1123,16 @@ export default function AdminDashboard() {
           registrationType: newMember.registrationType
         });
         setRegistrationSuccess(true);
-        
         // Refresh members list
-        fetchMembers();
+        fetchMembers(currentPage, pageSize);
         fetchAnalytics();
+        pushToast('Member registered successfully', 'success');
       } else {
-        alert(data.error || 'Failed to register member');
+        pushToast(data.error || 'Failed to register member', 'error');
       }
     } catch (error) {
       console.error('Registration error:', error);
-      alert('Failed to register member');
+      pushToast('Failed to register member', 'error');
     } finally {
       setIsRegistering(false);
     }
@@ -1385,6 +1538,7 @@ export default function AdminDashboard() {
 
   // Permission checks
   const isManager = user?.role === 'MANAGER' || user?.role === 'ADMIN';
+  const isAdmin = user?.role === 'ADMIN';
   const canViewReports = isManager;
   const canManagePayments = isManager;
   const canViewFinancials = isManager;
@@ -1398,17 +1552,19 @@ export default function AdminDashboard() {
   const canUpdateBasicInfo = true;
   const canCreateEvents = true; // Both managers and receptionists can create events
 
-  // Filtered members based on search
-  const filteredMembers = searchQuery ? searchMembers(searchQuery) : members;
-  
-  if (searchQuery && members.length > 0) {
-    console.log('📊 Search Results:', {
-      searchQuery,
-      totalMembers: members.length,
-      filteredCount: filteredMembers.length,
-      memberNames: members.map(m => m.name)
-    });
-  }
+  // Use server-side search/pagination. Keep client-side search as fallback but prefer server results.
+  const filteredMembers = members;
+
+  // Debounced server-side search + filters
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const statusParam = memberStatusFilter === 'all' ? undefined : memberStatusFilter;
+      const planParam = planFilter === 'all' ? undefined : planFilter;
+      fetchMembers(1, pageSize, searchQuery || undefined, statusParam, planParam);
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, memberStatusFilter, planFilter]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -1708,19 +1864,27 @@ export default function AdminDashboard() {
                       className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
                     />
                   </div>
-                  <select className="px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-500">
-                    <option>All Status</option>
-                    <option>Active</option>
-                    <option>Expiring Soon</option>
-                    <option>Expired</option>
+                  <select
+                    className="px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                    value={memberStatusFilter}
+                    onChange={(e) => setMemberStatusFilter(e.target.value as any)}
+                  >
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="expiring_soon">Expiring Soon</option>
+                    <option value="expired">Expired</option>
                   </select>
-                  <select className="px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-500">
-                    <option>All Plans</option>
-                    <option>1 Month</option>
-                    <option>3 Months</option>
-                    <option>6 Months</option>
-                    <option>12 Months</option>
-                    <option>Daily Walk-In</option>
+                  <select
+                    className="px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                    value={planFilter}
+                    onChange={(e) => setPlanFilter(e.target.value)}
+                  >
+                    <option value="all">All Plans</option>
+                    <option value="ONE_MONTH">1 Month</option>
+                    <option value="THREE_MONTHS">3 Months</option>
+                    <option value="SIX_MONTHS">6 Months</option>
+                    <option value="ONE_YEAR">12 Months</option>
+                    <option value="DAILY">Daily Walk-In</option>
                   </select>
                 </div>
 
@@ -1789,6 +1953,16 @@ export default function AdminDashboard() {
                                   <Ban className="h-4 w-4" />
                                 </Button>
                               )}
+                              {isAdmin && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-red-600 hover:text-red-700"
+                                  onClick={() => openDeleteMemberModal(member as Member)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -1799,10 +1973,28 @@ export default function AdminDashboard() {
 
                 {/* Pagination */}
                 <div className="flex items-center justify-between mt-4 pt-4 border-t-2">
-                  <p className="text-sm text-gray-600">Showing {members.length} of {analytics?.totalMembers || 0} members</p>
+                  <p className="text-sm text-gray-600">Showing {members.length} of {totalMembers} members</p>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm">Previous</Button>
-                    <Button variant="outline" size="sm">Next</Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage <= 1}
+                      onClick={() => {
+                        if (currentPage > 1) fetchMembers(currentPage - 1, pageSize);
+                      }}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage * pageSize >= totalMembers}
+                      onClick={() => {
+                        if (currentPage * pageSize < totalMembers) fetchMembers(currentPage + 1, pageSize);
+                      }}
+                    >
+                      Next
+                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -3238,6 +3430,9 @@ export default function AdminDashboard() {
                       onChange={(e) => setEditMemberFormData({ ...editMemberFormData, firstName: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                     />
+                    {editMemberFieldErrors.firstName && (
+                      <p className="text-sm text-red-600 mt-1">{editMemberFieldErrors.firstName}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">Last Name</label>
@@ -3248,6 +3443,9 @@ export default function AdminDashboard() {
                       onChange={(e) => setEditMemberFormData({ ...editMemberFormData, lastName: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                     />
+                    {editMemberFieldErrors.lastName && (
+                      <p className="text-sm text-red-600 mt-1">{editMemberFieldErrors.lastName}</p>
+                    )}
                   </div>
                 </div>
                 <div>
@@ -3259,6 +3457,9 @@ export default function AdminDashboard() {
                     onChange={(e) => setEditMemberFormData({ ...editMemberFormData, email: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                   />
+                  {editMemberFieldErrors.email && (
+                    <p className="text-sm text-red-600 mt-1">{editMemberFieldErrors.email}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Phone</label>
@@ -3268,6 +3469,18 @@ export default function AdminDashboard() {
                     value={editMemberFormData.phone}
                     onChange={(e) => setEditMemberFormData({ ...editMemberFormData, phone: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                  {editMemberFieldErrors.phone && (
+                    <p className="text-sm text-red-600 mt-1">{editMemberFieldErrors.phone}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Profile Photo (optional)</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setEditMemberProfileFile(e.target.files ? e.target.files[0] : null)}
+                    className="w-full"
                   />
                 </div>
                 <div>
@@ -3398,6 +3611,9 @@ export default function AdminDashboard() {
                     onChange={(e) => setNewMember({ ...newMember, firstName: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                   />
+                    {newMemberErrors.firstName && (
+                      <p className="text-sm text-red-600 mt-1">{newMemberErrors.firstName}</p>
+                    )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Last Name</label>
@@ -3408,6 +3624,9 @@ export default function AdminDashboard() {
                     onChange={(e) => setNewMember({ ...newMember, lastName: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                   />
+                    {newMemberErrors.lastName && (
+                      <p className="text-sm text-red-600 mt-1">{newMemberErrors.lastName}</p>
+                    )}
                 </div>
               </div>
               <div>
@@ -3419,6 +3638,9 @@ export default function AdminDashboard() {
                   onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
+                {newMemberErrors.email && (
+                  <p className="text-sm text-red-600 mt-1">{newMemberErrors.email}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Phone</label>
@@ -3429,6 +3651,9 @@ export default function AdminDashboard() {
                   onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
+                {newMemberErrors.phone && (
+                  <p className="text-sm text-red-600 mt-1">{newMemberErrors.phone}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Password</label>
@@ -3439,6 +3664,9 @@ export default function AdminDashboard() {
                   onChange={(e) => setNewMember({ ...newMember, password: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
+                {newMemberErrors.password && (
+                  <p className="text-sm text-red-600 mt-1">{newMemberErrors.password}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Date of Birth</label>
@@ -3475,6 +3703,15 @@ export default function AdminDashboard() {
                   <option value="TWELVE_MONTHS">12 Months - GH₵ 2000</option>
                   <option value="DAILY">Daily Walk-In - GH₵ 50</option>
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Profile Photo (optional)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setNewMemberProfileFile(e.target.files ? e.target.files[0] : null)}
+                  className="w-full"
+                />
               </div>
               <div className="flex gap-3">
                 <Button
@@ -4274,6 +4511,51 @@ export default function AdminDashboard() {
                   className="flex-1 bg-red-600 hover:bg-red-700"
                 >
                   {isSubmittingStaff ? 'Deleting...' : 'Delete Staff'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Member Confirmation Modal */}
+      {showDeleteMemberModal && selectedMember && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertTriangle className="h-6 w-6 text-red-600" />
+                </div>
+                <h2 className="text-2xl font-bold">Delete Member</h2>
+              </div>
+              {memberError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {memberError}
+                </div>
+              )}
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to delete <span className="font-semibold">{selectedMember.name}</span>? This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowDeleteMemberModal(false);
+                    setSelectedMember(null);
+                    setMemberError(null);
+                  }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleDeleteMember}
+                  disabled={isSubmittingMember}
+                  className="flex-1 bg-red-600 hover:bg-red-700"
+                >
+                  {isSubmittingMember ? 'Deleting...' : 'Delete Member'}
                 </Button>
               </div>
             </div>

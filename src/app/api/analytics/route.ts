@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth/session';
+import { verifySessionForApi } from '@/lib/auth/dal';
 import { prisma } from '@/lib/prisma';
 import { $Enums } from '@prisma/client';
 
@@ -10,9 +10,9 @@ export async function GET() {
   console.log('📊 [ANALYTICS] Request started');
 
   try {
-    // Verify authentication
-    const session = await getSession();
-    if (!session) {
+    // Verify authentication (per-request)
+    const session = await verifySessionForApi();
+    if (!session?.isAuth) {
       console.log('❌ [ANALYTICS] Unauthorized - no session');
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },

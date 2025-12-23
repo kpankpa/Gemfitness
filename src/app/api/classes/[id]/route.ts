@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySession } from '@/lib/auth/dal';
+import { verifySessionForApi } from '@/lib/auth/dal';
 import { prisma } from '@/lib/prisma';
 import { $Enums } from '@prisma/client';
 
@@ -14,7 +14,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await verifySession();
+    const session = await verifySessionForApi();
     if (!session.isAuth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -72,7 +72,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await verifySession();
+    const session = await verifySessionForApi();
     if (!session.isAuth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -156,7 +156,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await verifySession();
+    const session = await verifySessionForApi();
     if (!session.isAuth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

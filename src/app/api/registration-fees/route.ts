@@ -13,7 +13,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifySession } from '@/lib/auth/dal';
+import { verifySessionForApi } from '@/lib/auth/dal';
 import { isAdmin } from '@/lib/auth/permissions';
 
 // GET /api/registration-fees - Get all registration fees
@@ -92,7 +92,7 @@ export async function GET() {
 // PUT /api/registration-fees - Update registration fees (Admin/Manager only)
 export async function PUT(req: Request) {
   try {
-    const session = await verifySession();
+    const session = await verifySessionForApi();
     if (!session.isAuth) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }

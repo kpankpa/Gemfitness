@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { deleteSession } from '@/lib/auth/session';
-import { verifySession } from '@/lib/auth/dal';
+import { verifySessionForApi } from '@/lib/auth/dal';
 import logger, { logAuth } from '@/lib/logger';
 
 export async function POST() {
   try {
-    const session = await verifySession();
+    const session = await verifySessionForApi();
 
     if (session.isAuth && session.userId) {
       logger.info('User logged out', {

@@ -1,9 +1,10 @@
-'use client';
+"use client";
 
-import { useState, useRef } from 'react';
+import { useRef } from 'react';
 import { QrCode, Camera, AlertCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from '@/components/ui/input';
+import { useToast } from './ToastProvider';
 
 interface QRScannerProps {
   onScan: (qrCode: string) => void;
@@ -18,6 +19,7 @@ export default function QRScanner({ onScan, onError, placeholder = 'Enter or sca
   const inputRef = useRef<HTMLInputElement>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupResult, setLookupResult] = useState<any>(null);
+  const { push: pushToast } = useToast();
 
   const handleManualInput = (value: string) => {
     setQrInput(value);
@@ -48,6 +50,14 @@ export default function QRScanner({ onScan, onError, placeholder = 'Enter or sca
     setLookupLoading(true);
     try {
       const res = await fetch(`/api/checkins/lookup?qr=${encodeURIComponent(code)}`);
+      if (res.status === 401) {
+        pushToast('Authentication required — please log in as receptionist.', 'error');
+        return;
+      }
+      if (res.status === 403) {
+        pushToast('Forbidden — your account lacks permission to perform lookups.', 'error');
+        return;
+      }
       const data = await res.json();
       setLookupResult({ code, data });
     } catch (err) {
@@ -79,25 +89,37 @@ export default function QRScanner({ onScan, onError, placeholder = 'Enter or sca
     try {
       const body = { qrCode: code, forceCheckIn: force };
       const res = await fetch('/api/checkins', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (res.status === 401) {
+        pushToast('Authentication required — please log in before checking in members.', 'error');
+        return;
+      }
+      if (res.status === 403) {
+        pushToast('Forbidden — insufficient permissions to create check-ins.', 'error');
+        return;
+      }
       const data = await res.json();
       if (res.ok && data.success) {
         // show success in modal/toast
         setLookupResult(prev => ({ ...(prev || {}), success: true, message: 'Check-in successful' }));
+        pushToast('Check-in successful', 'success');
         onScan?.(code);
       } else if (res.status === 409 && data.duplicate) {
         // Keep modal open and show duplicate info; user can press Force
         setLookupResult(prev => ({ ...(prev || {}), duplicate: true, message: data.message }));
       } else {
         setLookupResult(prev => ({ ...(prev || {}), error: data.error || 'Check-in failed' }));
+        pushToast(data.error || 'Check-in failed', 'error');
       }
     } catch (err) {
       // non-blocking: show error in modal
       setLookupResult(prev => ({ ...(prev || {}), error: 'Check-in request failed' }));
+      pushToast('Check-in request failed', 'error');
     }
   };
 
   return (
     <>
+    {/* Global toast container provided by ToastProvider */}
     <div className="space-y-4">
       {/* QR Code Input */}
       <div className="relative">

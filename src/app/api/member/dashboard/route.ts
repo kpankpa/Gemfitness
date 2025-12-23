@@ -12,13 +12,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import type { DashboardData } from '@/types';
+import { verifySessionForApi } from '@/lib/auth/dal';
 
 // GET /api/member/dashboard?userId=xxx - Get member dashboard data
 export async function GET(request: NextRequest) {
   try {
+    const session = await verifySessionForApi();
+    if (!session?.isAuth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+    let userId = searchParams.get('userId');
     const email = searchParams.get('email');
+
+    // If caller is not staff, restrict to their own userId and disallow email lookup
+    const staffRoles = ['ADMIN', 'MANAGER', 'RECEPTIONIST'];
+    const isStaff = staffRoles.includes(session.role || '');
+
+    if (!isStaff) {
+      if (email) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+      // If userId provided but not theirs, forbid
+      if (userId && userId !== session.userId) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+      // Default to session userId
+      userId = session.userId;
+    }
 
     if (!userId && !email) {
       return NextResponse.json(
