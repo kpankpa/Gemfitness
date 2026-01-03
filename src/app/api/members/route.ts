@@ -16,8 +16,7 @@ import { $Enums, Prisma } from '@prisma/client';
 import { generateMemberQRCode } from '@/lib/qr/generator';
 import { z } from 'zod';
 import { verifySessionForApi } from '@/lib/auth/dal';
-import fs from 'fs';
-import path from 'path';
+import { processMemberImage, ImageValidationError } from '../../../lib/image/processor';
 
 // GET /api/members - Fetch all members
 export async function GET(request: NextRequest) {
@@ -40,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     // Build where clause
     const now = new Date();
-    const where: any = { role: 'MEMBER' };
+    const where: Prisma.UserWhereInput = { role: 'MEMBER' };
 
     if (q) {
       where.OR = [
@@ -66,7 +65,7 @@ export async function GET(request: NextRequest) {
     if (planParam) {
       where.subscriptions = {
         some: {
-          plan: planParam as any
+          plan: planParam as $Enums.MembershipPlan
         }
       };
     }
@@ -129,15 +128,15 @@ export async function POST(request: NextRequest) {
     if (!['ADMIN', 'MANAGER', 'RECEPTIONIST'].includes(session.role || '')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-    let body: any;
-    let profileFile: any = null;
+    let body: unknown;
+    let profileFile: File | null = null;
     const contentType = request.headers.get('content-type') || '';
     if (contentType.includes('multipart/form-data')) {
       const form = await request.formData();
-      body = {} as any;
+      body = {} as Record<string, string>;
       for (const [k, v] of form.entries()) {
-        if (k === 'profileImage') profileFile = v;
-        else body[k] = String(v);
+        if (k === 'profileImage' && v instanceof File) profileFile = v;
+        else (body as Record<string, string>)[k] = String(v);
       }
     } else {
       body = await request.json();
@@ -172,7 +171,7 @@ export async function POST(request: NextRequest) {
           dateOfBirth: new Date(dateOfBirth)
         }
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         const target = (err.meta && (err.meta.target || err.meta['target'])) || null;
         return NextResponse.json({ error: 'Unique constraint failed', fields: target }, { status: 409 });
@@ -181,7 +180,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate QR token and store token (not full payload) in DB
-    const qrCodeResult = await generateMemberQRCode(user.id);
+    const qrCodeResult = await generateMemberQRCode();
     await prisma.user.update({
       where: { id: user.id },
       data: { qrCode: qrCodeResult.token }
@@ -250,23 +249,28 @@ export async function POST(request: NextRequest) {
       if (profileFile) {
         const arrayBuffer = await profileFile.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        const mime = profileFile.type || '';
-        let ext = 'jpg';
-        if (mime && mime.includes('/')) ext = mime.split('/')[1];
-        // fallback to original name extension
-        const origName = (profileFile as any).name;
-        if ((!ext || ext === 'octet-stream') && origName) {
-          const m = origName.match(/\.([a-zA-Z0-9]+)$/);
-          if (m) ext = m[1];
+        try {
+          const { imagePath } = await processMemberImage(buffer, profileFile.name || 'upload', user.id);
+          await prisma.user.update({ where: { id: user.id }, data: { profileImage: imagePath } });
+        } catch (err: unknown) {
+          if (err instanceof ImageValidationError) {
+            // Remove created payment/subscription/user if image invalid
+            try {
+              // delete payments for the subscription we created
+              await prisma.payment.deleteMany({ where: { subscriptionId: subscription.id } }).catch(() => {});
+            } catch {}
+            try {
+              await prisma.subscription.deleteMany({ where: { id: subscription.id } }).catch(() => {});
+            } catch {}
+            try {
+              await prisma.user.delete({ where: { id: user.id } }).catch(() => {});
+            } catch {}
+            return NextResponse.json({ error: 'Invalid image upload', code: (err as ImageValidationError).code, message: (err as ImageValidationError).message }, { status: 400 });
+          }
+          console.warn('Failed to save profile image:', err);
         }
-        const imagesDir = path.join(process.cwd(), 'public', 'images', 'members');
-        if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
-        const filename = `${user.id}.${ext}`;
-        const filepath = path.join(imagesDir, filename);
-        fs.writeFileSync(filepath, buffer);
-        await prisma.user.update({ where: { id: user.id }, data: { profileImage: `/images/members/${filename}` } });
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.warn('Failed to save profile image:', err);
     }
     return NextResponse.json({ 

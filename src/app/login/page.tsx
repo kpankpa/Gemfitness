@@ -62,8 +62,10 @@ export default function LoginPage() {
         return;
       }
 
-      // Redirect to appropriate dashboard
-      router.push(data.redirectUrl);
+      // Wait for cookie to propagate before redirect
+      await new Promise(resolve => setTimeout(resolve, 100));
+      // Use window.location for hard navigation to ensure cookies are sent
+      window.location.href = data.redirectUrl;
     } catch (error) {
       console.error('Login error:', error);
       setError('An error occurred. Please try again.');

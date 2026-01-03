@@ -8,6 +8,7 @@ const protectedRoutes = {
   '/dashboard/receptionist': ['RECEPTIONIST', 'MANAGER', 'ADMIN'],
   '/dashboard/manager': ['MANAGER', 'ADMIN'],
   '/dashboard/admin': ['ADMIN'],
+  '/admin/dashboard': ['RECEPTIONIST', 'MANAGER', 'ADMIN'],
 };
 
 // Public routes that don't require authentication
@@ -15,6 +16,7 @@ const publicRoutes = [
   '/',
   '/signup',
   '/login',
+  '/admin/login',
   '/about',
   '/contact',
   '/terms',

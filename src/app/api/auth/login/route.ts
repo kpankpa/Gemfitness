@@ -56,7 +56,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Create session
-    await createSession(user.id, user.email, user.role);
+    const sessionToken = await createSession(user.id, user.email, user.role);
+    
+    console.log('🔐 Session created:', {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      sessionToken: sessionToken.substring(0, 20) + '...',
+    });
 
     logger.info('✅ User logged in successfully', {
       userId: user.id,

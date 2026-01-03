@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Shield, Lock, User, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -45,7 +46,11 @@ export default function AdminLogin() {
         console.log('✅ Login successful, redirecting...');
         // Check if user has admin/receptionist/manager role
         if (data.redirectUrl?.includes('/admin') || data.redirectUrl?.includes('/dashboard')) {
-          router.push(data.redirectUrl);
+          // Give the cookie a moment to be set before redirecting
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          // Force a hard navigation to ensure cookies are sent
+          window.location.href = data.redirectUrl;
         } else {
           setError('Access denied. Admin, Manager, or Receptionist role required.');
           setIsLoading(false);
@@ -170,7 +175,7 @@ export default function AdminLogin() {
               <p className="text-xs font-bold text-orange-900 mb-2">Demo Access:</p>
               <div className="space-y-1">
                 <p className="text-xs text-orange-800">
-                  <span className="font-semibold">Manager:</span> Use "manager" or "admin" as username
+                  <span className="font-semibold">Manager:</span> Use &quot;manager&quot; or &quot;admin&quot; as username
                 </p>
                 <p className="text-xs text-orange-800">
                   <span className="font-semibold">Receptionist:</span> Use any other username
@@ -182,12 +187,12 @@ export default function AdminLogin() {
 
         {/* Back to Website */}
         <div className="mt-6 text-center">
-          <a
+          <Link
             href="/"
             className="text-sm text-gray-600 hover:text-orange-500 transition-colors font-medium"
           >
             ← Back to Website
-          </a>
+          </Link>
         </div>
       </motion.div>
     </div>

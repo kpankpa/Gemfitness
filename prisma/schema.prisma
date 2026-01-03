@@ -38,6 +38,14 @@ model User {
   notifications Notification[]
   classBookings ClassBooking[]
   eventBookings EventBooking[]
+  waitlistEntries Waitlist[]
+  classReviews  ClassReview[]
+  notificationPreferences NotificationPreference?
+  eventTickets  EventTicket[]
+  eventCheckIns EventCheckIn[]
+  staffEventCheckIns EventCheckIn[] @relation("StaffCheckIns")
+  staffClassCancellations ClassCancellation[] @relation("StaffCancellations")
+  paymentTransactions PaymentTransaction[] @relation("UserTransactions")
 
   @@index([email])
   @@index([phone])
@@ -164,27 +172,39 @@ enum NotificationType {
   EXPIRY_WARNING    // 3 days before expiry
   SUBSCRIPTION_EXPIRED
   SUBSCRIPTION_RENEWED
+  CLASS_REMINDER    // 24h before class
+  CLASS_CANCELLED   // Class cancellation notification
+  EVENT_REMINDER    // 24h before event
+  EVENT_CANCELLED   // Event cancellation notification
+  WAITLIST_SPOT_AVAILABLE
 }
 
 // Class model - Gym classes/sessions
 model Class {
-  id            String         @id @default(cuid())
-  name          String
-  description   String?
-  type          String         // "Cardio", "HIIT", "Weight Training", "Dance", etc.
-  instructor    String
-  duration      Int            // Duration in minutes
-  maxCapacity   Int            @default(20)
-  currentBookings Int          @default(0)  // Current number of bookings
-  schedule      String         // "Mon, Wed, Fri - 6:30 AM"
-  color         String?        // Gradient color for UI
-  status        ClassStatus    @default(ACTIVE)
-  createdBy     String         // Manager who created the class
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id                  String         @id @default(cuid())
+  name                String
+  description         String?
+  type                String         // "Cardio", "HIIT", "Weight Training", "Dance", etc.
+  instructor          String
+  duration            Int            // Duration in minutes
+  maxCapacity         Int            @default(20)
+  currentBookings     Int            @default(0)  // Current number of bookings
+  schedule            String         // "Mon, Wed, Fri - 6:30 AM"
+  color               String?        // Gradient color for UI
+  status              ClassStatus    @default(ACTIVE)
+  cancellationReason  String?        // Reason if cancelled
+  cancelledAt         DateTime?      // When cancelled
+  cancelledBy         String?        // Staff who cancelled
+  createdBy           String         // Manager who created the class
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
   
   // Relations
   bookings      ClassBooking[]
+  waitlist      Waitlist[]
+  reviews       ClassReview[]
+  templates     ClassTemplate[]
+  cancellation  ClassCancellation?
 
   @@index([status])
   @@index([type])
@@ -218,26 +238,33 @@ model ClassBooking {
 
 // Event model - Special events (workshops, competitions, etc.)
 model Event {
-  id            String         @id @default(cuid())
-  title         String
-  description   String
-  eventDate     DateTime
-  endDate       DateTime?
-  location      String?        @default("GemFitness Tema")
-  image         String?        // Event banner/poster URL
-  maxAttendees  Int?           // Null = unlimited
-  isFree        Boolean        @default(true)
-  price         Float?         // Event ticket price if not free
-  status        EventStatus    @default(UPCOMING)
-  createdBy     String         // Staff member who created event
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id                    String         @id @default(cuid())
+  title                 String
+  description           String
+  eventDate             DateTime
+  endDate               DateTime?
+  location              String?        @default("GemFitness Tema")
+  image                 String?        // Event banner/poster URL
+  maxAttendees          Int?           // Null = unlimited
+  isFree                Boolean        @default(true)
+  price                 Float?         // Event ticket price if not free
+  status                EventStatus    @default(UPCOMING)
+  registrationDeadline  DateTime?      // When registration closes
+  registrationClosed    Boolean        @default(false)
+  autoCloseRegistration Boolean        @default(true)
+  createdBy             String         // Staff member who created event
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
   
   // Relations
   bookings      EventBooking[]
+  tickets       EventTicket[]
+  checkIns      EventCheckIn[]
+  deadlines     EventRegistrationDeadline?
 
   @@index([status])
   @@index([eventDate])
+  @@index([registrationDeadline])
   @@map("events")
 }
 
@@ -250,11 +277,20 @@ enum EventStatus {
 
 // EventBooking model - Member event registrations
 model EventBooking {
-  id          String   @id @default(cuid())
-  userId      String
-  eventId     String
-  status      String   @default("registered") // "registered", "cancelled", "attended"
-  createdAt   DateTime @default(now())
+  id                 String    @id @default(cuid())
+  userId             String
+  eventId            String
+  status             String    @default("registered") // "registered", "confirmed", "cancelled", "attended"
+  paymentStatus      String?   // "PENDING", "COMPLETED", "FAILED"
+  paymentRef         String?   // Payment reference
+  ticketId           String?   @unique // Generated ticket ID
+  ticketQRData       String?   // QR code data JSON
+  ticketGeneratedAt  DateTime?
+  checkedIn          Boolean   @default(false)
+  checkedInAt        DateTime?
+  checkedInBy        String?   // Staff who checked in
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
   
   // Relations
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -262,6 +298,9 @@ model EventBooking {
 
   @@index([userId])
   @@index([eventId])
+  @@index([ticketId])
+  @@index([checkedIn])
+  @@index([paymentStatus])
   @@map("event_bookings")
 }
 
@@ -334,3 +373,214 @@ model RegistrationFee {
   @@index([status])
   @@map("registration_fees")
 }
+
+// Waitlist model - Class waitlist management
+model Waitlist {
+  id          String   @id @default(cuid())
+  userId      String
+  classId     String
+  position    Int      // Position in waitlist (1 = first in line)
+  status      String   @default("waiting") // "waiting", "notified", "enrolled", "expired"
+  notifiedAt  DateTime? // When user was notified about available spot
+  expiresAt   DateTime? // Notification expires after 24h
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, classId]) // User can only be on waitlist once per class
+  @@index([classId])
+  @@index([status])
+  @@index([position])
+  @@map("waitlist")
+}
+
+// ClassTemplate model - Save class configurations
+model ClassTemplate {
+  id          String   @id @default(cuid())
+  name        String   // Template name (e.g., "Morning HIIT Setup")
+  description String?
+  classId     String?  // Reference to original class (optional)
+  type        String
+  instructor  String
+  duration    Int
+  maxCapacity Int
+  schedule    String
+  color       String?
+  createdBy   String   // Manager who created template
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  class       Class?   @relation(fields: [classId], references: [id], onDelete: SetNull)
+
+  @@index([createdBy])
+  @@index([type])
+  @@map("class_templates")
+}
+
+// ClassReview model - Member feedback and ratings
+model ClassReview {
+  id          String   @id @default(cuid())
+  userId      String
+  classId     String
+  rating      Int      // 1-5 stars
+  comment     String?  // Optional review text
+  isAnonymous Boolean  @default(false)
+  status      String   @default("published") // "published", "hidden", "flagged"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, classId]) // One review per user per class
+  @@index([classId])
+  @@index([rating])
+  @@index([status])
+  @@map("class_reviews")
+}
+
+// NotificationPreference model - User notification settings
+model NotificationPreference {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  emailEnabled          Boolean  @default(true)
+  dashboardEnabled      Boolean  @default(true)
+  classReminders        Boolean  @default(true)
+  eventReminders        Boolean  @default(true)
+  waitlistNotifications Boolean  @default(true)
+  paymentNotifications  Boolean  @default(true)
+  expiryWarnings        Boolean  @default(true)
+  reminderHours         Int      @default(24) // Hours before class/event to send reminder
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  // Relations
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+// EventTicket model - QR tickets for paid events
+model EventTicket {
+  id            String    @id @default(cuid())
+  eventId       String
+  userId        String
+  ticketNumber  String    @unique
+  qrCode        String    @unique
+  securityHash  String
+  checkedIn     Boolean   @default(false)
+  checkInTime   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  event         Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkIns      EventCheckIn[]
+
+  @@index([eventId])
+  @@index([userId])
+  @@index([ticketNumber])
+  @@index([securityHash])
+  @@map("event_tickets")
+}
+
+// EventCheckIn model - Track event attendance
+model EventCheckIn {
+  id          String   @id @default(cuid())
+  eventId     String
+  ticketId    String
+  userId      String
+  staffId     String
+  checkInTime DateTime @default(now())
+  method      String   // 'qr' or 'manual'
+  notes       String?
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  event       Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  ticket      EventTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  staff       User       @relation("StaffCheckIns", fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@unique([ticketId]) // One check-in per ticket
+  @@index([eventId])
+  @@index([userId])
+  @@index([checkInTime])
+  @@map("event_checkins")
+}
+
+// EventRegistrationDeadline model - Manage registration deadlines
+model EventRegistrationDeadline {
+  id            String   @id @default(cuid())
+  eventId       String   @unique
+  deadline      DateTime
+  autoClose     Boolean  @default(true)
+  reminderSent  Boolean  @default(false)
+  reminderHours Int      @default(24)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  event         Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([deadline])
+  @@index([isActive])
+  @@map("event_registration_deadlines")
+}
+
+// ClassCancellation model - Track cancelled classes
+model ClassCancellation {
+  id                  String   @id @default(cuid())
+  classId             String   @unique
+  reason              String
+  alternativeClasses  String[] // Array of class IDs
+  membersNotified     Boolean  @default(false)
+  cancelledBy         String
+  cancelledAt         DateTime @default(now())
+  createdAt           DateTime @default(now())
+  
+  // Relations
+  class               Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  staff               User     @relation("StaffCancellations", fields: [cancelledBy], references: [id], onDelete: Cascade)
+
+  @@index([cancelledAt])
+  @@index([cancelledBy])
+  @@map("class_cancellations")
+}
+
+// PaymentTransaction model - Track all payment transactions
+model PaymentTransaction {
+  id                String   @id @default(cuid())
+  userId            String?
+  reference         String   @unique
+  amount            Float
+  currency          String   @default("GHS")
+  status            String   // 'pending', 'success', 'failed'
+  paymentMethod     String   // 'paystack', 'cash', 'transfer'
+  transactionType   String   // 'registration', 'subscription', 'event', 'class'
+  relatedEntityId   String?  // ID of event, class, or subscription
+  relatedEntityType String?  // 'event', 'class', 'subscription'
+  paymentGatewayId  String?  // Gateway transaction ID
+  metadata          Json?    // Additional payment data
+  paidAt            DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  user              User?    @relation("UserTransactions", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([reference])
+  @@index([status])
+  @@index([transactionType])
+  @@index([paidAt])
+  @@map("payment_transactions")
+}
+

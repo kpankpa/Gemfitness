@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
       });
 
       // Generate QR token and update the user record with the token (store token only)
-      const qrCodeResult = await generateMemberQRCode(user.id);
+      const qrCodeResult = await generateMemberQRCode();
       await tx.user.update({
         where: { id: user.id },
         data: { qrCode: qrCodeResult.token },

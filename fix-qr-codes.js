@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 // Fix incomplete QR codes for all members
 const { PrismaClient } = require('@prisma/client');
 const { nanoid } = require('nanoid');

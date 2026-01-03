@@ -12,7 +12,7 @@ export async function GET() {
   try {
     const now = new Date();
     
-    // Today's start (midnight)
+    // midnight 
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
 

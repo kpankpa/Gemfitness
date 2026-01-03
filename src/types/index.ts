@@ -128,3 +128,109 @@ export interface DashboardData {
   bookedClasses: BookedClass[];
   availableClasses: AvailableClass[];
 }
+
+// Advanced features types
+
+export interface EventTicket {
+  id: string;
+  eventId: string;
+  userId: string;
+  ticketNumber: string;
+  qrCode: string;
+  securityHash: string;
+  checkedIn: boolean;
+  checkInTime: string | null;
+  createdAt: string;
+}
+
+export interface EventCheckIn {
+  id: string;
+  eventId: string;
+  ticketId: string;
+  userId: string;
+  checkInTime: string;
+  method: 'qr' | 'manual';
+  staffId: string;
+}
+
+export interface PaystackPaymentData {
+  amount: number;
+  email: string;
+  reference: string;
+  metadata: {
+    eventId: string;
+    eventTitle: string;
+    userId?: string;
+    ticketType?: string;
+  };
+}
+
+export interface PaystackVerificationResponse {
+  status: boolean;
+  message: string;
+  data: {
+    id: number;
+    domain: string;
+    status: 'success' | 'failed';
+    reference: string;
+    amount: number;
+    message: string | null;
+    gateway_response: string;
+    paid_at: string;
+    created_at: string;
+    channel: string;
+    currency: string;
+    authorization: {
+      authorization_code: string;
+      bin: string;
+      last4: string;
+      exp_month: string;
+      exp_year: string;
+      channel: string;
+      card_type: string;
+      bank: string;
+      country_code: string;
+      brand: string;
+    };
+    customer: {
+      id: number;
+      first_name: string;
+      last_name: string;
+      email: string;
+      customer_code: string;
+    };
+    metadata: any;
+  };
+}
+
+export interface EventRegistrationDeadline {
+  eventId: string;
+  deadline: string;
+  autoClose: boolean;
+  reminderSent: boolean;
+}
+
+export interface ClassCancellationData {
+  classId: string;
+  reason: string;
+  notifyMembers: boolean;
+  alternativeClasses?: string[];
+}
+
+export interface EventAnalytics {
+  totalRegistrations: number;
+  totalTickets: number;
+  checkedInCount: number;
+  revenue: number;
+  attendanceRate: number;
+  lastUpdate: string;
+}
+
+export interface ClassAnalytics {
+  totalEnrollments: number;
+  averageRating: number;
+  waitlistCount: number;
+  totalRevenue: number;
+  attendanceRate: number;
+  lastUpdate: string;
+}

@@ -15,6 +15,7 @@ import { isAdminOrManager } from '@/lib/auth/permissions';
 import { verifySessionForApi } from '@/lib/auth/dal';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
+import { processMemberImage, ImageValidationError } from '../../../../lib/image/processor';
 
 // Validation schema for updating member
 const updateMemberSchema = z.object({
@@ -33,7 +34,7 @@ const updateMemberSchema = z.object({
 // GET /api/members/[id] - Fetch single member
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySessionForApi();
@@ -46,9 +47,11 @@ export async function GET(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const member = await prisma.user.findUnique({
+    const { id } = await params;
+
+    const member = await prisma.user.findFirst({
       where: { 
-        id: params.id,
+        id,
         role: 'MEMBER'
       },
       include: {
@@ -75,7 +78,7 @@ export async function GET(
 // PUT /api/members/[id] - Update member details
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySessionForApi();
@@ -88,16 +91,18 @@ export async function PUT(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    const { id } = await params;
+
     // Parse body: support multipart/form-data (file uploads) or JSON
-    let body: any;
-    let profileFile: any = null;
+    let body: unknown;
+    let profileFile: File | null = null;
     const contentType = request.headers.get('content-type') || '';
     if (contentType.includes('multipart/form-data')) {
       const form = await request.formData();
-      body = {} as any;
+      body = {} as Record<string, string>;
       for (const [k, v] of form.entries()) {
-        if (k === 'profileImage') profileFile = v;
-        else body[k] = String(v);
+        if (k === 'profileImage' && v instanceof File) profileFile = v;
+        else (body as Record<string, string>)[k] = String(v);
       }
     } else {
       body = await request.json();
@@ -111,31 +116,24 @@ export async function PUT(
       if (profileFile) {
         const arrayBuffer = await profileFile.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        const mime = profileFile.type || '';
-        let ext = 'jpg';
-        if (mime && mime.includes('/')) ext = mime.split('/')[1];
-        const origName = (profileFile as any).name;
-        if ((!ext || ext === 'octet-stream') && origName) {
-          const m = origName.match(/\.([a-zA-Z0-9]+)$/);
-          if (m) ext = m[1];
+        try {
+          const { imagePath } = await processMemberImage(buffer, profileFile.name || 'upload', id);
+          (validatedData as Partial<Record<string, unknown>>).profileImage = imagePath;
+        } catch (err: unknown) {
+          if (err instanceof ImageValidationError) {
+            return NextResponse.json({ error: 'Invalid image upload', code: err.code, message: err.message }, { status: 400 });
+          }
+          console.warn('Failed to save profile image:', err);
         }
-        const fs = await import('fs');
-        const path = await import('path');
-        const imagesDir = path.join(process.cwd(), 'public', 'images', 'members');
-        if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
-        const filename = `${params.id}.${ext}`;
-        const filepath = path.join(imagesDir, filename);
-        fs.writeFileSync(filepath, buffer);
-        (validatedData as any).profileImage = `/images/members/${filename}`;
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.warn('Failed to save profile image:', err);
     }
 
     // Check if member exists
-    const existingMember = await prisma.user.findUnique({
+    const existingMember = await prisma.user.findFirst({
       where: { 
-        id: params.id,
+        id,
         role: 'MEMBER'
       }
     });
@@ -148,7 +146,7 @@ export async function PUT(
     let updatedMember;
     try {
       updatedMember = await prisma.user.update({
-        where: { id: params.id },
+        where: { id },
         data: {
           firstName: validatedData.firstName,
           lastName: validatedData.lastName,
@@ -160,10 +158,10 @@ export async function PUT(
           emergencyPhone: validatedData.emergencyPhone,
           fitnessGoals: validatedData.fitnessGoals,
           medicalConditions: validatedData.medicalConditions,
-          profileImage: (validatedData as any).profileImage || undefined
+          profileImage: (validatedData as Partial<Record<string, unknown>>).profileImage as string | undefined || undefined
         }
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         const target = (err.meta && (err.meta.target || err.meta['target'])) || null;
         return NextResponse.json({ error: 'Unique constraint failed', fields: target }, { status: 409 });
@@ -192,7 +190,7 @@ export async function PUT(
 // DELETE /api/members/[id] - Delete member (admin only)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySessionForApi();
@@ -204,16 +202,18 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    const { id } = await params;
+
     // Ensure target is a member
     const existing = await prisma.user.findUnique({
-      where: { id: params.id }
+      where: { id }
     });
 
     if (!existing || existing.role !== 'MEMBER') {
       return NextResponse.json({ error: 'Member not found' }, { status: 404 });
     }
 
-    await prisma.user.delete({ where: { id: params.id } });
+    await prisma.user.delete({ where: { id } });
 
     return NextResponse.json({ success: true, message: 'Member deleted' });
   } catch (error) {

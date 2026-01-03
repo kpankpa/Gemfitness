@@ -43,11 +43,11 @@ async function testCheckIn() {
     });
 
     if (!member) {
-      console.log('⚠️  No members with active subscriptions found');
+      console.log(' No members with active subscriptions found');
       console.log('Creating a test member with subscription...\n');
-      
+
       // Create test member
-      const tokenResult = await generateMemberQRCode('test');
+      const tokenResult = await generateMemberQRCode();
 
       const testMember = await prisma.user.create({
         data: {
@@ -68,7 +68,7 @@ async function testCheckIn() {
       // Create active subscription
       const endDate = new Date();
       endDate.setMonth(endDate.getMonth() + 1);
-      
+
       await prisma.subscription.create({
         data: {
           userId: testMember.id,
@@ -87,7 +87,7 @@ async function testCheckIn() {
         qrCode: `GYM|${testMember.qrCode}`
       });
       console.log('✅ Active subscription created\n');
-      
+
       return testMember;
     }
 
@@ -111,7 +111,7 @@ async function testCheckIn() {
 
 async function createTestCheckIn() {
   console.log('3️⃣ Creating test check-in...');
-  
+
   try {
     await prisma.$connect();
 
@@ -181,7 +181,7 @@ async function createTestCheckIn() {
     console.log('5️⃣ Getting today\'s check-in stats...');
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     const count = await prisma.checkIn.count({
       where: {
         checkInTime: { gte: today }

@@ -19,6 +19,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifySessionForApi } from '@/lib/auth/dal';
+import { $Enums } from '@prisma/client';
 
 export async function GET() {
   try {
@@ -136,8 +137,7 @@ export async function GET() {
         // Count new subscriptions for this plan (7 days, 30 days)
         const newLast7Days = await prisma.subscription.count({
           where: {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            plan: item.plan as any,
+            plan: item.plan as unknown as $Enums.MembershipPlan,
             status: 'ACTIVE',
             startDate: { gte: sevenDaysAgo },
           },
@@ -145,8 +145,7 @@ export async function GET() {
 
         const newLast30Days = await prisma.subscription.count({
           where: {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            plan: item.plan as any,
+            plan: item.plan as unknown as $Enums.MembershipPlan,
             status: 'ACTIVE',
             startDate: { gte: thirtyDaysAgo },
           },
@@ -155,8 +154,7 @@ export async function GET() {
         // Count expiring soon for this plan
         const expiringSoon = await prisma.subscription.count({
           where: {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            plan: item.plan as any,
+            plan: item.plan as unknown as $Enums.MembershipPlan,
             status: 'ACTIVE',
             endDate: {
               gte: now,
@@ -168,14 +166,12 @@ export async function GET() {
         // Calculate renewal rate (subscribers who renewed in last 30 days)
         const renewals = await prisma.subscription.count({
           where: {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            plan: item.plan as any,
+            plan: item.plan as unknown as $Enums.MembershipPlan,
             startDate: { gte: thirtyDaysAgo },
             userId: {
               in: (await prisma.subscription.findMany({
                 where: {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  plan: item.plan as any,
+                  plan: item.plan as unknown as $Enums.MembershipPlan,
                   endDate: { lte: now, gte: thirtyDaysAgo },
                 },
                 select: { userId: true },
@@ -186,8 +182,7 @@ export async function GET() {
 
         const eligibleForRenewal = await prisma.subscription.count({
           where: {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            plan: item.plan as any,
+            plan: item.plan as unknown as $Enums.MembershipPlan,
             endDate: { lte: now, gte: thirtyDaysAgo },
           },
         });

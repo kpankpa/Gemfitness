@@ -44,8 +44,7 @@ export function truncate(text: string, length: number): string {
 /**
  * Debounce function for search inputs
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {

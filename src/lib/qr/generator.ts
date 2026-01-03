@@ -5,7 +5,7 @@ import { nanoid } from 'nanoid';
  * New QR format: `GYM|<token>` where `<token>` is a nanoid stored in `User.qrCode`.
  * This avoids embedding user IDs in the QR payload and makes lookup/simple rotation easier.
  */
-export async function generateMemberQRCode(userId: string): Promise<{
+export async function generateMemberQRCode(): Promise<{
   qrCodeData: string;
   qrCodeString: string;
   token: string;

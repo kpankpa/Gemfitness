@@ -31,15 +31,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchSession = useCallback(async () => {
     try {
-      const response = await fetch('/api/auth/session');
+      console.log('🔍 AuthContext: Fetching session...');
+      const response = await fetch('/api/auth/session', {
+        credentials: 'include', // Ensure cookies are sent
+        cache: 'no-store', // Don't cache the session check
+      });
+      
+      console.log('📡 AuthContext: Session response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('✅ AuthContext: Session found for user:', data.user?.email);
         setUser(data.user);
       } else {
+        console.log('❌ AuthContext: No valid session (status:', response.status + ')');
         setUser(null);
       }
     } catch (error) {
-      console.error('Failed to fetch session:', error);
+      console.error('❌ AuthContext: Failed to fetch session:', error);
       setUser(null);
     } finally {
       setIsLoading(false);

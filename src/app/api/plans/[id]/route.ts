@@ -8,7 +8,7 @@ import type { MembershipPlan } from '@prisma/client';
 // GET /api/plans/[id] - Get single plan details
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySessionForApi();
@@ -16,7 +16,7 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     const plan = await prisma.plan.findUnique({
       where: { id },
@@ -68,7 +68,7 @@ export async function GET(
 // PUT /api/plans/[id] - Update plan
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySessionForApi();
@@ -81,7 +81,7 @@ export async function PUT(
       return NextResponse.json({ success: false, error: 'Forbidden - Admin only' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     const body = await req.json();
 
     // Validate input with Zod
@@ -184,7 +184,7 @@ export async function PUT(
 // DELETE /api/plans/[id] - Archive plan (soft delete)
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySessionForApi();
@@ -197,7 +197,7 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: 'Forbidden - Admin only' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     const plan = await prisma.plan.findUnique({ where: { id } });
     if (!plan) {

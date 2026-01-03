@@ -2,7 +2,6 @@ import 'server-only';
 import { cache } from 'react';
 import { getSession } from './session';
 import { prisma } from '@/lib/prisma';
-import { User } from '@prisma/client';
 
 /**
  * Verify and get the current user's session

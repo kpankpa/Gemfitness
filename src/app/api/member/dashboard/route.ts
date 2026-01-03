@@ -126,7 +126,8 @@ export async function GET(request: NextRequest) {
         minute: '2-digit'
       }),
       method: checkIn.method as 'qr' | 'manual',
-      checkedBy: checkIn.checkedBy || 'System'
+      checkedBy: checkIn.checkedBy || 'System',
+      checkInTime: checkIn.checkInTime.toISOString()
     }));
 
     // Format booked classes

@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
+import Link from 'next/link';
 import { QrCode, Camera, AlertCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,8 +18,15 @@ export default function QRScanner({ onScan, onError, placeholder = 'Enter or sca
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [lookupLoading, setLookupLoading] = useState(false);
-  const [lookupResult, setLookupResult] = useState<any>(null);
+  const [, setLookupLoading] = useState(false);
+  type LookupData = {
+    success?: boolean;
+    user?: { firstName: string; lastName: string };
+    membership?: { status: string; daysLeft?: number };
+    lastCheckIn?: string | null;
+  } | null;
+  type LookupResult = { code?: string; data?: LookupData; success?: boolean; message?: string; duplicate?: boolean; error?: string } | null;
+  const [lookupResult, setLookupResult] = useState<LookupResult>(null);
   const { push: pushToast } = useToast();
 
   const handleManualInput = (value: string) => {
@@ -60,7 +68,8 @@ export default function QRScanner({ onScan, onError, placeholder = 'Enter or sca
       }
       const data = await res.json();
       setLookupResult({ code, data });
-    } catch (err) {
+    } catch (e: unknown) {
+      console.warn('Lookup failed', e);
       setError('Lookup failed');
       onError?.('Lookup failed');
     } finally {
@@ -110,7 +119,8 @@ export default function QRScanner({ onScan, onError, placeholder = 'Enter or sca
         setLookupResult(prev => ({ ...(prev || {}), error: data.error || 'Check-in failed' }));
         pushToast(data.error || 'Check-in failed', 'error');
       }
-    } catch (err) {
+    } catch (e: unknown) {
+      console.warn('Check-in request failed', e);
       // non-blocking: show error in modal
       setLookupResult(prev => ({ ...(prev || {}), error: 'Check-in request failed' }));
       pushToast('Check-in request failed', 'error');
@@ -207,7 +217,7 @@ export default function QRScanner({ onScan, onError, placeholder = 'Enter or sca
               <h3 className="text-lg font-bold">Member not found</h3>
               <p className="text-sm text-gray-600 mt-2">No member associated with scanned QR.</p>
               <div className="mt-4 flex gap-2">
-                <a href="/signup" className="bg-blue-500 text-white px-4 py-2 rounded">Register</a>
+                <Link href="/signup" className="bg-blue-500 text-white px-4 py-2 rounded">Register</Link>
                 <button className="border px-4 py-2 rounded" onClick={() => setLookupResult(null)}>Close</button>
               </div>
             </>

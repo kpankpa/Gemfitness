@@ -7,7 +7,7 @@ interface UseMembersReturn {
   members: Member[];
   isLoading: boolean;
   error: string | null;
-  fetchMembers: (page?: number, limit?: number) => Promise<void>;
+  fetchMembers: (page?: number, limit?: number, q?: string, status?: string, plan?: string) => Promise<void>;
   searchMembers: (query: string) => Member[];
   filterByStatus: (status: 'active' | 'expired' | 'expiring_soon') => Member[];
   currentPage: number;
@@ -94,7 +94,7 @@ export function useMembers(): UseMembersReturn {
       setIsLoading(false);
       abortControllerRef.current = null;
     }
-  }, []);
+  }, [pageSize]);
 
   const searchMembers = useCallback((query: string): Member[] => {
     if (!query.trim()) return members;

@@ -143,8 +143,10 @@ export default function SignupPage() {
         return;
       }
 
-      // Redirect to member dashboard after successful signup
-      router.push(data.redirectUrl);
+      // Wait for cookie to propagate before redirect
+      await new Promise(resolve => setTimeout(resolve, 100));
+      // Use window.location for hard navigation to ensure cookies are sent
+      window.location.href = data.redirectUrl;
     } catch (error) {
       console.error('Signup error:', error);
       setError('An error occurred during registration. Please try again.');

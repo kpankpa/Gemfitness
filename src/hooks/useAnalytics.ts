@@ -8,6 +8,7 @@ export interface Analytics {
   expiringSoon: number;
   todayCheckIns: number;
   monthlyRevenue: number;
+  monthlyTransactions?: number;
   recentPayments: Array<{
     id: string;
     member: string;
@@ -31,6 +32,7 @@ export function useAnalytics(): UseAnalyticsReturn {
     expiringSoon: 0,
     todayCheckIns: 0,
     monthlyRevenue: 0,
+    monthlyTransactions: 0,
     recentPayments: [],
     attendanceRate: '0%',
   });
@@ -61,6 +63,7 @@ export function useAnalytics(): UseAnalyticsReturn {
           expiringSoon: data.expiringSoon || 0,
           todayCheckIns: data.todayCheckIns || 0,
           monthlyRevenue: data.monthlyRevenue || 0,
+          monthlyTransactions: data.monthlyTransactions || 0,
           recentPayments: data.recentPayments || [],
           attendanceRate: data.attendanceRate || '0%',
         });
@@ -79,6 +82,7 @@ export function useAnalytics(): UseAnalyticsReturn {
         expiringSoon: 0,
         todayCheckIns: 0,
         monthlyRevenue: 0,
+        monthlyTransactions: 0,
         recentPayments: [],
         attendanceRate: '0%',
       });

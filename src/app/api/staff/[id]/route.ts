@@ -8,7 +8,7 @@ import { Prisma } from '@prisma/client';
 // GET /api/staff/[id] - Get single staff member details
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySessionForApi();
@@ -20,7 +20,7 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     const staff = await prisma.user.findUnique({
       where: { id },
@@ -89,7 +89,7 @@ export async function GET(
 // PUT /api/staff/[id] - Update staff member
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySessionForApi();
@@ -102,7 +102,7 @@ export async function PUT(
       return NextResponse.json({ success: false, error: 'Forbidden - Admin only' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     const body = await req.json();
     const {
       firstName,
@@ -216,7 +216,7 @@ export async function PUT(
 // DELETE /api/staff/[id] - Delete staff member
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySessionForApi();
@@ -229,7 +229,7 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: 'Forbidden - Admin only' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     // Check if staff exists
     const staff = await prisma.user.findUnique({

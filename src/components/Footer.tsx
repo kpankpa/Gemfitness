@@ -1,6 +1,7 @@
-'use client';
+"use client";
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { Facebook, Instagram, Twitter, Youtube, MapPin, Phone, Mail } from 'lucide-react';
 
 export default function Footer() {
@@ -12,10 +13,12 @@ export default function Footer() {
           <div>
             <div className="flex items-center mb-4">
               <div className="w-12 h-12 flex-shrink-0">
-                <img 
-                  src="/gemfitness.svg" 
-                  alt="GemFitness Logo" 
-                  className="w-full h-full object-contain"
+                <Image
+                  src="/gemfitness.svg"
+                  alt="GemFitness Logo"
+                  width={48}
+                  height={48}
+                  className="object-contain"
                 />
               </div>
             </div>

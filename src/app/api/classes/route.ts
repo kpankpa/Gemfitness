@@ -32,28 +32,49 @@ export async function GET(request: NextRequest) {
       take: limit,
       include: {
         _count: {
-          select: { bookings: true }
+          select: { 
+            bookings: true,
+            waitlist: {
+              where: { status: 'waiting' }
+            },
+            reviews: {
+              where: { status: 'published' }
+            }
+          }
+        },
+        reviews: {
+          where: { status: 'published' },
+          select: { rating: true }
         }
       }
     });
 
-    const formattedClasses = classes.map(c => ({
-      id: c.id,
-      name: c.name,
-      description: c.description,
-      type: c.type,
-      instructor: c.instructor,
-      duration: c.duration,
-      maxCapacity: c.maxCapacity,
-      currentBookings: c.currentBookings,
-      enrolled: c._count.bookings,
-      schedule: c.schedule,
-      color: c.color,
-      status: c.status,
-      createdBy: c.createdBy,
-      createdAt: c.createdAt.toISOString(),
-      updatedAt: c.updatedAt.toISOString()
-    }));
+    const formattedClasses = classes.map(c => {
+      // Calculate average rating
+      const totalRating = c.reviews.reduce((sum, review) => sum + review.rating, 0);
+      const averageRating = c.reviews.length > 0 ? totalRating / c.reviews.length : null;
+
+      return {
+        id: c.id,
+        name: c.name,
+        description: c.description,
+        type: c.type,
+        instructor: c.instructor,
+        duration: c.duration,
+        maxCapacity: c.maxCapacity,
+        currentBookings: c.currentBookings,
+        enrolled: c._count.bookings,
+        schedule: c.schedule,
+        color: c.color,
+        status: c.status,
+        rating: averageRating,
+        waitlistCount: c._count.waitlist,
+        totalReviews: c._count.reviews,
+        createdBy: c.createdBy,
+        createdAt: c.createdAt.toISOString(),
+        updatedAt: c.updatedAt.toISOString()
+      };
+    });
 
     return NextResponse.json({
       success: true,

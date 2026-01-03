@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Montserrat } from "next/font/google";
 import "./globals.css";
-import Navigation from "@/components/Navigation";
-import Footer from "@/components/Footer";
+import ConditionalLayout from "@/components/ConditionalLayout";
 import { Providers } from "@/components/providers";
 
 // Primary font for body text - clean and readable
@@ -80,13 +79,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${montserrat.variable}`}>
+      <head>
+        <script src="https://js.paystack.co/v1/inline.js"></script>
+      </head>
       <body className="font-sans antialiased bg-white">
         <Providers>
-          <Navigation />
-          <main className="pt-20">
+          <ConditionalLayout>
             {children}
-          </main>
-          <Footer />
+          </ConditionalLayout>
         </Providers>
       </body>
     </html>

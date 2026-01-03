@@ -11,11 +11,20 @@ import { useAnalytics } from '@/hooks/useAnalytics';
 import { motion } from 'framer-motion';
 import QRScanner from '@/components/QRScanner';
 import WebcamQRScanner from '@/components/WebcamQRScanner';
+import WaitlistModal from '@/components/admin/WaitlistModal';
+import BulkEmailModal from '@/components/admin/BulkEmailModal';
+import ClassReviewsModal from '@/components/admin/ClassReviewsModal';
+import MemberClassHistoryModal from '@/components/admin/MemberClassHistoryModal';
+import ClassEnrollmentModal from '@/components/admin/ClassEnrollmentModal';
+import ClassAttendanceModal from '@/components/admin/ClassAttendanceModal';
+import ClassAnalyticsCards from '@/components/admin/ClassAnalyticsCards';
+import EventDetailsModal from '@/components/admin/EventDetailsModal';
+import EventAttendeeModal from '@/components/admin/EventAttendeeModal';
+import EventAnalyticsCards from '@/components/admin/EventAnalyticsCards';
 import {
   Users,
   User,
   TrendingUp,
-  UserPlus,
   DollarSign,
   Activity,
   Search,
@@ -48,9 +57,24 @@ import {
   Trophy,
   X,
   Upload,
+  Star,
+  History,
+  Send,
+  ChevronDown,
+  MoreVertical,
+  FileText,
+  UserPlus,
+  ClipboardCheck,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import Image from 'next/image';
 import AdminSidebar from '@/components/AdminSidebar';
 import type { Member } from '@/types';
@@ -66,7 +90,7 @@ const mockStats = {
 export default function AdminDashboard() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
-  const { members, fetchMembers, searchMembers, currentPage, pageSize, totalMembers } = useMembers();
+  const { members, fetchMembers, currentPage, pageSize, totalMembers } = useMembers();
   const { checkIns, stats: checkInStats, isCheckingIn, performCheckIn, fetchCheckIns, fetchStats } = useCheckIns();
   const { analytics, fetchAnalytics } = useAnalytics();
   
@@ -83,6 +107,9 @@ export default function AdminDashboard() {
     schedule: string;
     color?: string;
     status: string;
+    rating?: number;
+    waitlistCount?: number;
+    totalReviews?: number;
   }>>([]);
   const [events, setEvents] = useState<Array<{
     id: string;
@@ -281,6 +308,21 @@ export default function AdminDashboard() {
   const [editMemberFieldErrors, setEditMemberFieldErrors] = useState<Record<string, string>>({});
   const [editMemberProfileFile, setEditMemberProfileFile] = useState<File | null>(null);
 
+  // Ticket generation states
+  const [, setIsGeneratingTickets] = useState(false);
+  const [, setShowTicketModal] = useState(false);
+  const [, setTicketStats] = useState<{
+    generated: number;
+    total: number;
+    needsGeneration: number;
+    allGenerated: boolean;
+  }>({
+    generated: 0,
+    total: 0,
+    needsGeneration: 0,
+    allGenerated: false,
+  });
+
   // Registration form state
   const [newMember, setNewMember] = useState({
     firstName: '',
@@ -389,6 +431,35 @@ export default function AdminDashboard() {
   const [eventImagePreview, setEventImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
+  // Advanced feature modal states
+  const [showWaitlistModal, setShowWaitlistModal] = useState(false);
+  const [showClassReviewsModal, setShowClassReviewsModal] = useState(false);
+  const [showBulkEmailModal, setShowBulkEmailModal] = useState(false);
+  const [showMemberClassHistoryModal, setShowMemberClassHistoryModal] = useState(false);
+  const [showClassEnrollmentModal, setShowClassEnrollmentModal] = useState(false);
+  const [showClassAttendanceModal, setShowClassAttendanceModal] = useState(false);
+  const [showEventDetailsModal, setShowEventDetailsModal] = useState(false);
+  const [showEventAttendeeModal, setShowEventAttendeeModal] = useState(false);
+  const [isCancellingClass, setIsCancellingClass] = useState(false);
+  const [showCancellationModal, setShowCancellationModal] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState('');
+  const [showEventCheckinModal, setShowEventCheckinModal] = useState(false);
+  const [checkinStats] = useState<{
+    totalRegistrations: number;
+    checkedIn: number;
+    notCheckedIn: number;
+    attendanceRate: number;
+  } | null>(null);
+  const [showDeadlineModal, setShowDeadlineModal] = useState(false);
+  const [deadlineDate, setDeadlineDate] = useState('');
+  const [autoCloseHours, setAutoCloseHours] = useState(2);
+  const [selectedClassForModal, setSelectedClassForModal] = useState<typeof classes[0] | null>(null);
+  const [selectedEventForModal, setSelectedEventForModal] = useState<typeof events[0] | null>(null);
+
+  // Event filters state
+  const [eventStatusFilter, setEventStatusFilter] = useState<string>('all');
+  const [eventSearchQuery, setEventSearchQuery] = useState('');
+
   // Fetch initial data when authenticated (run ONCE on mount)
   useEffect(() => {
     console.log('🔄 Dashboard useEffect triggered:', { isAuthenticated, authLoading, userRole: user?.role });
@@ -461,6 +532,23 @@ export default function AdminDashboard() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, isAuthenticated]);
+
+  // Utility function to get plan pricing
+  const getPlanPrice = (planName: string): string => {
+    const pricingMap: Record<string, string> = {
+      '1 Month': '200',
+      '3 Months': '450', 
+      '6 Months': '1000',
+      '12 Months': '2000',
+      'ONE_MONTH': '200',
+      'THREE_MONTHS': '450',
+      'SIX_MONTHS': '1000', 
+      'TWELVE_MONTHS': '2000',
+      'DAILY': '50',
+      'Daily Walk-In': '50',
+    };
+    return pricingMap[planName] || '0';
+  };
 
   // Fetch classes from API
   const fetchClasses = async () => {
@@ -962,8 +1050,8 @@ export default function AdminDashboard() {
       if (response.status === 400 && data?.details) {
         // Map Zod issues to field errors
         const issues: Record<string, string> = {};
-        (data.details || []).forEach((iss: any) => {
-          if (iss.path && iss.path[0]) issues[String(iss.path[0])] = iss.message;
+        (data.details || []).forEach((iss: { path?: string[]; message?: string }) => {
+          if (iss.path && iss.path[0]) issues[String(iss.path[0])] = iss.message || 'Invalid';
         });
         setEditMemberFieldErrors(issues);
         pushToast('Please fix the highlighted fields', 'error');
@@ -973,7 +1061,7 @@ export default function AdminDashboard() {
       if (response.status === 409 && data?.fields) {
         const issues: Record<string, string> = {};
         const target = data.fields;
-        if (Array.isArray(target)) target.forEach((f: any) => { issues[String(f)] = 'Already in use'; });
+        if (Array.isArray(target)) target.forEach((f: string) => { issues[String(f)] = 'Already in use'; });
         else issues[String(target)] = 'Already in use';
         setEditMemberFieldErrors(issues);
         pushToast('Please fix the highlighted fields', 'error');
@@ -1097,8 +1185,8 @@ export default function AdminDashboard() {
       const data = await response.json();
       if (response.status === 400 && data?.details) {
         const issues: Record<string, string> = {};
-        (data.details || []).forEach((iss: any) => {
-          if (iss.path && iss.path[0]) issues[String(iss.path[0])] = iss.message;
+        (data.details || []).forEach((iss: { path?: string[]; message?: string }) => {
+          if (iss.path && iss.path[0]) issues[String(iss.path[0])] = iss.message || 'Invalid';
         });
         setNewMemberErrors(issues);
         pushToast('Please fix the highlighted fields', 'error');
@@ -1108,7 +1196,7 @@ export default function AdminDashboard() {
       if (response.status === 409 && data?.fields) {
         const issues: Record<string, string> = {};
         const target = data.fields;
-        if (Array.isArray(target)) target.forEach((f: any) => { issues[String(f)] = 'Already in use'; });
+        if (Array.isArray(target)) target.forEach((f: string) => { issues[String(f)] = 'Already in use'; });
         else issues[String(target)] = 'Already in use';
         setNewMemberErrors(issues);
         pushToast('Please fix the highlighted fields', 'error');
@@ -1308,6 +1396,114 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error('Error deleting class:', error);
       alert('❌ Error deleting class');
+    }
+  };
+
+  // Cancel class with notifications
+  const handleCancelClass = async () => {
+    if (!selectedClassForModal || !cancellationReason.trim()) {
+      alert('Please provide a cancellation reason');
+      return;
+    }
+
+    setIsCancellingClass(true);
+    try {
+      const response = await fetch(`/api/classes/${selectedClassForModal.id}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reason: cancellationReason,
+          notifyMembers: true
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchClasses();
+        setShowCancellationModal(false);
+        setSelectedClassForModal(null);
+        setCancellationReason('');
+        alert(`✅ Class cancelled successfully! ${data.notifiedMembers} members notified.`);
+      } else {
+        alert(`❌ ${data.error || 'Failed to cancel class'}`);
+      }
+    } catch (error) {
+      console.error('Error cancelling class:', error);
+      alert('❌ Error cancelling class');
+    } finally {
+      setIsCancellingClass(false);
+    }
+  };
+
+  // Generate QR tickets for event
+  const handleGenerateTickets = async (eventId: string) => {
+    setIsGeneratingTickets(true);
+    try {
+      const response = await fetch(`/api/events/${eventId}/generate-tickets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setTicketStats({
+          generated: data.generatedCount,
+          total: data.totalRegistrations,
+          needsGeneration: 0,
+          allGenerated: true
+        });
+        setShowTicketModal(true);
+        alert(`✅ Generated ${data.generatedCount} QR tickets successfully!`);
+      } else {
+        alert(`❌ ${data.error || 'Failed to generate tickets'}`);
+      }
+    } catch (error) {
+      console.error('Error generating tickets:', error);
+      alert('❌ Error generating tickets');
+    } finally {
+      setIsGeneratingTickets(false);
+    }
+  };
+
+  // Set registration deadline
+  const handleSetDeadline = async () => {
+    if (!selectedEventForModal || !deadlineDate) {
+      alert('Please select a deadline date');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/events/${selectedEventForModal.id}/deadline`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          registrationDeadline: deadlineDate,
+          autoCloseHours,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchEvents();
+        setShowDeadlineModal(false);
+        setSelectedEventForModal(null);
+        setDeadlineDate('');
+        alert('✅ Registration deadline set successfully!');
+      } else {
+        alert(`❌ ${data.error || 'Failed to set deadline'}`);
+      }
+    } catch (error) {
+      console.error('Error setting deadline:', error);
+      alert('❌ Error setting deadline');
     }
   };
 
@@ -1576,15 +1772,15 @@ export default function AdminDashboard() {
           </div>
         </div>
       ) : (
-        <>
-          {/* Sidebar */}
-          <AdminSidebar
-            adminUser={user?.email || user?.firstName || 'Admin'}
-            adminRole={user?.role?.toLowerCase() === 'receptionist' ? 'receptionist' : 'manager'}
-            onLogout={handleLogout}
-            activeTab={activeTab}
-            onTabChange={(tab) => setActiveTab(tab as typeof activeTab)}
-          />
+      <>
+        {/* Sidebar */}
+        <AdminSidebar
+          adminUser={user?.email || user?.firstName || 'Admin'}
+          adminRole={user?.role?.toLowerCase() === 'receptionist' ? 'receptionist' : 'manager'}
+          onLogout={handleLogout}
+          activeTab={activeTab}
+          onTabChange={(tab) => setActiveTab(tab as typeof activeTab)}
+        />
 
       {/* Main Content */}
       <div className="flex-1 lg:ml-64 pt-[57px] lg:pt-0">
@@ -1867,7 +2063,7 @@ export default function AdminDashboard() {
                   <select
                     className="px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
                     value={memberStatusFilter}
-                    onChange={(e) => setMemberStatusFilter(e.target.value as any)}
+                    onChange={(e) => setMemberStatusFilter(e.target.value as 'all' | 'active' | 'expiring_soon' | 'expired')}
                   >
                     <option value="all">All Status</option>
                     <option value="active">Active</option>
@@ -1936,20 +2132,38 @@ export default function AdminDashboard() {
                                   setSelectedMember(member as Member);
                                   setShowMemberModal(true);
                                 }}
+                                title="View member details"
                               >
                                 <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedMember(member as Member);
+                                  setShowMemberClassHistoryModal(true);
+                                }}
+                                title="View class history"
+                              >
+                                <History className="h-4 w-4" />
                               </Button>
                               {canUpdateBasicInfo && (
                                 <Button 
                                   variant="ghost" 
                                   size="sm"
                                   onClick={() => openEditMemberModal(member as Member)}
+                                  title="Edit member"
                                 >
                                   <Edit className="h-4 w-4" />
                                 </Button>
                               )}
                               {canSuspendMembers && (
-                                <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="text-red-600 hover:text-red-700"
+                                  title="Suspend member"
+                                >
                                   <Ban className="h-4 w-4" />
                                 </Button>
                               )}
@@ -1959,6 +2173,7 @@ export default function AdminDashboard() {
                                   size="sm"
                                   className="text-red-600 hover:text-red-700"
                                   onClick={() => openDeleteMemberModal(member as Member)}
+                                  title="Delete member"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -2009,6 +2224,9 @@ export default function AdminDashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
+            {/* Class Analytics Cards */}
+            <ClassAnalyticsCards />
+
             <Card className="border-2 border-gray-100">
               <CardHeader>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -2083,24 +2301,119 @@ export default function AdminDashboard() {
                           </div>
                         </div>
 
+                        {/* Progress bar */}
+                        <div className="mb-4">
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-orange-500 h-2 rounded-full transition-all"
+                              style={{ width: `${Math.round((classItem.enrolled / classItem.maxCapacity) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Quick metrics - Dynamic data */}
+                        <div className="grid grid-cols-2 gap-2 mb-4 text-xs">
+                          {classItem.rating && (
+                            <div className="flex items-center gap-1 text-gray-600 bg-yellow-50 p-2 rounded">
+                              <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
+                              <span className="font-medium">{classItem.rating.toFixed(1)}</span>
+                              {classItem.totalReviews && (
+                                <span className="text-gray-400">({classItem.totalReviews})</span>
+                              )}
+                            </div>
+                          )}
+                          {classItem.waitlistCount !== undefined && classItem.waitlistCount > 0 && (
+                            <div className="flex items-center gap-1 text-gray-600 bg-blue-50 p-2 rounded">
+                              <Users className="h-3 w-3 text-blue-500" />
+                              <span className="font-medium">Wait: {classItem.waitlistCount}</span>
+                            </div>
+                          )}
+                        </div>
+
                         {canManageClasses && (
                           <div className="flex gap-2">
                             <Button 
                               variant="outline" 
-                              size="sm" 
-                              className="flex-1"
-                              onClick={() => openClassModal(classItem)}
-                            >
-                              <Edit className="h-4 w-4 mr-1" />
-                              Edit
-                            </Button>
-                            <Button 
-                              variant="outline" 
                               size="sm"
-                              onClick={() => handleDeleteClass(classItem.id)}
+                              className="flex-1 border-2"
+                              onClick={() => {
+                                setSelectedClassForModal(classItem);
+                                setShowMemberModal(true);
+                              }}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Eye className="h-4 w-4 mr-1" />
+                              Quick View
                             </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="border-2">
+                                  Manage <ChevronDown className="h-4 w-4 ml-1" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedClassForModal(classItem);
+                                    setShowClassEnrollmentModal(true);
+                                  }}
+                                >
+                                  <UserPlus className="h-4 w-4 mr-2" />
+                                  Manage Enrollments
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedClassForModal(classItem);
+                                    setShowClassAttendanceModal(true);
+                                  }}
+                                >
+                                  <ClipboardCheck className="h-4 w-4 mr-2" />
+                                  View Attendance
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedClassForModal(classItem);
+                                    setShowWaitlistModal(true);
+                                  }}
+                                >
+                                  <Users className="h-4 w-4 mr-2" />
+                                  Manage Waitlist
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedClassForModal(classItem);
+                                    setShowClassReviewsModal(true);
+                                  }}
+                                >
+                                  <Star className="h-4 w-4 mr-2" />
+                                  View Reviews
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => openClassModal(classItem)}>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Edit Class
+                                </DropdownMenuItem>
+                                {classItem.status === 'ACTIVE' && (
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setSelectedClassForModal(classItem);
+                                      setShowCancellationModal(true);
+                                    }}
+                                    className="text-orange-600 focus:text-orange-600"
+                                  >
+                                    <AlertTriangle className="h-4 w-4 mr-2" />
+                                    Cancel Class
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem
+                                  onClick={() => handleDeleteClass(classItem.id)}
+                                  className="text-red-600 focus:text-red-600"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete Class
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         )}
                       </CardContent>
@@ -2120,6 +2433,9 @@ export default function AdminDashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
+            {/* Event Analytics Cards */}
+            <EventAnalyticsCards />
+
             <Card className="border-2 border-gray-100">
               <CardHeader>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -2139,6 +2455,31 @@ export default function AdminDashboard() {
                 </div>
               </CardHeader>
               <CardContent>
+                {/* Filters and Search */}
+                <div className="flex flex-col sm:flex-row gap-3 mb-6">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={eventSearchQuery}
+                      onChange={(e) => setEventSearchQuery(e.target.value)}
+                      placeholder="Search events..."
+                      className="w-full pl-10 pr-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <select
+                    className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                    value={eventStatusFilter}
+                    onChange={(e) => setEventStatusFilter(e.target.value)}
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="upcoming">Upcoming</option>
+                    <option value="ongoing">Ongoing</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+
                 {isLoadingEvents ? (
                   <div className="text-center py-8">
                     <p className="text-gray-500">Loading events...</p>
@@ -2148,117 +2489,211 @@ export default function AdminDashboard() {
                     <p className="text-gray-500">No events found. Create your first event!</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {events.map((event) => (
-                    <Card key={event.id} className="border-2 border-gray-200 hover:border-orange-300 transition-colors">
-                      <CardContent className="p-6">
-                        <div className="flex flex-col md:flex-row gap-6">
-                          {/* Event Image */}
-                          <div className="w-full md:w-56 h-36 bg-gradient-to-br from-orange-100 to-orange-200 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden relative">
-                            {event.image ? (
-                              <Image 
-                                src={event.image} 
-                                alt={event.title} 
-                                fill
-                                className="object-cover rounded-lg"
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = 'none';
+                  <>
+                    {(() => {
+                      const filteredEvents = events.filter(event => {
+                        const matchesSearch = eventSearchQuery === '' || 
+                          event.title.toLowerCase().includes(eventSearchQuery.toLowerCase()) ||
+                          event.description.toLowerCase().includes(eventSearchQuery.toLowerCase()) ||
+                          event.location.toLowerCase().includes(eventSearchQuery.toLowerCase());
+                        
+                        const matchesStatus = eventStatusFilter === 'all' || 
+                          event.status?.toLowerCase() === eventStatusFilter;
+                        
+                        return matchesSearch && matchesStatus;
+                      });
+
+                      if (filteredEvents.length === 0) {
+                        return (
+                          <div className="text-center py-12">
+                            <Calendar className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">No events found</h3>
+                            <p className="text-gray-600 mb-4">
+                              {eventSearchQuery || eventStatusFilter !== 'all' 
+                                ? 'Try adjusting your filters or search query'
+                                : 'Create your first event to get started'
+                              }
+                            </p>
+                            {eventSearchQuery || eventStatusFilter !== 'all' ? (
+                              <Button 
+                                variant="outline" 
+                                onClick={() => {
+                                  setEventSearchQuery('');
+                                  setEventStatusFilter('all');
                                 }}
-                              />
-                            ) : (
-                              <div className="flex flex-col items-center justify-center text-orange-400">
-                                <ImageIcon className="h-12 w-12 mb-2" />
-                                <p className="text-xs text-gray-500">No image</p>
-                              </div>
+                              >
+                                Clear Filters
+                              </Button>
+                            ) : canCreateEvents && (
+                              <Button 
+                                onClick={() => openEventModal()}
+                                className="bg-orange-500 hover:bg-orange-600"
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Create New Event
+                              </Button>
                             )}
                           </div>
+                        );
+                      }
 
-                          {/* Event Details */}
-                          <div className="flex-1">
-                            <div className="flex items-start justify-between mb-3">
-                              <div>
-                                <h3 className="text-xl font-bold text-gray-900 mb-1">{event.title}</h3>
-                                <p className="text-sm text-gray-600">{event.description}</p>
-                              </div>
-                              <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ml-2 ${
-                                event.status?.toUpperCase() === 'UPCOMING' ? 'bg-blue-100 text-blue-700' :
-                                event.status?.toUpperCase() === 'ONGOING' ? 'bg-green-100 text-green-700' :
-                                event.status?.toUpperCase() === 'COMPLETED' ? 'bg-gray-100 text-gray-700' :
-                                'bg-red-100 text-red-700'
-                              }`}>
-                                {event.status?.toUpperCase()}
-                              </span>
-                            </div>
+                      return (
+                        <div className="space-y-3">
+                          {filteredEvents.map((event) => (
+                            <Card key={event.id} className="border-2 border-gray-200 hover:border-orange-300 transition-colors">
+                              <CardContent className="p-6">
+                                <div className="flex items-center gap-4">
+                                  {/* Small Event Image */}
+                                  <div className="w-20 h-20 bg-gradient-to-br from-orange-100 to-orange-200 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden relative">
+                                    {event.image ? (
+                                      <Image 
+                                        src={event.image} 
+                                        alt={event.title} 
+                                        width={80}
+                                        height={80}
+                                        className="object-cover rounded-lg"
+                                        onError={(e) => {
+                                          const target = e.target as HTMLImageElement;
+                                          target.style.display = 'none';
+                                        }}
+                                      />
+                                    ) : (
+                                      <div className="flex flex-col items-center justify-center text-orange-400">
+                                        <ImageIcon className="h-8 w-8" />
+                                      </div>
+                                    )}
+                                  </div>
 
-                            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                              <div className="flex items-center gap-2">
-                                <Calendar className="h-4 w-4 text-orange-500" />
-                                <div>
-                                  <p className="text-xs text-gray-500">Date</p>
-                                  <p className="text-sm font-medium text-gray-900">{event.eventDate}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <MapPin className="h-4 w-4 text-orange-500" />
-                                <div>
-                                  <p className="text-xs text-gray-500">Location</p>
-                                  <p className="text-sm font-medium text-gray-900">{event.location}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Users className="h-4 w-4 text-orange-500" />
-                                <div>
-                                  <p className="text-xs text-gray-500">Registered</p>
-                                  <p className="text-sm font-medium text-gray-900">
-                                    {event.registered}{event.maxAttendees ? `/${event.maxAttendees}` : ''}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Ticket className="h-4 w-4 text-orange-500" />
-                                <div>
-                                  <p className="text-xs text-gray-500">Price</p>
-                                  <p className="text-sm font-medium text-gray-900">
-                                    {event.isFree ? 'Free' : `GH₵ ${event.price}`}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
+                                  {/* Event Details */}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <h3 className="text-lg font-bold text-gray-900 truncate">{event.title}</h3>
+                                      <span className={`px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
+                                        event.status?.toUpperCase() === 'UPCOMING' ? 'bg-blue-100 text-blue-700' :
+                                        event.status?.toUpperCase() === 'ONGOING' ? 'bg-green-100 text-green-700' :
+                                        event.status?.toUpperCase() === 'COMPLETED' ? 'bg-gray-100 text-gray-700' :
+                                        'bg-red-100 text-red-700'
+                                      }`}>
+                                        {event.status?.toUpperCase()}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">{event.description}</p>
+                                    
+                                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                                      <span className="flex items-center gap-1">
+                                        <Calendar className="h-3 w-3 text-orange-500" />
+                                        {event.eventDate}
+                                      </span>
+                                      <span className="flex items-center gap-1">
+                                        <MapPin className="h-3 w-3 text-orange-500" />
+                                        {event.location}
+                                      </span>
+                                      <span className="flex items-center gap-1">
+                                        <Users className="h-3 w-3 text-orange-500" />
+                                        {event.registered}{event.maxAttendees ? `/${event.maxAttendees}` : ''}
+                                      </span>
+                                      <span className="flex items-center gap-1">
+                                        <Ticket className="h-3 w-3 text-orange-500" />
+                                        {event.isFree ? 'Free' : `GH₵ ${event.price}`}
+                                      </span>
+                                    </div>
+                                  </div>
 
-                            <div className="flex gap-2">
-                              <Button variant="outline" size="sm">
-                                <Eye className="h-4 w-4 mr-1" />
-                                View Details
-                              </Button>
-                              {canCreateEvents && (
-                                <>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    onClick={() => openEventModal(event)}
-                                  >
-                                    <Edit className="h-4 w-4 mr-1" />
-                                    Edit
-                                  </Button>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    className="text-red-600 hover:text-red-700"
-                                    onClick={() => handleDeleteEvent(event.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-1" />
-                                    Delete
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-                          </div>
+                                  {/* Prominent Action Buttons */}
+                                  <div className="flex gap-2 flex-shrink-0">
+                                    <Button
+                                      variant="default"
+                                      size="sm"
+                                      onClick={() => {
+                                        setSelectedEventForModal(event);
+                                        setShowBulkEmailModal(true);
+                                      }}
+                                      className="bg-orange-500 hover:bg-orange-600"
+                                    >
+                                      <Send className="h-4 w-4 mr-1" />
+                                      Email
+                                    </Button>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" size="sm" className="border-2">
+                                          <MoreVertical className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end" className="w-36">
+                                        <DropdownMenuItem
+                                          onClick={() => {
+                                            setSelectedEventForModal(event);
+                                            setShowEventDetailsModal(true);
+                                          }}
+                                        >
+                                          <Eye className="h-4 w-4 mr-2" />
+                                          View Details
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={() => {
+                                            setSelectedEventForModal(event);
+                                            setShowEventAttendeeModal(true);
+                                          }}
+                                        >
+                                          <FileText className="h-4 w-4 mr-2" />
+                                          Manage Attendees
+                                        </DropdownMenuItem>
+                                        {!event.isFree && (
+                                          <DropdownMenuItem
+                                            onClick={() => {
+                                              setSelectedEventForModal(event);
+                                              handleGenerateTickets(event.id);
+                                            }}
+                                          >
+                                            <QrCode className="h-4 w-4 mr-2" />
+                                            Generate Tickets
+                                          </DropdownMenuItem>
+                                        )}
+                                        <DropdownMenuItem
+                                          onClick={() => {
+                                            setSelectedEventForModal(event);
+                                            setShowEventCheckinModal(true);
+                                          }}
+                                        >
+                                          <ClipboardCheck className="h-4 w-4 mr-2" />
+                                          Event Check-in
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={() => {
+                                            setSelectedEventForModal(event);
+                                            setShowDeadlineModal(true);
+                                          }}
+                                        >
+                                          <Clock className="h-4 w-4 mr-2" />
+                                          Set Deadline
+                                        </DropdownMenuItem>
+                                        {canCreateEvents && (
+                                          <>
+                                            <DropdownMenuItem onClick={() => openEventModal(event)}>
+                                              <Edit className="h-4 w-4 mr-2" />
+                                              Edit Event
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem
+                                              onClick={() => handleDeleteEvent(event.id)}
+                                              className="text-red-600 focus:text-red-600"
+                                            >
+                                              <Trash2 className="h-4 w-4 mr-2" />
+                                              Delete
+                                            </DropdownMenuItem>
+                                          </>
+                                        )}
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                      );
+                    })()}
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -2641,8 +3076,12 @@ export default function AdminDashboard() {
                       </div>
                       <div className="p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
                         <p className="text-sm text-gray-600 mb-1">This Month</p>
-                        <p className="text-2xl font-bold text-blue-700">GH₵ 12,450</p>
-                        <p className="text-xs text-blue-600 mt-1">23 transactions</p>
+                        <p className="text-2xl font-bold text-blue-700">
+                          GH₵ {analytics?.monthlyRevenue?.toLocaleString() || '0'}
+                        </p>
+                        <p className="text-xs text-blue-600 mt-1">
+                          {analytics?.monthlyTransactions || 0} transactions
+                        </p>
                       </div>
                     </div>
 
@@ -2666,7 +3105,7 @@ export default function AdminDashboard() {
                               <td className="px-4 py-3 text-sm font-medium text-gray-900">{member.name}</td>
                               <td className="px-4 py-3 text-sm text-gray-600">{member.plan}</td>
                               <td className="px-4 py-3 text-sm font-semibold text-gray-900">
-                                GH₵ {member.plan === '1 Month' ? '200' : member.plan === '3 Months' ? '450' : member.plan === '6 Months' ? '1000' : member.plan === '12 Months' ? '2000' : '50'}
+                                GH₵ {getPlanPrice(member.plan)}
                               </td>
                               <td className="px-4 py-3">
                                 <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
@@ -5147,6 +5586,379 @@ export default function AdminDashboard() {
               >
                 {isUpdatingMember ? 'Updating...' : 'Update Member'}
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Advanced Feature Modals */}
+      
+      {/* Waitlist Modal */}
+      {showWaitlistModal && selectedClassForModal && (
+        <WaitlistModal
+          isOpen={showWaitlistModal}
+          onClose={() => {
+            setShowWaitlistModal(false);
+            setSelectedClassForModal(null);
+          }}
+          classData={{
+            id: selectedClassForModal.id,
+            name: selectedClassForModal.name,
+            instructor: selectedClassForModal.instructor,
+            schedule: selectedClassForModal.schedule,
+            maxCapacity: selectedClassForModal.maxCapacity,
+            enrolled: selectedClassForModal.enrolled,
+          }}
+        />
+      )}
+
+      {/* Class Reviews Modal */}
+      {showClassReviewsModal && selectedClassForModal && (
+        <ClassReviewsModal
+          isOpen={showClassReviewsModal}
+          onClose={() => {
+            setShowClassReviewsModal(false);
+            setSelectedClassForModal(null);
+          }}
+          classData={{
+            id: selectedClassForModal.id,
+            name: selectedClassForModal.name,
+            instructor: selectedClassForModal.instructor,
+            type: selectedClassForModal.type,
+          }}
+        />
+      )}
+
+      {/* Bulk Email Modal */}
+      {showBulkEmailModal && selectedEventForModal && (
+        <BulkEmailModal
+          isOpen={showBulkEmailModal}
+          onClose={() => {
+            setShowBulkEmailModal(false);
+            setSelectedEventForModal(null);
+          }}
+          eventData={{
+            id: selectedEventForModal.id,
+            title: selectedEventForModal.title,
+            eventDate: selectedEventForModal.eventDate,
+            location: selectedEventForModal.location,
+            registered: selectedEventForModal.registered,
+          }}
+        />
+      )}
+
+      {/* Member Class History Modal */}
+      {showMemberClassHistoryModal && selectedMember && (
+        <MemberClassHistoryModal
+          isOpen={showMemberClassHistoryModal}
+          onClose={() => {
+            setShowMemberClassHistoryModal(false);
+            setSelectedMember(null);
+          }}
+          memberData={{
+            id: selectedMember.id,
+            name: selectedMember.name,
+            email: selectedMember.email,
+          }}
+        />
+      )}
+
+      {/* Class Enrollment Modal */}
+      {showClassEnrollmentModal && selectedClassForModal && (
+        <ClassEnrollmentModal
+          isOpen={showClassEnrollmentModal}
+          onClose={() => {
+            setShowClassEnrollmentModal(false);
+            setSelectedClassForModal(null);
+          }}
+          classData={{
+            id: selectedClassForModal.id,
+            name: selectedClassForModal.name,
+            instructor: selectedClassForModal.instructor,
+            schedule: selectedClassForModal.schedule,
+            maxCapacity: selectedClassForModal.maxCapacity,
+            enrolled: selectedClassForModal.enrolled,
+          }}
+        />
+      )}
+
+      {/* Class Attendance Modal - Linked to General Check-ins */}
+      {showClassAttendanceModal && selectedClassForModal && (
+        <ClassAttendanceModal
+          isOpen={showClassAttendanceModal}
+          onClose={() => {
+            setShowClassAttendanceModal(false);
+            setSelectedClassForModal(null);
+          }}
+          classData={{
+            id: selectedClassForModal.id,
+            name: selectedClassForModal.name,
+            instructor: selectedClassForModal.instructor,
+            schedule: selectedClassForModal.schedule,
+            duration: selectedClassForModal.duration,
+          }}
+        />
+      )}
+
+      {/* Event Details Modal */}
+      {showEventDetailsModal && selectedEventForModal && (
+        <EventDetailsModal
+          isOpen={showEventDetailsModal}
+          onClose={() => {
+            setShowEventDetailsModal(false);
+            setSelectedEventForModal(null);
+          }}
+          eventData={{
+            id: selectedEventForModal.id,
+            title: selectedEventForModal.title,
+            description: selectedEventForModal.description,
+            eventDate: selectedEventForModal.eventDate,
+            endDate: selectedEventForModal.endDate,
+            location: selectedEventForModal.location,
+            image: selectedEventForModal.image,
+            maxAttendees: selectedEventForModal.maxAttendees,
+            registered: selectedEventForModal.registered,
+            isFree: selectedEventForModal.isFree,
+            price: selectedEventForModal.price,
+            status: selectedEventForModal.status,
+          }}
+        />
+      )}
+
+      {/* Event Attendee Modal */}
+      {showEventAttendeeModal && selectedEventForModal && (
+        <EventAttendeeModal
+          isOpen={showEventAttendeeModal}
+          onClose={() => {
+            setShowEventAttendeeModal(false);
+            setSelectedEventForModal(null);
+          }}
+          eventData={{
+            id: selectedEventForModal.id,
+            title: selectedEventForModal.title,
+            eventDate: selectedEventForModal.eventDate,
+            location: selectedEventForModal.location,
+            isFree: selectedEventForModal.isFree,
+            price: selectedEventForModal.price ?? null,
+          }}
+        />
+      )}
+
+      {/* Class Cancellation Modal */}
+      {showCancellationModal && selectedClassForModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowCancellationModal(false);
+              setSelectedClassForModal(null);
+              setCancellationReason('');
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg max-w-md w-full shadow-2xl">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-orange-100 rounded-full">
+                  <AlertTriangle className="h-6 w-6 text-orange-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Cancel Class</h2>
+                  <p className="text-sm text-gray-600">{selectedClassForModal.name}</p>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-sm text-gray-700 mb-3">
+                  This will cancel the class and automatically notify all enrolled members ({selectedClassForModal.enrolled} members).
+                </p>
+                
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cancellation Reason *
+                </label>
+                <textarea
+                  value={cancellationReason}
+                  onChange={(e) => setCancellationReason(e.target.value)}
+                  placeholder="e.g., Instructor unavailable, equipment issues, low enrollment..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                  rows={3}
+                  required
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowCancellationModal(false);
+                    setSelectedClassForModal(null);
+                    setCancellationReason('');
+                  }}
+                  className="flex-1"
+                  disabled={isCancellingClass}
+                >
+                  Keep Class
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleCancelClass}
+                  disabled={isCancellingClass || !cancellationReason.trim()}
+                  className="flex-1 bg-orange-600 hover:bg-orange-700"
+                >
+                  {isCancellingClass ? 'Cancelling...' : 'Cancel Class'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Event Deadline Modal */}
+      {showDeadlineModal && selectedEventForModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowDeadlineModal(false);
+              setSelectedEventForModal(null);
+              setDeadlineDate('');
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg max-w-md w-full shadow-2xl">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-blue-100 rounded-full">
+                  <Clock className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Set Registration Deadline</h2>
+                  <p className="text-sm text-gray-600">{selectedEventForModal.title}</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Registration Deadline *
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={deadlineDate}
+                    onChange={(e) => setDeadlineDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Auto-close hours before event
+                  </label>
+                  <select
+                    value={autoCloseHours}
+                    onChange={(e) => setAutoCloseHours(Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value={1}>1 hour before</option>
+                    <option value={2}>2 hours before</option>
+                    <option value={6}>6 hours before</option>
+                    <option value={12}>12 hours before</option>
+                    <option value={24}>1 day before</option>
+                  </select>
+                </div>
+
+                <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-800">
+                  <p>⏰ Registration will automatically close at the deadline and notify all registered attendees.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowDeadlineModal(false);
+                    setSelectedEventForModal(null);
+                    setDeadlineDate('');
+                  }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleSetDeadline}
+                  disabled={!deadlineDate}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                >
+                  Set Deadline
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Event Check-in Modal */}
+      {showEventCheckinModal && selectedEventForModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowEventCheckinModal(false);
+              setSelectedEventForModal(null);
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg max-w-2xl w-full shadow-2xl">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-green-100 rounded-full">
+                  <QrCode className="h-6 w-6 text-green-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Event Check-in</h2>
+                  <p className="text-sm text-gray-600">{selectedEventForModal.title}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Total Registered</p>
+                  <p className="text-2xl font-bold text-blue-700">{selectedEventForModal.registered}</p>
+                </div>
+                <div className="p-4 bg-green-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Checked In</p>
+                  <p className="text-2xl font-bold text-green-700">{checkinStats?.checkedIn || 0}</p>
+                  {checkinStats && (
+                    <p className="text-xs text-green-600">{checkinStats.attendanceRate}% attendance</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                <QrCode className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">QR Code Scanner</h3>
+                <p className="text-gray-600 mb-4">Scan attendee tickets to check them in</p>
+                <Button className="bg-green-600 hover:bg-green-700">
+                  Start QR Scanner
+                </Button>
+              </div>
+
+              <div className="flex justify-end mt-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowEventCheckinModal(false);
+                    setSelectedEventForModal(null);
+                  }}
+                >
+                  Close
+                </Button>
+              </div>
             </div>
           </div>
         </div>

@@ -4,7 +4,7 @@
 */
 import { PrismaClient } from '@prisma/client';
 import { nanoid } from 'nanoid';
-import { generateQRCodeBuffer } from '../src/lib/qr/generator';
+// import { generateQRCodeBuffer } from '../src/lib/qr/generator'; // not used in this script
 
 const prisma = new PrismaClient();
 
