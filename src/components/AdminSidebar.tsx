@@ -17,6 +17,8 @@ import {
   Menu,
   X,
   ChevronLeft,
+  Shield,
+  Settings,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -51,6 +53,8 @@ export default function AdminSidebar({
     { id: 'plans', label: 'Plans', icon: Package, show: isManager },
     { id: 'staff', label: 'Staff', icon: UserCog, show: isManager },
     { id: 'analytics', label: 'Analytics', icon: TrendingUp, show: isManager },
+    { id: 'audit', label: 'Audit Logs', icon: Shield, show: isManager },
+    { id: 'settings', label: 'Settings', icon: Settings, show: isManager },
   ].filter(item => item.show);
 
   const handleTabClick = (tabId: string) => {

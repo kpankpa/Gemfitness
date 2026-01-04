@@ -83,7 +83,17 @@ export async function GET() {
     const monthlyRevenue = monthlyPayments._sum.amount || 0;
     console.log(`  ✓ Monthly revenue: GH₵${monthlyRevenue} (${Date.now() - startTime}ms)`);
 
-    // Query 6: Recent payments (last 5)
+    // Query 6: Monthly transaction count
+    console.log('  → Counting monthly transactions...');
+    const monthlyTransactions = await prisma.payment.count({
+      where: {
+        status: $Enums.PaymentStatus.SUCCESS,
+        paymentDate: { gte: monthStart }
+      }
+    });
+    console.log(`  ✓ Monthly transactions: ${monthlyTransactions} (${Date.now() - startTime}ms)`);
+
+    // Query 7: Recent payments (last 5)
     console.log('  → Fetching recent payments...');
     const recentPaymentsData = await prisma.payment.findMany({
       where: {
@@ -130,6 +140,7 @@ export async function GET() {
       expiringSoon,
       todayCheckIns,
       monthlyRevenue,
+      monthlyTransactions,
       recentPayments,
       attendanceRate,
       weeklyCheckIns: [], // TODO: Implement weekly chart data

@@ -104,6 +104,10 @@ export async function POST(request: NextRequest) {
       maxAttendees,
       isFree,
       price,
+      earlyBirdPrice,
+      earlyBirdDeadline,
+      category,
+      tags,
       status
     } = body;
 
@@ -123,6 +127,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Parse tags if provided
+    const tagArray = tags ? tags.split(',').map((t: string) => t.trim()).filter((t: string) => t.length > 0) : [];
+
     const newEvent = await prisma.event.create({
       data: {
         title,
@@ -134,6 +141,10 @@ export async function POST(request: NextRequest) {
         maxAttendees: maxAttendees ? parseInt(maxAttendees) : null,
         isFree: isFree !== undefined ? Boolean(isFree) : true,
         price: price ? parseFloat(price) : null,
+        earlyBirdPrice: earlyBirdPrice ? parseFloat(earlyBirdPrice) : null,
+        earlyBirdDeadline: earlyBirdDeadline ? new Date(earlyBirdDeadline) : null,
+        category: category || 'OTHER',
+        tags: tagArray,
         status: status || $Enums.EventStatus.UPCOMING,
         createdBy: session.userId
       }

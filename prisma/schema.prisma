@@ -247,8 +247,12 @@ model Event {
   image                 String?        // Event banner/poster URL
   maxAttendees          Int?           // Null = unlimited
   isFree                Boolean        @default(true)
-  price                 Float?         // Event ticket price if not free
+  price                 Float?         // Event ticket price if not free (regular price)
+  earlyBirdPrice        Float?         // Early bird discount price
+  earlyBirdDeadline     DateTime?      // When early bird pricing ends
   status                EventStatus    @default(UPCOMING)
+  category              EventCategory? // Event category/type
+  tags                  String[]       // Event tags for filtering
   registrationDeadline  DateTime?      // When registration closes
   registrationClosed    Boolean        @default(false)
   autoCloseRegistration Boolean        @default(true)
@@ -265,6 +269,7 @@ model Event {
   @@index([status])
   @@index([eventDate])
   @@index([registrationDeadline])
+  @@index([category])
   @@map("events")
 }
 
@@ -273,6 +278,18 @@ enum EventStatus {
   ONGOING
   COMPLETED
   CANCELLED
+}
+
+enum EventCategory {
+  WORKSHOP           // Educational sessions (nutrition, form, etc.)
+  COMPETITION        // Fitness challenges, contests
+  SOCIAL             // Community events, socials, meetups
+  TRAINING           // Special training sessions, bootcamps
+  WELLNESS           // Yoga, meditation, wellness
+  CHARITY            // Fundraising, community service
+  CELEBRATION        // Anniversaries, holidays, parties
+  SEMINAR            // Guest speakers, presentations
+  OTHER              // Uncategorized events
 }
 
 // EventBooking model - Member event registrations

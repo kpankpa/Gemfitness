@@ -21,6 +21,7 @@ import ClassAnalyticsCards from '@/components/admin/ClassAnalyticsCards';
 import EventDetailsModal from '@/components/admin/EventDetailsModal';
 import EventAttendeeModal from '@/components/admin/EventAttendeeModal';
 import EventAnalyticsCards from '@/components/admin/EventAnalyticsCards';
+import EventCalendarView from '@/components/admin/EventCalendarView';
 import {
   Users,
   User,
@@ -57,6 +58,9 @@ import {
   Trophy,
   X,
   Upload,
+  Shield,
+  Settings,
+  CreditCard,
   Star,
   History,
   Send,
@@ -65,6 +69,8 @@ import {
   FileText,
   UserPlus,
   ClipboardCheck,
+  LayoutGrid,
+  CalendarDays,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -124,6 +130,10 @@ export default function AdminDashboard() {
     price?: number;
     status: string;
     image?: string;
+    category?: string;
+    tags?: string[];
+    earlyBirdPrice?: number;
+    earlyBirdDeadline?: string;
   }>>([]);
   const [isLoadingClasses, setIsLoadingClasses] = useState(false);
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
@@ -196,7 +206,7 @@ export default function AdminDashboard() {
   }>>([]);
   const [isLoadingFees, setIsLoadingFees] = useState(false);
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'checkin' | 'members' | 'classes' | 'events' | 'attendance' | 'payments' | 'plans' | 'staff' | 'analytics'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'checkin' | 'members' | 'classes' | 'events' | 'attendance' | 'payments' | 'plans' | 'staff' | 'analytics' | 'audit' | 'settings'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [memberStatusFilter, setMemberStatusFilter] = useState<'all' | 'active' | 'expiring_soon' | 'expired'>('all');
   const [planFilter, setPlanFilter] = useState<string>('all');
@@ -424,6 +434,10 @@ export default function AdminDashboard() {
     maxAttendees: '',
     isFree: true,
     price: '',
+    earlyBirdPrice: '',
+    earlyBirdDeadline: '',
+    category: 'OTHER',
+    tags: '',
     status: 'UPCOMING'
   });
   const [isSavingEvent, setIsSavingEvent] = useState(false);
@@ -444,7 +458,22 @@ export default function AdminDashboard() {
   const [showCancellationModal, setShowCancellationModal] = useState(false);
   const [cancellationReason, setCancellationReason] = useState('');
   const [showEventCheckinModal, setShowEventCheckinModal] = useState(false);
-  const [checkinStats] = useState<{
+  const [showEventQRScanner, setShowEventQRScanner] = useState(false);
+  const [eventCheckinResult, setEventCheckinResult] = useState<{
+    success: boolean;
+    message: string;
+    attendee?: {
+      name: string;
+      email: string;
+      ticketId?: string;
+    };
+    stats?: {
+      totalRegistrations: number;
+      checkedIn: number;
+      attendanceRate: number;
+    };
+  } | null>(null);
+  const [checkinStats, setCheckinStats] = useState<{
     totalRegistrations: number;
     checkedIn: number;
     notCheckedIn: number;
@@ -459,6 +488,181 @@ export default function AdminDashboard() {
   // Event filters state
   const [eventStatusFilter, setEventStatusFilter] = useState<string>('all');
   const [eventSearchQuery, setEventSearchQuery] = useState('');
+  const [eventCategoryFilter, setEventCategoryFilter] = useState<string>('all');
+  const [eventViewMode, setEventViewMode] = useState<'grid' | 'calendar'>('grid');
+
+  // Audit logs state
+  const [auditLogs, setAuditLogs] = useState<Array<{
+    id: string;
+    action: string;
+    entityType: string;
+    entityId?: string;
+    userId: string;
+    userName: string;
+    changes?: Record<string, unknown>;
+    ipAddress?: string;
+    timestamp: string;
+  }>>([]);
+  const [isLoadingAuditLogs, setIsLoadingAuditLogs] = useState(false);
+  const [auditLogFilter, setAuditLogFilter] = useState<string>('all');
+  const [auditDateRange, setAuditDateRange] = useState({ start: '', end: '' });
+
+  // Settings state with validation
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'general' | 'payment' | 'notifications' | 'security'>('general');
+  const [gymSettings, setGymSettings] = useState({
+    name: 'GemFitness Tema',
+    slogan: 'Transform Your Body, Transform Your Life',
+    email: 'info@gemfitness.com',
+    phone: '+233 XX XXX XXXX',
+    address: 'Tema, Greater Accra Region, Ghana',
+    website: 'www.gemfitness.com',
+    timezone: 'Africa/Accra',
+    currency: 'GHS',
+    operatingHours: {
+      monday: { open: '05:00', close: '22:00', closed: false },
+      tuesday: { open: '05:00', close: '22:00', closed: false },
+      wednesday: { open: '05:00', close: '22:00', closed: false },
+      thursday: { open: '05:00', close: '22:00', closed: false },
+      friday: { open: '05:00', close: '22:00', closed: false },
+      saturday: { open: '06:00', close: '20:00', closed: false },
+      sunday: { open: '07:00', close: '18:00', closed: false },
+    },
+  });
+  const [paymentSettings, setPaymentSettings] = useState({
+    paystackPublicKey: '',
+    paystackSecretKey: '',
+    testMode: true,
+    enabledMethods: ['cash', 'momo', 'card'] as string[],
+    currency: 'GHS',
+    autoRenewal: true,
+    gracePeriodDays: 7,
+  });
+  const [notificationSettings, setNotificationSettings] = useState({
+    emailNotifications: true,
+    smsNotifications: false,
+    membershipExpiry: true,
+    paymentReminders: true,
+    classUpdates: true,
+    systemAlerts: true,
+  });
+  const [securitySettings, setSecuritySettings] = useState({
+    sessionTimeout: 30,
+    twoFactorAuth: false,
+    passwordExpiry: 90,
+    maxLoginAttempts: 5,
+  });
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [settingsErrors, setSettingsErrors] = useState<Record<string, string>>({});
+
+  // Fetch audit logs
+  const fetchAuditLogs = async () => {
+    setIsLoadingAuditLogs(true);
+    try {
+      const params = new URLSearchParams();
+      if (auditLogFilter !== 'all') params.append('action', auditLogFilter);
+      if (auditDateRange.start) params.append('startDate', auditDateRange.start);
+      if (auditDateRange.end) params.append('endDate', auditDateRange.end);
+
+      const response = await fetch(`/api/audit-logs?${params.toString()}`);
+      const data = await response.json();
+      
+      if (data.success && Array.isArray(data.logs)) {
+        setAuditLogs(data.logs);
+      } else {
+        // Mock data for now until API is implemented
+        setAuditLogs([]);
+      }
+    } catch (error) {
+      console.error('Error fetching audit logs:', error);
+      setAuditLogs([]);
+    } finally {
+      setIsLoadingAuditLogs(false);
+    }
+  };
+
+  // Fetch settings
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch('/api/settings');
+      const data = await response.json();
+      
+      if (data.success) {
+        if (data.gymSettings) setGymSettings(data.gymSettings);
+        if (data.paymentSettings) setPaymentSettings(data.paymentSettings);
+        if (data.notificationSettings) setNotificationSettings(data.notificationSettings);
+        if (data.securitySettings) setSecuritySettings(data.securitySettings);
+      }
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+    }
+  };
+
+  // Validate settings before saving
+  const validateSettings = () => {
+    const errors: Record<string, string> = {};
+
+    // Validate gym settings
+    if (!gymSettings.name.trim()) errors.name = 'Gym name is required';
+    if (!gymSettings.email.trim()) errors.email = 'Email is required';
+    if (gymSettings.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(gymSettings.email)) {
+      errors.email = 'Invalid email format';
+    }
+    if (!gymSettings.phone.trim()) errors.phone = 'Phone is required';
+
+    // Validate payment settings
+    if (!paymentSettings.testMode && !paymentSettings.paystackSecretKey) {
+      errors.paystackSecretKey = 'Secret key required for live mode';
+    }
+    if (paymentSettings.gracePeriodDays < 0 || paymentSettings.gracePeriodDays > 30) {
+      errors.gracePeriodDays = 'Grace period must be between 0-30 days';
+    }
+
+    // Validate security settings
+    if (securitySettings.sessionTimeout < 5 || securitySettings.sessionTimeout > 120) {
+      errors.sessionTimeout = 'Session timeout must be between 5-120 minutes';
+    }
+    if (securitySettings.maxLoginAttempts < 3 || securitySettings.maxLoginAttempts > 10) {
+      errors.maxLoginAttempts = 'Max login attempts must be between 3-10';
+    }
+
+    setSettingsErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Save settings
+  const saveSettings = async () => {
+    if (!validateSettings()) {
+      pushToast('Please fix validation errors before saving', 'error');
+      return;
+    }
+
+    setIsSavingSettings(true);
+    try {
+      const response = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gymSettings,
+          paymentSettings,
+          notificationSettings,
+          securitySettings,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        pushToast('Settings saved successfully', 'success');
+      } else {
+        pushToast(data.error || 'Failed to save settings', 'error');
+      }
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      pushToast('Failed to save settings', 'error');
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
 
   // Fetch initial data when authenticated (run ONCE on mount)
   useEffect(() => {
@@ -529,6 +733,14 @@ export default function AdminDashboard() {
 
     if (activeTab === 'attendance') {
       fetchAttendanceHistory();
+    }
+
+    if (activeTab === 'audit') {
+      fetchAuditLogs();
+    }
+
+    if (activeTab === 'settings') {
+      fetchSettings();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, isAuthenticated]);
@@ -1471,6 +1683,85 @@ export default function AdminDashboard() {
     }
   };
 
+  // Fetch event check-in stats
+  const fetchEventCheckinStats = async (eventId: string) => {
+    try {
+      const response = await fetch(`/api/events/${eventId}/stats`);
+      const data = await response.json();
+      if (data.success) {
+        setCheckinStats({
+          totalRegistrations: data.stats.totalRegistrations,
+          checkedIn: data.stats.checkedIn,
+          notCheckedIn: data.stats.notCheckedIn,
+          attendanceRate: data.stats.attendanceRate,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching check-in stats:', error);
+    }
+  };
+
+  // Handle event QR scan for check-in
+  const handleEventQRScan = async (qrData: string) => {
+    if (!selectedEventForModal) return;
+
+    setShowEventQRScanner(false);
+
+    try {
+      const response = await fetch(`/api/events/${selectedEventForModal.id}/checkin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qrData })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setEventCheckinResult({
+          success: true,
+          message: 'Check-in successful!',
+          attendee: data.attendee,
+          stats: data.stats
+        });
+
+        // Update stats
+        if (data.stats) {
+          setCheckinStats({
+            totalRegistrations: data.stats.totalRegistrations,
+            checkedIn: data.stats.checkedIn,
+            notCheckedIn: data.stats.notCheckedIn,
+            attendanceRate: data.stats.attendanceRate,
+          });
+        }
+
+        // Auto-close success message after 3 seconds
+        setTimeout(() => {
+          setEventCheckinResult(null);
+        }, 3000);
+      } else {
+        setEventCheckinResult({
+          success: false,
+          message: data.error || 'Check-in failed',
+          attendee: data.attendee
+        });
+      }
+    } catch (error) {
+      console.error('Error during event check-in:', error);
+      setEventCheckinResult({
+        success: false,
+        message: 'Network error. Please try again.'
+      });
+    }
+  };
+
+  // Open event check-in modal
+  const openEventCheckinModal = (event: typeof events[0]) => {
+    setSelectedEventForModal(event);
+    setShowEventCheckinModal(true);
+    setEventCheckinResult(null);
+    fetchEventCheckinStats(event.id);
+  };
+
   // Set registration deadline
   const handleSetDeadline = async () => {
     if (!selectedEventForModal || !deadlineDate) {
@@ -1524,6 +1815,10 @@ export default function AdminDashboard() {
         maxAttendees: eventData.maxAttendees?.toString() || '',
         isFree: eventData.isFree,
         price: eventData.price?.toString() || '',
+        earlyBirdPrice: eventData.earlyBirdPrice?.toString() || '',
+        earlyBirdDeadline: eventData.earlyBirdDeadline ? new Date(eventData.earlyBirdDeadline).toISOString().slice(0, 16) : '',
+        category: eventData.category || 'OTHER',
+        tags: eventData.tags?.join(', ') || '',
         status: eventData.status
       });
       // Set preview for existing image
@@ -1541,6 +1836,10 @@ export default function AdminDashboard() {
         maxAttendees: '',
         isFree: true,
         price: '',
+        earlyBirdPrice: '',
+        earlyBirdDeadline: '',
+        category: 'OTHER',
+        tags: '',
         status: 'UPCOMING'
       });
       // Clear preview for new event
@@ -1567,6 +1866,10 @@ export default function AdminDashboard() {
       maxAttendees: '',
       isFree: true,
       price: '',
+      earlyBirdPrice: '',
+      earlyBirdDeadline: '',
+      category: 'OTHER',
+      tags: '',
       status: 'UPCOMING'
     });
   };
@@ -1803,6 +2106,8 @@ export default function AdminDashboard() {
                   {activeTab === 'plans' && 'Membership plan management'}
                   {activeTab === 'staff' && 'Staff account management'}
                   {activeTab === 'analytics' && 'Business analytics and reports'}
+                  {activeTab === 'audit' && 'Security and activity audit logs'}
+                  {activeTab === 'settings' && 'System configuration and preferences'}
                 </p>
               </div>
               <Button variant="ghost" size="sm" className="relative">
@@ -2455,29 +2760,75 @@ export default function AdminDashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                {/* Filters and Search */}
-                <div className="flex flex-col sm:flex-row gap-3 mb-6">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <input
-                      type="text"
-                      value={eventSearchQuery}
-                      onChange={(e) => setEventSearchQuery(e.target.value)}
-                      placeholder="Search events..."
-                      className="w-full pl-10 pr-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
-                    />
+                {/* Filters, Search, and View Toggle */}
+                <div className="flex flex-col gap-3 mb-6">
+                  {/* Top Row: Search and View Toggle */}
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        type="text"
+                        value={eventSearchQuery}
+                        onChange={(e) => setEventSearchQuery(e.target.value)}
+                        placeholder="Search events..."
+                        className="w-full pl-10 pr-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                      />
+                    </div>
+                    
+                    {/* View Mode Toggle */}
+                    <div className="flex gap-2 border-2 border-gray-200 rounded-lg p-1">
+                      <button
+                        onClick={() => setEventViewMode('grid')}
+                        className={`flex items-center gap-2 px-3 py-1 rounded ${
+                          eventViewMode === 'grid' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        <LayoutGrid className="h-4 w-4" />
+                        <span className="hidden sm:inline">Grid</span>
+                      </button>
+                      <button
+                        onClick={() => setEventViewMode('calendar')}
+                        className={`flex items-center gap-2 px-3 py-1 rounded ${
+                          eventViewMode === 'calendar' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        <CalendarDays className="h-4 w-4" />
+                        <span className="hidden sm:inline">Calendar</span>
+                      </button>
+                    </div>
                   </div>
-                  <select
-                    className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
-                    value={eventStatusFilter}
-                    onChange={(e) => setEventStatusFilter(e.target.value)}
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="upcoming">Upcoming</option>
-                    <option value="ongoing">Ongoing</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
+
+                  {/* Bottom Row: Filters */}
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <select
+                      className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                      value={eventStatusFilter}
+                      onChange={(e) => setEventStatusFilter(e.target.value)}
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="upcoming">Upcoming</option>
+                      <option value="ongoing">Ongoing</option>
+                      <option value="completed">Completed</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+
+                    <select
+                      className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                      value={eventCategoryFilter}
+                      onChange={(e) => setEventCategoryFilter(e.target.value)}
+                    >
+                      <option value="all">All Categories</option>
+                      <option value="WORKSHOP">Workshop</option>
+                      <option value="COMPETITION">Competition</option>
+                      <option value="SOCIAL">Social</option>
+                      <option value="TRAINING">Training</option>
+                      <option value="WELLNESS">Wellness</option>
+                      <option value="CHARITY">Charity</option>
+                      <option value="CELEBRATION">Celebration</option>
+                      <option value="SEMINAR">Seminar</option>
+                      <option value="OTHER">Other</option>
+                    </select>
+                  </div>
                 </div>
 
                 {isLoadingEvents ? (
@@ -2500,7 +2851,10 @@ export default function AdminDashboard() {
                         const matchesStatus = eventStatusFilter === 'all' || 
                           event.status?.toLowerCase() === eventStatusFilter;
                         
-                        return matchesSearch && matchesStatus;
+                        const matchesCategory = eventCategoryFilter === 'all' ||
+                          event.category === eventCategoryFilter || !event.category;
+                        
+                        return matchesSearch && matchesStatus && matchesCategory;
                       });
 
                       if (filteredEvents.length === 0) {
@@ -2509,17 +2863,18 @@ export default function AdminDashboard() {
                             <Calendar className="h-16 w-16 text-gray-300 mx-auto mb-4" />
                             <h3 className="text-lg font-semibold text-gray-900 mb-2">No events found</h3>
                             <p className="text-gray-600 mb-4">
-                              {eventSearchQuery || eventStatusFilter !== 'all' 
+                              {eventSearchQuery || eventStatusFilter !== 'all' || eventCategoryFilter !== 'all'
                                 ? 'Try adjusting your filters or search query'
                                 : 'Create your first event to get started'
                               }
                             </p>
-                            {eventSearchQuery || eventStatusFilter !== 'all' ? (
+                            {eventSearchQuery || eventStatusFilter !== 'all' || eventCategoryFilter !== 'all' ? (
                               <Button 
                                 variant="outline" 
                                 onClick={() => {
                                   setEventSearchQuery('');
                                   setEventStatusFilter('all');
+                                  setEventCategoryFilter('all');
                                 }}
                               >
                                 Clear Filters
@@ -2537,6 +2892,20 @@ export default function AdminDashboard() {
                         );
                       }
 
+                      // Calendar View
+                      if (eventViewMode === 'calendar') {
+                        return (
+                          <EventCalendarView
+                            events={filteredEvents}
+                            onEventClick={(event) => {
+                              setSelectedEventForModal(event as typeof events[0]);
+                              setShowEventDetailsModal(true);
+                            }}
+                          />
+                        );
+                      }
+
+                      // Grid View
                       return (
                         <div className="space-y-3">
                           {filteredEvents.map((event) => (
@@ -2650,10 +3019,7 @@ export default function AdminDashboard() {
                                           </DropdownMenuItem>
                                         )}
                                         <DropdownMenuItem
-                                          onClick={() => {
-                                            setSelectedEventForModal(event);
-                                            setShowEventCheckinModal(true);
-                                          }}
+                                          onClick={() => openEventCheckinModal(event)}
                                         >
                                           <ClipboardCheck className="h-4 w-4 mr-2" />
                                           Event Check-in
@@ -3844,154 +4210,672 @@ export default function AdminDashboard() {
             </Card>
           </motion.div>
         )}
+
+        {/* Audit Logs Tab */}
+        {activeTab === 'audit' && isManager && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <Card className="border-2 border-gray-100">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
+                      <Shield className="h-6 w-6 text-blue-600" />
+                      Audit Logs
+                    </CardTitle>
+                    <CardDescription>Security and activity tracking</CardDescription>
+                  </div>
+                  <Button variant="outline" className="border-2">
+                    <Download className="h-4 w-4 mr-2" />
+                    Export
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {/* Filters */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Action Type</label>
+                    <select
+                      value={auditLogFilter}
+                      onChange={(e) => setAuditLogFilter(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    >
+                      <option value="all">All Actions</option>
+                      <option value="LOGIN">Login</option>
+                      <option value="LOGOUT">Logout</option>
+                      <option value="CREATE">Create</option>
+                      <option value="UPDATE">Update</option>
+                      <option value="DELETE">Delete</option>
+                      <option value="PAYMENT">Payment</option>
+                      <option value="CHECKIN">Check-in</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                    <input
+                      type="date"
+                      value={auditDateRange.start}
+                      onChange={(e) => setAuditDateRange({ ...auditDateRange, start: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                    <input
+                      type="date"
+                      value={auditDateRange.end}
+                      onChange={(e) => setAuditDateRange({ ...auditDateRange, end: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Audit Logs Table */}
+                {isLoadingAuditLogs ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-600">Loading audit logs...</p>
+                  </div>
+                ) : auditLogs.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Shield className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-600 font-medium mb-2">No Audit Logs</p>
+                    <p className="text-sm text-gray-500">Activity logs will appear here</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b-2 border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Timestamp</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">User</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Action</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Entity</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">IP Address</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Details</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {auditLogs.map((log) => (
+                          <tr key={log.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm text-gray-900">
+                              {new Date(log.timestamp).toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-900">{log.userName}</td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                log.action === 'LOGIN' ? 'bg-green-100 text-green-700' :
+                                log.action === 'LOGOUT' ? 'bg-gray-100 text-gray-700' :
+                                log.action === 'CREATE' ? 'bg-blue-100 text-blue-700' :
+                                log.action === 'UPDATE' ? 'bg-yellow-100 text-yellow-700' :
+                                log.action === 'DELETE' ? 'bg-red-100 text-red-700' :
+                                'bg-purple-100 text-purple-700'
+                              }`}>
+                                {log.action}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{log.entityType}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600 font-mono">{log.ipAddress || 'N/A'}</td>
+                            <td className="px-4 py-3">
+                              <Button variant="ghost" size="sm" className="text-orange-600">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Settings Tab */}
+        {activeTab === 'settings' && isManager && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            {/* Settings Header with Tabs */}
+            <Card className="border-2 border-gray-100">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
+                      <Settings className="h-6 w-6 text-orange-600" />
+                      System Settings
+                    </CardTitle>
+                    <CardDescription>Manage gym configuration and preferences</CardDescription>
+                  </div>
+                  <Button
+                    onClick={saveSettings}
+                    className="bg-orange-600 hover:bg-orange-700"
+                    disabled={isSavingSettings}
+                  >
+                    {isSavingSettings ? 'Saving...' : 'Save All Settings'}
+                  </Button>
+                </div>
+              </CardHeader>
+            </Card>
+
+            {/* Settings Navigation Tabs */}
+            <div className="flex gap-2 border-b-2 border-gray-200">
+              {[
+                { id: 'general', label: 'General', icon: Settings },
+                { id: 'payment', label: 'Payment', icon: CreditCard },
+                { id: 'notifications', label: 'Notifications', icon: Bell },
+                { id: 'security', label: 'Security', icon: Shield },
+              ].map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveSettingsTab(tab.id as typeof activeSettingsTab)}
+                    className={`flex items-center gap-2 px-4 py-3 font-medium transition-all ${
+                      activeSettingsTab === tab.id
+                        ? 'text-orange-600 border-b-2 border-orange-600 -mb-0.5'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <Icon className="h-5 w-5" />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* General Settings Tab */}
+            {activeSettingsTab === 'general' && (
+              <Card className="border-2 border-gray-100">
+                <CardHeader>
+                  <CardTitle className="text-lg">Gym Information</CardTitle>
+                  <CardDescription>Basic gym details and operating hours</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Basic Info Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Gym Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={gymSettings.name}
+                        onChange={(e) => setGymSettings({ ...gymSettings, name: e.target.value })}
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 ${
+                          settingsErrors.name ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                      />
+                      {settingsErrors.name && <p className="text-sm text-red-500 mt-1">{settingsErrors.name}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Slogan</label>
+                      <input
+                        type="text"
+                        value={gymSettings.slogan}
+                        onChange={(e) => setGymSettings({ ...gymSettings, slogan: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Email <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        value={gymSettings.email}
+                        onChange={(e) => setGymSettings({ ...gymSettings, email: e.target.value })}
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 ${
+                          settingsErrors.email ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                      />
+                      {settingsErrors.email && <p className="text-sm text-red-500 mt-1">{settingsErrors.email}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Phone <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        value={gymSettings.phone}
+                        onChange={(e) => setGymSettings({ ...gymSettings, phone: e.target.value })}
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 ${
+                          settingsErrors.phone ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                      />
+                      {settingsErrors.phone && <p className="text-sm text-red-500 mt-1">{settingsErrors.phone}</p>}
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                      <input
+                        type="text"
+                        value={gymSettings.address}
+                        onChange={(e) => setGymSettings({ ...gymSettings, address: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Website</label>
+                      <input
+                        type="url"
+                        value={gymSettings.website}
+                        onChange={(e) => setGymSettings({ ...gymSettings, website: e.target.value })}
+                        placeholder="https://www.example.com"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
+                      <select
+                        value={gymSettings.timezone}
+                        onChange={(e) => setGymSettings({ ...gymSettings, timezone: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      >
+                        <option value="Africa/Accra">Africa/Accra (GMT)</option>
+                        <option value="Africa/Lagos">Africa/Lagos (WAT)</option>
+                        <option value="Africa/Johannesburg">Africa/Johannesburg (SAST)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Operating Hours */}
+                  <div className="pt-4 border-t">
+                    <h3 className="font-semibold text-gray-900 mb-4">Operating Hours</h3>
+                    <div className="space-y-3">
+                      {Object.entries(gymSettings.operatingHours).map(([day, schedule]) => (
+                        <div key={day} className="flex items-center gap-4">
+                          <label className="w-24 text-sm font-medium text-gray-700 capitalize">{day}</label>
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={!schedule.closed}
+                              onChange={(e) => setGymSettings({
+                                ...gymSettings,
+                                operatingHours: {
+                                  ...gymSettings.operatingHours,
+                                  [day]: { ...schedule, closed: !e.target.checked }
+                                }
+                              })}
+                              className="w-4 h-4 text-orange-500 rounded focus:ring-2 focus:ring-orange-500"
+                            />
+                            <span className="text-sm text-gray-600">Open</span>
+                          </label>
+                          {!schedule.closed && (
+                            <>
+                              <input
+                                type="time"
+                                value={schedule.open}
+                                onChange={(e) => setGymSettings({
+                                  ...gymSettings,
+                                  operatingHours: {
+                                    ...gymSettings.operatingHours,
+                                    [day]: { ...schedule, open: e.target.value }
+                                  }
+                                })}
+                                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                              />
+                              <span className="text-gray-500">to</span>
+                              <input
+                                type="time"
+                                value={schedule.close}
+                                onChange={(e) => setGymSettings({
+                                  ...gymSettings,
+                                  operatingHours: {
+                                    ...gymSettings.operatingHours,
+                                    [day]: { ...schedule, close: e.target.value }
+                                  }
+                                })}
+                                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                              />
+                            </>
+                          )}
+                          {schedule.closed && <span className="text-gray-500 italic">Closed</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Payment Settings Tab */}
+            {activeSettingsTab === 'payment' && (
+              <Card className="border-2 border-gray-100">
+                <CardHeader>
+                  <CardTitle className="text-lg">Payment Configuration</CardTitle>
+                  <CardDescription>Configure payment gateway and billing options</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Test Mode Warning */}
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                      <p className="font-semibold text-yellow-900">Payment Environment</p>
+                    </div>
+                    <p className="text-sm text-yellow-700 mb-3">Toggle between test and live payment processing</p>
+                    <label className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={paymentSettings.testMode}
+                        onChange={(e) => setPaymentSettings({ ...paymentSettings, testMode: e.target.checked })}
+                        className="w-5 h-5 text-orange-500 rounded focus:ring-2 focus:ring-orange-500"
+                      />
+                      <span className="text-sm font-medium text-gray-700">Enable Test Mode</span>
+                    </label>
+                  </div>
+
+                  {/* Paystack Credentials */}
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-gray-900">Paystack Credentials</h3>
+                    <div className="grid grid-cols-1 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Public Key
+                        </label>
+                        <input
+                          type="text"
+                          value={paymentSettings.paystackPublicKey}
+                          onChange={(e) => setPaymentSettings({ ...paymentSettings, paystackPublicKey: e.target.value })}
+                          placeholder={paymentSettings.testMode ? "pk_test_..." : "pk_live_..."}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Secret Key <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="password"
+                          value={paymentSettings.paystackSecretKey}
+                          onChange={(e) => setPaymentSettings({ ...paymentSettings, paystackSecretKey: e.target.value })}
+                          placeholder={paymentSettings.testMode ? "sk_test_..." : "sk_live_..."}
+                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono text-sm ${
+                            settingsErrors.paystackSecretKey ? 'border-red-500' : 'border-gray-300'
+                          }`}
+                        />
+                        {settingsErrors.paystackSecretKey && <p className="text-sm text-red-500 mt-1">{settingsErrors.paystackSecretKey}</p>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Payment Methods */}
+                  <div className="pt-4 border-t">
+                    <h3 className="font-semibold text-gray-900 mb-3">Enabled Payment Methods</h3>
+                    <div className="space-y-2">
+                      {[
+                        { id: 'cash', label: 'Cash', icon: DollarSign, description: 'Accept cash payments' },
+                        { id: 'momo', label: 'Mobile Money', icon: Phone, description: 'MTN & Vodafone mobile money' },
+                        { id: 'card', label: 'Debit/Credit Card', icon: CreditCard, description: 'Visa, Mastercard via Paystack' },
+                      ].map((method) => {
+                        const Icon = method.icon;
+                        return (
+                          <label key={method.id} className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={paymentSettings.enabledMethods.includes(method.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setPaymentSettings({
+                                    ...paymentSettings,
+                                    enabledMethods: [...paymentSettings.enabledMethods, method.id]
+                                  });
+                                } else {
+                                  setPaymentSettings({
+                                    ...paymentSettings,
+                                    enabledMethods: paymentSettings.enabledMethods.filter(m => m !== method.id)
+                                  });
+                                }
+                              }}
+                              className="mt-0.5 w-5 h-5 text-orange-500 rounded focus:ring-2 focus:ring-orange-500"
+                            />
+                            <Icon className="h-5 w-5 text-gray-600 mt-0.5" />
+                            <div className="flex-1">
+                              <p className="font-medium text-gray-700">{method.label}</p>
+                              <p className="text-sm text-gray-500">{method.description}</p>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Billing Options */}
+                  <div className="pt-4 border-t">
+                    <h3 className="font-semibold text-gray-900 mb-3">Billing Options</h3>
+                    <div className="space-y-4">
+                      <label className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={paymentSettings.autoRenewal}
+                          onChange={(e) => setPaymentSettings({ ...paymentSettings, autoRenewal: e.target.checked })}
+                          className="w-5 h-5 text-orange-500 rounded focus:ring-2 focus:ring-orange-500"
+                        />
+                        <div>
+                          <p className="font-medium text-gray-700">Auto-renewal</p>
+                          <p className="text-sm text-gray-500">Automatically renew memberships before expiry</p>
+                        </div>
+                      </label>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Grace Period (Days)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="30"
+                          value={paymentSettings.gracePeriodDays}
+                          onChange={(e) => setPaymentSettings({ ...paymentSettings, gracePeriodDays: parseInt(e.target.value) || 0 })}
+                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 ${
+                            settingsErrors.gracePeriodDays ? 'border-red-500' : 'border-gray-300'
+                          }`}
+                        />
+                        {settingsErrors.gracePeriodDays && <p className="text-sm text-red-500 mt-1">{settingsErrors.gracePeriodDays}</p>}
+                        <p className="text-sm text-gray-500 mt-1">Days members can still access gym after expiry</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Test Connection */}
+                  <div className="pt-4 border-t">
+                    <Button type="button" variant="outline" className="border-2">
+                      <Activity className="h-4 w-4 mr-2" />
+                      Test Connection
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Notifications Settings Tab */}
+            {activeSettingsTab === 'notifications' && (
+              <Card className="border-2 border-gray-100">
+                <CardHeader>
+                  <CardTitle className="text-lg">Notification Preferences</CardTitle>
+                  <CardDescription>Configure automated notifications and alerts</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg">
+                      <input
+                        type="checkbox"
+                        checked={notificationSettings.emailNotifications}
+                        onChange={(e) => setNotificationSettings({ ...notificationSettings, emailNotifications: e.target.checked })}
+                        className="mt-1 w-5 h-5 text-orange-500 rounded focus:ring-2 focus:ring-orange-500"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Mail className="h-5 w-5 text-blue-600" />
+                          <p className="font-medium text-gray-900">Email Notifications</p>
+                        </div>
+                        <p className="text-sm text-gray-600">Send automated emails to members</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg">
+                      <input
+                        type="checkbox"
+                        checked={notificationSettings.smsNotifications}
+                        onChange={(e) => setNotificationSettings({ ...notificationSettings, smsNotifications: e.target.checked })}
+                        className="mt-1 w-5 h-5 text-orange-500 rounded focus:ring-2 focus:ring-orange-500"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Phone className="h-5 w-5 text-green-600" />
+                          <p className="font-medium text-gray-900">SMS Notifications</p>
+                        </div>
+                        <p className="text-sm text-gray-600">Send SMS alerts to members (charges apply)</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t">
+                    <h3 className="font-semibold text-gray-900 mb-3">Event Notifications</h3>
+                    <div className="space-y-3">
+                      {[
+                        { key: 'membershipExpiry', label: 'Membership Expiry Reminders', description: '7 days before expiration' },
+                        { key: 'paymentReminders', label: 'Payment Reminders', description: 'When payment is overdue' },
+                        { key: 'classUpdates', label: 'Class Updates', description: 'Schedule changes & cancellations' },
+                        { key: 'systemAlerts', label: 'System Alerts', description: 'Important system notifications' },
+                      ].map((setting) => (
+                        <label key={setting.key} className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={notificationSettings[setting.key as keyof typeof notificationSettings] as boolean}
+                            onChange={(e) => setNotificationSettings({ ...notificationSettings, [setting.key]: e.target.checked })}
+                            className="mt-0.5 w-5 h-5 text-orange-500 rounded focus:ring-2 focus:ring-orange-500"
+                          />
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-700">{setting.label}</p>
+                            <p className="text-sm text-gray-500">{setting.description}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Security Settings Tab */}
+            {activeSettingsTab === 'security' && (
+              <Card className="border-2 border-gray-100">
+                <CardHeader>
+                  <CardTitle className="text-lg">Security & Access Control</CardTitle>
+                  <CardDescription>Configure security policies and access controls</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Session Timeout (minutes)
+                      </label>
+                      <input
+                        type="number"
+                        min="5"
+                        max="120"
+                        value={securitySettings.sessionTimeout}
+                        onChange={(e) => setSecuritySettings({ ...securitySettings, sessionTimeout: parseInt(e.target.value) || 30 })}
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 ${
+                          settingsErrors.sessionTimeout ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                      />
+                      {settingsErrors.sessionTimeout && <p className="text-sm text-red-500 mt-1">{settingsErrors.sessionTimeout}</p>}
+                      <p className="text-sm text-gray-500 mt-1">Auto logout after inactivity</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Max Login Attempts
+                      </label>
+                      <input
+                        type="number"
+                        min="3"
+                        max="10"
+                        value={securitySettings.maxLoginAttempts}
+                        onChange={(e) => setSecuritySettings({ ...securitySettings, maxLoginAttempts: parseInt(e.target.value) || 5 })}
+                        className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 ${
+                          settingsErrors.maxLoginAttempts ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                      />
+                      {settingsErrors.maxLoginAttempts && <p className="text-sm text-red-500 mt-1">{settingsErrors.maxLoginAttempts}</p>}
+                      <p className="text-sm text-gray-500 mt-1">Before account lockout</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Password Expiry (days)
+                      </label>
+                      <select
+                        value={securitySettings.passwordExpiry}
+                        onChange={(e) => setSecuritySettings({ ...securitySettings, passwordExpiry: parseInt(e.target.value) })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      >
+                        <option value="30">30 days</option>
+                        <option value="60">60 days</option>
+                        <option value="90">90 days</option>
+                        <option value="180">180 days</option>
+                        <option value="0">Never</option>
+                      </select>
+                      <p className="text-sm text-gray-500 mt-1">Force password change</p>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t">
+                    <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg">
+                      <input
+                        type="checkbox"
+                        checked={securitySettings.twoFactorAuth}
+                        onChange={(e) => setSecuritySettings({ ...securitySettings, twoFactorAuth: e.target.checked })}
+                        className="mt-1 w-5 h-5 text-orange-500 rounded focus:ring-2 focus:ring-orange-500"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Shield className="h-5 w-5 text-blue-600" />
+                          <p className="font-medium text-gray-900">Two-Factor Authentication</p>
+                        </div>
+                        <p className="text-sm text-gray-600">Require 2FA for all manager accounts (recommended)</p>
+                      </div>
+                    </label>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </motion.div>
+        )}
         </div>
       </div>
 
-      {/* Edit Member Modal */}
-      {showEditMemberModal && selectedMember && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">Edit Member: {selectedMember.name}</h2>
-              {memberEditError && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                  {memberEditError}
-                </div>
-              )}
-              <form onSubmit={handleEditMember} className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">First Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={editMemberFormData.firstName}
-                      onChange={(e) => setEditMemberFormData({ ...editMemberFormData, firstName: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
-                    {editMemberFieldErrors.firstName && (
-                      <p className="text-sm text-red-600 mt-1">{editMemberFieldErrors.firstName}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Last Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={editMemberFormData.lastName}
-                      onChange={(e) => setEditMemberFormData({ ...editMemberFormData, lastName: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
-                    {editMemberFieldErrors.lastName && (
-                      <p className="text-sm text-red-600 mt-1">{editMemberFieldErrors.lastName}</p>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Email</label>
-                  <input
-                    type="email"
-                    required
-                    value={editMemberFormData.email}
-                    onChange={(e) => setEditMemberFormData({ ...editMemberFormData, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                  {editMemberFieldErrors.email && (
-                    <p className="text-sm text-red-600 mt-1">{editMemberFieldErrors.email}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Phone</label>
-                  <input
-                    type="tel"
-                    required
-                    value={editMemberFormData.phone}
-                    onChange={(e) => setEditMemberFormData({ ...editMemberFormData, phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                  {editMemberFieldErrors.phone && (
-                    <p className="text-sm text-red-600 mt-1">{editMemberFieldErrors.phone}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Profile Photo (optional)</label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setEditMemberProfileFile(e.target.files ? e.target.files[0] : null)}
-                    className="w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Date of Birth</label>
-                  <input
-                    type="date"
-                    value={editMemberFormData.dateOfBirth}
-                    onChange={(e) => setEditMemberFormData({ ...editMemberFormData, dateOfBirth: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Address</label>
-                  <input
-                    type="text"
-                    value={editMemberFormData.address}
-                    onChange={(e) => setEditMemberFormData({ ...editMemberFormData, address: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Emergency Contact</label>
-                  <input
-                    type="text"
-                    value={editMemberFormData.emergencyContact}
-                    onChange={(e) => setEditMemberFormData({ ...editMemberFormData, emergencyContact: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Emergency Phone</label>
-                  <input
-                    type="tel"
-                    value={editMemberFormData.emergencyPhone}
-                    onChange={(e) => setEditMemberFormData({ ...editMemberFormData, emergencyPhone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-                <div className="flex gap-3 pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setShowEditMemberModal(false);
-                      setSelectedMember(null);
-                      setMemberEditError(null);
-                    }}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={isUpdatingMember}
-                    className="flex-1 bg-orange-500 hover:bg-orange-600"
-                  >
-                    {isUpdatingMember ? 'Updating...' : 'Update Member'}
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Member Registration Modal */}
       {showNewMemberModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4 max-h-screen overflow-y-auto">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !registrationSuccess) {
+              setShowNewMemberModal(false);
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl">
             {registrationSuccess ? (
               /* Success View with Print Receipt */
-              <div className="text-center py-8">
+              <>
+                <div className="p-6 border-b flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-gray-900">Registration Successful</h2>
+                  <button
+                    onClick={closeRegistrationModal}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <X className="h-6 w-6" />
+                  </button>
+                </div>
+                <div className="p-6">
+                <div className="text-center">
                 <div className="mb-6">
                   <CheckCircle2 className="h-20 w-20 text-green-500 mx-auto mb-4" />
                   <h2 className="text-2xl font-bold text-gray-900 mb-2">Registration Successful!</h2>
@@ -4008,12 +4892,12 @@ export default function AdminDashboard() {
                   <p className="text-sm text-orange-700">Please print the receipt and hand it to the customer before they leave.</p>
                 </div>
 
-                <div className="flex flex-col gap-3">
+                <div className="flex gap-3">
                   <Button
                     onClick={handlePrintReceipt}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white py-3 text-lg"
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white"
                   >
-                    <Download className="mr-2 h-5 w-5" />
+                    <Download className="mr-2 h-4 w-4" />
                     Print Receipt
                   </Button>
                   <Button
@@ -4021,24 +4905,30 @@ export default function AdminDashboard() {
                       handlePrintReceipt();
                       setTimeout(closeRegistrationModal, 500);
                     }}
-                    variant="outline"
-                    className="w-full border-2"
+                    className="flex-1 bg-orange-500 hover:bg-orange-600"
                   >
                     Print & Close
                   </Button>
-                  <Button
-                    onClick={closeRegistrationModal}
-                    variant="ghost"
-                    className="w-full"
-                  >
-                    Skip & Close
-                  </Button>
                 </div>
               </div>
+              </div>
+              </>
             ) : (
               /* Registration Form */
               <>
-            <h2 className="text-xl font-bold mb-4">Register New Member</h2>
+                <div className="p-6 border-b flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Register New Member</h2>
+                    <p className="text-sm text-gray-600 mt-1">Add a new member to the system</p>
+                  </div>
+                  <button
+                    onClick={() => setShowNewMemberModal(false)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <X className="h-6 w-6" />
+                  </button>
+                </div>
+                <div className="p-6">
             <form onSubmit={handleRegisterMember} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -4152,7 +5042,7 @@ export default function AdminDashboard() {
                   className="w-full"
                 />
               </div>
-              <div className="flex gap-3">
+              <div className="flex gap-3 pt-4">
                 <Button
                   type="button"
                   variant="outline"
@@ -4170,6 +5060,7 @@ export default function AdminDashboard() {
                 </Button>
               </div>
             </form>
+            </div>
             </>
             )}
           </div>
@@ -4178,10 +5069,34 @@ export default function AdminDashboard() {
 
       {/* Check-In Modal */}
       {showCheckInModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-            <h2 className="text-xl font-bold mb-4">Member Check-In</h2>
-            <form onSubmit={(e) => { e.preventDefault(); handleCheckIn(); }} className="space-y-4">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowCheckInModal(false);
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6 border-b flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                  <QrCode className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Member Check-In</h2>
+                  <p className="text-sm text-gray-600 mt-1">Scan or enter member QR code</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCheckInModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-6">
+            <form id="check-in-form" onSubmit={(e) => { e.preventDefault(); handleCheckIn(); }} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Member QR Code</label>
                 <input
@@ -4204,24 +5119,26 @@ export default function AdminDashboard() {
                   <option value="manual">Manual Entry</option>
                 </select>
               </div>
-              <div className="flex gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowCheckInModal(false)}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={isCheckingIn}
-                  className="flex-1 bg-green-500 hover:bg-green-600"
-                >
-                  {isCheckingIn ? 'Checking In...' : 'Check In Member'}
-                </Button>
-              </div>
             </form>
+            </div>
+            <div className="p-6 border-t flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowCheckInModal(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                form="check-in-form"
+                disabled={isCheckingIn}
+                className="flex-1 bg-green-500 hover:bg-green-600"
+              >
+                {isCheckingIn ? 'Checking In...' : 'Check In Member'}
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -4239,19 +5156,37 @@ export default function AdminDashboard() {
 
       {/* Duplicate Check-In Warning Modal */}
       {showDuplicateWarning && duplicateCheckInInfo && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-            <div className="flex items-start gap-3 mb-4">
-              <div className="flex-shrink-0">
-                <AlertTriangle className="h-6 w-6 text-orange-500" />
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowDuplicateWarning(false);
+              setDuplicateCheckInInfo(null);
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6 border-b flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+                  <AlertTriangle className="h-5 w-5 text-orange-600" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Duplicate Check-In</h2>
+                  <p className="text-sm text-gray-600 mt-1">Member already checked in</p>
+                </div>
               </div>
-              <div className="flex-1">
-                <h2 className="text-xl font-bold mb-1">Duplicate Check-In Detected</h2>
-                <p className="text-gray-600 text-sm">
-                  This member has already checked in recently.
-                </p>
-              </div>
+              <button
+                onClick={() => {
+                  setShowDuplicateWarning(false);
+                  setDuplicateCheckInInfo(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
             </div>
+            <div className="p-6">
             
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
               <p className="text-sm font-medium text-gray-700 mb-2">Last Check-In:</p>
@@ -4276,8 +5211,8 @@ export default function AdminDashboard() {
                 ? 'As a manager/admin, you can override this warning and check in again.'
                 : 'Please verify this is not a duplicate scan. Contact a manager if needed.'}
             </p>
-
-            <div className="flex gap-3">
+            </div>
+            <div className="p-6 border-t flex gap-3">
               <Button
                 type="button"
                 variant="outline"
@@ -4313,10 +5248,28 @@ export default function AdminDashboard() {
           }}
         >
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6 border-b flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                  <Dumbbell className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    {editingClass ? 'Edit Class' : 'Create New Class'}
+                  </h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {editingClass ? 'Update class details' : 'Add a new fitness class'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={closeClassModal}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
             <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">
-                {editingClass ? 'Edit Class' : 'Create New Class'}
-              </h2>
               {classError && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                   {classError}
@@ -4486,10 +5439,28 @@ export default function AdminDashboard() {
           }}
         >
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6 border-b flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                  <Calendar className="h-5 w-5 text-purple-600" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    {editingEvent ? 'Edit Event' : 'Create New Event'}
+                  </h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {editingEvent ? 'Update event details' : 'Add a new fitness event'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={closeEventModal}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
             <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">
-                {editingEvent ? 'Edit Event' : 'Create New Event'}
-              </h2>
               {eventError && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                   {eventError}
@@ -4641,23 +5612,86 @@ export default function AdminDashboard() {
                   </div>
 
                   {!eventFormData.isFree && (
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Ticket Price (GH₵) *</label>
-                      <input
-                        type="number"
-                        required={!eventFormData.isFree}
-                        min="0"
-                        step="0.01"
-                        value={eventFormData.price}
-                        onChange={(e) => setEventFormData({ ...eventFormData, price: e.target.value })}
-                        placeholder="e.g., 50.00"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      />
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Regular Ticket Price (GH₵) *</label>
+                        <input
+                          type="number"
+                          required={!eventFormData.isFree}
+                          min="0"
+                          step="0.01"
+                          value={eventFormData.price}
+                          onChange={(e) => setEventFormData({ ...eventFormData, price: e.target.value })}
+                          placeholder="e.g., 50.00"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        />
+                      </div>
+
+                      {/* Early Bird Pricing */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Early Bird Price (GH₵)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={eventFormData.earlyBirdPrice}
+                            onChange={(e) => setEventFormData({ ...eventFormData, earlyBirdPrice: e.target.value })}
+                            placeholder="e.g., 35.00"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                          />
+                          <p className="text-xs text-gray-600 mt-1">Discounted price for early registrations</p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Early Bird Deadline</label>
+                          <input
+                            type="datetime-local"
+                            value={eventFormData.earlyBirdDeadline}
+                            onChange={(e) => setEventFormData({ ...eventFormData, earlyBirdDeadline: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                          />
+                          <p className="text-xs text-gray-600 mt-1">When early bird pricing ends</p>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
 
+                {/* Event Category */}
                 <div>
+                  <label className="block text-sm font-medium mb-1">Event Category</label>
+                  <select
+                    value={eventFormData.category}
+                    onChange={(e) => setEventFormData({ ...eventFormData, category: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    <option value="WORKSHOP">Workshop</option>
+                    <option value="COMPETITION">Competition</option>
+                    <option value="SOCIAL">Social Event</option>
+                    <option value="TRAINING">Training Session</option>
+                    <option value="WELLNESS">Wellness</option>
+                    <option value="CHARITY">Charity/Fundraiser</option>
+                    <option value="CELEBRATION">Celebration</option>
+                    <option value="SEMINAR">Seminar</option>
+                    <option value="OTHER">Other</option>
+                  </select>
+                  <p className="text-xs text-gray-600 mt-1">Categorize your event for better organization</p>
+                </div>
+
+                {/* Event Tags */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">Tags (Optional)</label>
+                  <input
+                    type="text"
+                    value={eventFormData.tags}
+                    onChange={(e) => setEventFormData({ ...eventFormData, tags: e.target.value })}
+                    placeholder="e.g., beginner, nutrition, outdoor (comma-separated)"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                  <p className="text-xs text-gray-600 mt-1">Add tags separated by commas for easier filtering</p>
+                </div>
+
+                <div className="border-t pt-4">
                   <label className="block text-sm font-medium mb-1">Event Status</label>
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -4707,10 +5741,37 @@ export default function AdminDashboard() {
 
       {/* Add Staff Member Modal */}
       {showAddStaffModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowAddStaffModal(false);
+              setStaffError(null);
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6 border-b flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                  <UserCog className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Add New Staff</h2>
+                  <p className="text-sm text-gray-600 mt-1">Add a new staff member to the system</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAddStaffModal(false);
+                  setStaffError(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
             <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">Add Staff Member</h2>
               {staffError && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                   {staffError}
@@ -4797,7 +5858,7 @@ export default function AdminDashboard() {
                   <Button
                     type="submit"
                     disabled={isSubmittingStaff}
-                    className="flex-1 bg-orange-500 hover:bg-orange-600"
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
                   >
                     {isSubmittingStaff ? 'Adding...' : 'Add Staff'}
                   </Button>
@@ -4810,10 +5871,39 @@ export default function AdminDashboard() {
 
       {/* Edit Staff Member Modal */}
       {showEditStaffModal && selectedStaff && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowEditStaffModal(false);
+              setSelectedStaff(null);
+              setStaffError(null);
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6 border-b flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                  <Edit className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Edit Staff Member</h2>
+                  <p className="text-sm text-gray-600 mt-1">Update staff member details</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowEditStaffModal(false);
+                  setSelectedStaff(null);
+                  setStaffError(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
             <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">Edit Staff Member</h2>
               {staffError && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                   {staffError}
@@ -4901,7 +5991,7 @@ export default function AdminDashboard() {
                   <Button
                     type="submit"
                     disabled={isSubmittingStaff}
-                    className="flex-1 bg-orange-500 hover:bg-orange-600"
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
                   >
                     {isSubmittingStaff ? 'Updating...' : 'Update Staff'}
                   </Button>
@@ -4914,44 +6004,68 @@ export default function AdminDashboard() {
 
       {/* Delete Staff Confirmation Modal */}
       {showDeleteStaffModal && selectedStaff && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full">
-            <div className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
-                  <AlertTriangle className="h-6 w-6 text-red-600" />
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowDeleteStaffModal(false);
+              setSelectedStaff(null);
+              setStaffError(null);
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6 border-b flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
                 </div>
-                <h2 className="text-2xl font-bold">Delete Staff Member</h2>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Delete Staff Member</h2>
+                  <p className="text-sm text-gray-600 mt-1">This action cannot be undone</p>
+                </div>
               </div>
+              <button
+                onClick={() => {
+                  setShowDeleteStaffModal(false);
+                  setSelectedStaff(null);
+                  setStaffError(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-6">
               {staffError && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                   {staffError}
                 </div>
               )}
-              <p className="text-gray-600 mb-6">
+              <p className="text-gray-600">
                 Are you sure you want to delete <span className="font-semibold">{selectedStaff.firstName} {selectedStaff.lastName}</span>? This action cannot be undone.
               </p>
-              <div className="flex gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setShowDeleteStaffModal(false);
-                    setSelectedStaff(null);
-                    setStaffError(null);
-                  }}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleDeleteStaff}
-                  disabled={isSubmittingStaff}
-                  className="flex-1 bg-red-600 hover:bg-red-700"
-                >
-                  {isSubmittingStaff ? 'Deleting...' : 'Delete Staff'}
-                </Button>
-              </div>
+            </div>
+            <div className="p-6 border-t flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowDeleteStaffModal(false);
+                  setSelectedStaff(null);
+                  setStaffError(null);
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDeleteStaff}
+                disabled={isSubmittingStaff}
+                className="flex-1 bg-red-600 hover:bg-red-700"
+              >
+                {isSubmittingStaff ? 'Deleting...' : 'Delete Staff'}
+              </Button>
             </div>
           </div>
         </div>
@@ -4959,44 +6073,68 @@ export default function AdminDashboard() {
 
       {/* Delete Member Confirmation Modal */}
       {showDeleteMemberModal && selectedMember && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full">
-            <div className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
-                  <AlertTriangle className="h-6 w-6 text-red-600" />
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowDeleteMemberModal(false);
+              setSelectedMember(null);
+              setMemberError(null);
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6 border-b flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
                 </div>
-                <h2 className="text-2xl font-bold">Delete Member</h2>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Delete Member</h2>
+                  <p className="text-sm text-gray-600 mt-1">This action cannot be undone</p>
+                </div>
               </div>
+              <button
+                onClick={() => {
+                  setShowDeleteMemberModal(false);
+                  setSelectedMember(null);
+                  setMemberError(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-6">
               {memberError && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                   {memberError}
                 </div>
               )}
-              <p className="text-gray-600 mb-6">
+              <p className="text-gray-600">
                 Are you sure you want to delete <span className="font-semibold">{selectedMember.name}</span>? This action cannot be undone.
               </p>
-              <div className="flex gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setShowDeleteMemberModal(false);
-                    setSelectedMember(null);
-                    setMemberError(null);
-                  }}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleDeleteMember}
-                  disabled={isSubmittingMember}
-                  className="flex-1 bg-red-600 hover:bg-red-700"
-                >
-                  {isSubmittingMember ? 'Deleting...' : 'Delete Member'}
-                </Button>
-              </div>
+            </div>
+            <div className="p-6 border-t flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowDeleteMemberModal(false);
+                  setSelectedMember(null);
+                  setMemberError(null);
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDeleteMember}
+                disabled={isSubmittingMember}
+                className="flex-1 bg-red-600 hover:bg-red-700"
+              >
+                {isSubmittingMember ? 'Deleting...' : 'Delete Member'}
+              </Button>
             </div>
           </div>
         </div>
@@ -5004,10 +6142,37 @@ export default function AdminDashboard() {
 
       {/* Add Plan Modal */}
       {showAddPlanModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-lg max-w-2xl w-full my-8">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowAddPlanModal(false);
+              setPlanError(null);
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6 border-b flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                  <Package className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Create New Plan</h2>
+                  <p className="text-sm text-gray-600 mt-1">Add a new membership plan</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAddPlanModal(false);
+                  setPlanError(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
             <div className="p-6">
-              <h2 className="text-2xl font-bold mb-6">Create New Plan</h2>
               {planError && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                   {planError}
@@ -5161,7 +6326,7 @@ export default function AdminDashboard() {
                   <Button
                     type="submit"
                     disabled={isSubmittingPlan}
-                    className="flex-1 bg-orange-500 hover:bg-orange-600"
+                    className="flex-1 bg-green-600 hover:bg-green-700"
                   >
                     {isSubmittingPlan ? 'Creating...' : 'Create Plan'}
                   </Button>
@@ -5174,10 +6339,39 @@ export default function AdminDashboard() {
 
       {/* Edit Plan Modal */}
       {showEditPlanModal && selectedPlan && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-lg max-w-2xl w-full my-8">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowEditPlanModal(false);
+              setSelectedPlan(null);
+              setPlanError(null);
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6 border-b flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                  <Edit className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Edit Membership Plan</h2>
+                  <p className="text-sm text-gray-600 mt-1">Update plan details</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowEditPlanModal(false);
+                  setSelectedPlan(null);
+                  setPlanError(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
             <div className="p-6">
-              <h2 className="text-2xl font-bold mb-6">Edit Plan: {selectedPlan.name}</h2>
               {planError && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                   {planError}
@@ -5317,7 +6511,7 @@ export default function AdminDashboard() {
                   <Button
                     type="submit"
                     disabled={isSubmittingPlan}
-                    className="flex-1 bg-orange-500 hover:bg-orange-600"
+                    className="flex-1 bg-green-600 hover:bg-green-700"
                   >
                     {isSubmittingPlan ? 'Updating...' : 'Update Plan'}
                   </Button>
@@ -5330,45 +6524,69 @@ export default function AdminDashboard() {
 
       {/* Delete Plan Confirmation Modal */}
       {showDeletePlanModal && selectedPlan && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full">
-            <div className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
-                  <AlertTriangle className="h-6 w-6 text-red-600" />
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowDeletePlanModal(false);
+              setSelectedPlan(null);
+              setPlanError(null);
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6 border-b flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
                 </div>
-                <h2 className="text-2xl font-bold">Archive Plan</h2>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Archive Plan</h2>
+                  <p className="text-sm text-gray-600 mt-1">Plan will be archived, not deleted</p>
+                </div>
               </div>
+              <button
+                onClick={() => {
+                  setShowDeletePlanModal(false);
+                  setSelectedPlan(null);
+                  setPlanError(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-6">
               {planError && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                   {planError}
                 </div>
               )}
-              <p className="text-gray-600 mb-6">
+              <p className="text-gray-600">
                 Are you sure you want to archive <span className="font-semibold">{selectedPlan.name}</span>? 
                 This will prevent new subscriptions but won&apos;t affect existing members.
               </p>
-              <div className="flex gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setShowDeletePlanModal(false);
-                    setSelectedPlan(null);
-                    setPlanError(null);
-                  }}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleDeletePlan}
-                  disabled={isSubmittingPlan}
-                  className="flex-1 bg-red-600 hover:bg-red-700"
-                >
-                  {isSubmittingPlan ? 'Archiving...' : 'Archive Plan'}
-                </Button>
-              </div>
+            </div>
+            <div className="p-6 border-t flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowDeletePlanModal(false);
+                  setSelectedPlan(null);
+                  setPlanError(null);
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDeletePlan}
+                disabled={isSubmittingPlan}
+                className="flex-1 bg-red-600 hover:bg-red-700"
+              >
+                {isSubmittingPlan ? 'Archiving...' : 'Archive Plan'}
+              </Button>
             </div>
           </div>
         </div>
@@ -5376,12 +6594,37 @@ export default function AdminDashboard() {
 
       {/* Change History Modal */}
       {showChangeHistoryModal && selectedPlan && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="p-6 border-b">
-              <h2 className="text-2xl font-bold">Change History: {selectedPlan.name}</h2>
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowChangeHistoryModal(false);
+              setSelectedPlan(null);
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6 border-b flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                  <History className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Plan Change History</h2>
+                  <p className="text-sm text-gray-600 mt-1">{selectedPlan.name} - Version history</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowChangeHistoryModal(false);
+                  setSelectedPlan(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
             </div>
-            <div className="p-6 overflow-y-auto flex-1">
+            <div className="p-6">
               {changeHistory.length === 0 ? (
                 <p className="text-gray-600 text-center py-8">No change history available</p>
               ) : (
@@ -5407,15 +6650,14 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
-            <div className="p-6 border-t">
+            <div className="p-6 border-t flex gap-3">
               <Button
                 onClick={() => {
                   setShowChangeHistoryModal(false);
                   setSelectedPlan(null);
                   setChangeHistory([]);
                 }}
-                className="w-full"
-                variant="outline"
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
               >
                 Close
               </Button>
@@ -5448,9 +6690,14 @@ export default function AdminDashboard() {
                     type="text"
                     value={editMemberFormData.firstName}
                     onChange={(e) => setEditMemberFormData({ ...editMemberFormData, firstName: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 ${
+                      editMemberFieldErrors.firstName ? 'border-red-500' : 'border-gray-300'
+                    }`}
                     required
                   />
+                  {editMemberFieldErrors.firstName && (
+                    <p className="text-red-500 text-xs mt-1">{editMemberFieldErrors.firstName}</p>
+                  )}
                 </div>
 
                 <div>
@@ -5461,9 +6708,14 @@ export default function AdminDashboard() {
                     type="text"
                     value={editMemberFormData.lastName}
                     onChange={(e) => setEditMemberFormData({ ...editMemberFormData, lastName: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 ${
+                      editMemberFieldErrors.lastName ? 'border-red-500' : 'border-gray-300'
+                    }`}
                     required
                   />
+                  {editMemberFieldErrors.lastName && (
+                    <p className="text-red-500 text-xs mt-1">{editMemberFieldErrors.lastName}</p>
+                  )}
                 </div>
 
                 <div>
@@ -5474,9 +6726,14 @@ export default function AdminDashboard() {
                     type="email"
                     value={editMemberFormData.email}
                     onChange={(e) => setEditMemberFormData({ ...editMemberFormData, email: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 ${
+                      editMemberFieldErrors.email ? 'border-red-500' : 'border-gray-300'
+                    }`}
                     required
                   />
+                  {editMemberFieldErrors.email && (
+                    <p className="text-red-500 text-xs mt-1">{editMemberFieldErrors.email}</p>
+                  )}
                 </div>
 
                 <div>
@@ -5487,9 +6744,14 @@ export default function AdminDashboard() {
                     type="tel"
                     value={editMemberFormData.phone}
                     onChange={(e) => setEditMemberFormData({ ...editMemberFormData, phone: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 ${
+                      editMemberFieldErrors.phone ? 'border-red-500' : 'border-gray-300'
+                    }`}
                     required
                   />
+                  {editMemberFieldErrors.phone && (
+                    <p className="text-red-500 text-xs mt-1">{editMemberFieldErrors.phone}</p>
+                  )}
                 </div>
 
                 <div>
@@ -5562,6 +6824,21 @@ export default function AdminDashboard() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                     rows={2}
                   />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Profile Photo (optional)
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setEditMemberProfileFile(e.target.files ? e.target.files[0] : null)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                  {editMemberProfileFile && (
+                    <p className="text-xs text-gray-600 mt-1">Selected: {editMemberProfileFile.name}</p>
+                  )}
                 </div>
               </div>
             </form>
@@ -5909,10 +7186,12 @@ export default function AdminDashboard() {
             if (e.target === e.currentTarget) {
               setShowEventCheckinModal(false);
               setSelectedEventForModal(null);
+              setEventCheckinResult(null);
+              setShowEventQRScanner(false);
             }
           }}
         >
-          <div className="bg-white rounded-lg max-w-2xl w-full shadow-2xl">
+          <div className="bg-white rounded-lg max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 bg-green-100 rounded-full">
@@ -5924,36 +7203,108 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
+              {/* Stats Cards */}
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="p-4 bg-blue-50 rounded-lg">
                   <p className="text-sm text-gray-600">Total Registered</p>
-                  <p className="text-2xl font-bold text-blue-700">{selectedEventForModal.registered}</p>
+                  <p className="text-2xl font-bold text-blue-700">
+                    {checkinStats?.totalRegistrations || selectedEventForModal.registered}
+                  </p>
                 </div>
                 <div className="p-4 bg-green-50 rounded-lg">
                   <p className="text-sm text-gray-600">Checked In</p>
                   <p className="text-2xl font-bold text-green-700">{checkinStats?.checkedIn || 0}</p>
-                  {checkinStats && (
+                  {checkinStats && checkinStats.totalRegistrations > 0 && (
                     <p className="text-xs text-green-600">{checkinStats.attendanceRate}% attendance</p>
                   )}
                 </div>
               </div>
 
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                <QrCode className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">QR Code Scanner</h3>
-                <p className="text-gray-600 mb-4">Scan attendee tickets to check them in</p>
-                <Button className="bg-green-600 hover:bg-green-700">
-                  Start QR Scanner
-                </Button>
-              </div>
+              {/* Success/Error Message */}
+              {eventCheckinResult && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`p-4 rounded-lg mb-6 ${
+                    eventCheckinResult.success 
+                      ? 'bg-green-50 border-2 border-green-500' 
+                      : 'bg-red-50 border-2 border-red-500'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    {eventCheckinResult.success ? (
+                      <CheckCircle2 className="h-6 w-6 text-green-600 flex-shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertTriangle className="h-6 w-6 text-red-600 flex-shrink-0 mt-0.5" />
+                    )}
+                    <div className="flex-1">
+                      <p className={`font-semibold mb-1 ${
+                        eventCheckinResult.success ? 'text-green-900' : 'text-red-900'
+                      }`}>
+                        {eventCheckinResult.message}
+                      </p>
+                      {eventCheckinResult.attendee && (
+                        <div className="text-sm">
+                          <p className="text-gray-700">
+                            <span className="font-medium">Name:</span> {eventCheckinResult.attendee.name}
+                          </p>
+                          <p className="text-gray-700">
+                            <span className="font-medium">Email:</span> {eventCheckinResult.attendee.email}
+                          </p>
+                          {eventCheckinResult.attendee.ticketId && (
+                            <p className="text-gray-700">
+                              <span className="font-medium">Ticket:</span> {eventCheckinResult.attendee.ticketId}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
 
-              <div className="flex justify-end mt-6">
+              {/* QR Scanner */}
+              {showEventQRScanner ? (
+                <div className="border-2 border-green-500 rounded-lg p-4 mb-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Scanning...</h3>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowEventQRScanner(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                  <WebcamQRScanner
+                    onScan={handleEventQRScan}
+                    onClose={() => setShowEventQRScanner(false)}
+                  />
+                </div>
+              ) : (
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center mb-6">
+                  <QrCode className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">QR Code Scanner</h3>
+                  <p className="text-gray-600 mb-4">Scan attendee tickets to check them in</p>
+                  <Button 
+                    className="bg-green-600 hover:bg-green-700"
+                    onClick={() => setShowEventQRScanner(true)}
+                  >
+                    <Scan className="h-4 w-4 mr-2" />
+                    Start QR Scanner
+                  </Button>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => {
                     setShowEventCheckinModal(false);
                     setSelectedEventForModal(null);
+                    setEventCheckinResult(null);
+                    setShowEventQRScanner(false);
                   }}
                 >
                   Close

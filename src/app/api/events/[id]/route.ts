@@ -100,6 +100,10 @@ export async function PUT(
       maxAttendees,
       isFree,
       price,
+      earlyBirdPrice,
+      earlyBirdDeadline,
+      category,
+      tags,
       status
     } = body;
 
@@ -141,6 +145,9 @@ export async function PUT(
       );
     }
 
+    // Parse tags if provided
+    const tagArray = tags ? (typeof tags === 'string' ? tags.split(',').map((t: string) => t.trim()).filter((t: string) => t.length > 0) : tags) : undefined;
+
     const updatedEvent = await prisma.event.update({
       where: { id },
       data: {
@@ -153,6 +160,10 @@ export async function PUT(
         ...(maxAttendees !== undefined && { maxAttendees: maxAttendees ? parseInt(maxAttendees) : null }),
         ...(isFree !== undefined && { isFree: Boolean(isFree) }),
         ...(price !== undefined && { price: price ? parseFloat(price) : null }),
+        ...(earlyBirdPrice !== undefined && { earlyBirdPrice: earlyBirdPrice ? parseFloat(earlyBirdPrice) : null }),
+        ...(earlyBirdDeadline !== undefined && { earlyBirdDeadline: earlyBirdDeadline ? new Date(earlyBirdDeadline) : null }),
+        ...(category && { category }),
+        ...(tagArray && { tags: tagArray }),
         ...(status && { status: status as $Enums.EventStatus })
       }
     });
