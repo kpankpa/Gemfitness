@@ -234,3 +234,58 @@ export interface ClassAnalytics {
   attendanceRate: number;
   lastUpdate: string;
 }
+
+// PAR-Q (Physical Activity Readiness Questionnaire) Types
+export interface ParQBasicResponse {
+  hasHeartCondition: boolean;
+  hasChestPain: boolean;
+  hasDizziness: boolean;
+  hasJointProblems: boolean;
+  takesMedication: boolean;
+  hasOtherConditions: boolean;
+  otherConditionsDetails?: string;
+  needsFollowUp: boolean;
+}
+
+export interface ParQFullResponse {
+  // General Questions (Page 1)
+  heartCondition: boolean;
+  chestPain: boolean;
+  chestPainRest: boolean;
+  lossOfBalance: boolean;
+  boneJoint: boolean;
+  medication: boolean;
+  otherReason: boolean;
+  otherReasonDetails?: string;
+  
+  // Risk Assessment
+  riskLevel: 'low' | 'medium' | 'high';
+  completedAt: string;
+  userId: string;
+  
+  // Follow-up Questions (Optional for future expansion)
+  followUpQuestions?: Record<string, boolean>;
+}
+
+export interface ParQSubmission {
+  responses: Record<string, boolean>;
+  otherReasonDetails?: string;
+  riskLevel: 'low' | 'medium' | 'high';
+  completedAt: string;
+}
+
+export interface PaymentMetadata {
+  userId: string;
+  email: string;
+  plan: 'ONE_MONTH' | 'THREE_MONTHS' | 'ONE_YEAR';
+  firstName: string;
+  lastName: string;
+  phone: string;
+  dateOfBirth: string;
+  address: string;
+  emergencyContact: string;
+  emergencyPhone: string;
+  fitnessGoals: string;
+  medicalConditions: string;
+  parq_basic?: ParQBasicResponse;
+}

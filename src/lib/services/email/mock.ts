@@ -53,7 +53,8 @@ export async function sendEmail(data: EmailData): Promise<EmailResponse> {
 export async function sendWelcomeEmail(
   email: string,
   firstName: string,
-  qrCode: string
+  qrCode: string,
+  additionalMessage?: string
 ): Promise<EmailResponse> {
   const html = `
     <!DOCTYPE html>
@@ -66,6 +67,7 @@ export async function sendWelcomeEmail(
         .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
         .button { display: inline-block; background: #f97316; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
         .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+        .alert { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 5px; }
       </style>
     </head>
     <body>
@@ -82,12 +84,22 @@ export async function sendWelcomeEmail(
           
           <p>You can use this QR code to check in at the gym. Show it at the reception desk or use our self-check-in kiosks.</p>
           
+          ${additionalMessage ? `
+          <div class="alert">
+            <h3>⚠️ Important: Complete Your Health Screening</h3>
+            <p>Based on your initial health screening, we recommend completing a comprehensive PAR-Q+ questionnaire before your first visit. This helps us ensure your safety and create the best training program for you.</p>
+            <p>${additionalMessage}</p>
+            <p><strong>Please complete this within 7 days of signup.</strong></p>
+          </div>
+          ` : ''}
+          
           <h3>What's Next?</h3>
           <ul>
             <li>Visit our gym and check in with your QR code</li>
             <li>Explore all available equipment and classes</li>
             <li>Set your fitness goals in your dashboard</li>
             <li>Book your first class or personal training session</li>
+            ${additionalMessage ? '<li><strong>Complete your comprehensive health screening (PAR-Q+)</strong></li>' : ''}
           </ul>
           
           <p>If you have any questions, feel free to reach out to our team.</p>

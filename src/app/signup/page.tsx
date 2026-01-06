@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Script from 'next/script';
 import {
   User,
   Mail,
@@ -17,6 +18,25 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
+
+// Declare PaystackPop for TypeScript
+declare global {
+  interface Window {
+    PaystackPop: {
+      setup: (config: {
+        key: string;
+        email: string;
+        amount: number;
+        ref: string;
+        metadata?: Record<string, unknown>;
+        callback: (response: { reference: string }) => void;
+        onClose: () => void;
+      }) => {
+        openIframe: () => void;
+      };
+    };
+  }
+}
 
 const membershipPlans = {
   monthly: {
@@ -78,6 +98,7 @@ export default function SignupPage() {
   const router = useRouter();
   const planParam = searchParams.get('plan') || 'quarterly';
   const [selectedPlan, setSelectedPlan] = useState(planParam);
+  const [paystackLoaded, setPaystackLoaded] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -92,6 +113,14 @@ export default function SignupPage() {
     fitnessGoals: '',
     medicalConditions: '',
     agreeToTerms: false,
+    // PAR-Q Basic Screening
+    hasHeartCondition: false,
+    hasChestPain: false,
+    hasDizziness: false,
+    hasJointProblems: false,
+    takesMedication: false,
+    hasOtherConditions: false,
+    otherConditionsDetails: '',
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -124,37 +153,126 @@ export default function SignupPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/auth/signup', {
+      // Validate form before payment
+      if (!formData.email || !formData.firstName || !formData.lastName) {
+        setError('Please fill in all required fields');
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!formData.agreeToTerms) {
+        setError('Please agree to the terms and conditions');
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (formData.password !== formData.confirmPassword) {
+        setError('Passwords do not match');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Initialize payment with Paystack
+      const paymentResponse = await fetch('/api/payment/initialize', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...formData,
-          plan: selectedPlan,
+          email: formData.email,
+          amount: total * 100, // Convert to kobo
+          metadata: {
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            phone: formData.phone,
+            plan: selectedPlan,
+            dateOfBirth: formData.dateOfBirth,
+            address: formData.address,
+            emergencyContact: formData.emergencyContact,
+            emergencyPhone: formData.emergencyPhone,
+            fitnessGoals: formData.fitnessGoals,
+            medicalConditions: formData.medicalConditions,
+            password: formData.password,
+            registration_type: 'new_member',
+            // PAR-Q Basic Screening
+            parq_basic: {
+              hasHeartCondition: formData.hasHeartCondition,
+              hasChestPain: formData.hasChestPain,
+              hasDizziness: formData.hasDizziness,
+              hasJointProblems: formData.hasJointProblems,
+              takesMedication: formData.takesMedication,
+              hasOtherConditions: formData.hasOtherConditions,
+              otherConditionsDetails: formData.otherConditionsDetails,
+              needsFollowUp: formData.hasHeartCondition || formData.hasChestPain || 
+                             formData.hasDizziness || formData.hasJointProblems || 
+                             formData.takesMedication || formData.hasOtherConditions,
+            },
+          },
+          callback_url: `${window.location.origin}/payment/success`,
         }),
       });
 
-      const data = await response.json();
+      const paymentData = await paymentResponse.json();
 
-      if (!response.ok) {
-        setError(data.error || 'Registration failed. Please try again.');
+      if (!paymentResponse.ok || !paymentData.status) {
+        setError(paymentData.message || 'Payment initialization failed. Please try again.');
         setIsSubmitting(false);
         return;
       }
 
-      // Wait for cookie to propagate before redirect
-      await new Promise(resolve => setTimeout(resolve, 100));
-      // Use window.location for hard navigation to ensure cookies are sent
-      window.location.href = data.redirectUrl;
+      // Open Paystack payment popup
+      if (!paystackLoaded || !window.PaystackPop) {
+        setError('Payment system is loading. Please try again in a moment.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const handler = window.PaystackPop.setup({
+        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || 'pk_test_b09cfa8996ae56391d703103fd0d68b6ac14b5b4',
+        email: formData.email,
+        amount: total * 100, // Amount in kobo
+        ref: paymentData.data.reference,
+        metadata: {
+          custom_fields: [
+            {
+              display_name: 'Member Name',
+              variable_name: 'member_name',
+              value: `${formData.firstName} ${formData.lastName}`,
+            },
+            {
+              display_name: 'Membership Plan',
+              variable_name: 'plan',
+              value: selectedPlan,
+            },
+          ],
+        },
+        callback: (response) => {
+          // Payment successful - redirect to success page
+          router.push(`/payment/success?reference=${response.reference}`);
+        },
+        onClose: () => {
+          // User closed the popup
+          setIsSubmitting(false);
+          setError('Payment cancelled. Please try again when ready.');
+        },
+      });
+
+      handler.openIframe();
     } catch (error) {
-      console.error('Signup error:', error);
-      setError('An error occurred during registration. Please try again.');
+      console.error('Payment error:', error);
+      setError('An error occurred. Please try again.');
       setIsSubmitting(false);
     }
   };
 
   return (
+    <>
+      {/* Load Paystack Inline JS */}
+      <Script
+        src="https://js.paystack.co/v1/inline.js"
+        onLoad={() => setPaystackLoaded(true)}
+        onError={() => setError('Failed to load payment system')}
+      />
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -408,6 +526,125 @@ export default function SignupPage() {
                     />
                   </div>
 
+                  {/* PAR-Q Health Screening */}
+                  <div className="border-t pt-6">
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Health Screening (Optional but Recommended)</h3>
+                      <p className="text-sm text-gray-600">
+                        This helps us provide safer, personalized training. All information is confidential.
+                      </p>
+                    </div>
+                    <div className="space-y-3 bg-gray-50 p-4 rounded-lg">
+                      <label className="flex items-start space-x-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          name="hasHeartCondition"
+                          checked={formData.hasHeartCondition}
+                          onChange={handleInputChange}
+                          className="mt-1 h-4 w-4 text-orange-500 focus:ring-orange-500 border-gray-300 rounded"
+                        />
+                        <span className="text-sm text-gray-700">
+                          I have been diagnosed with a heart condition or my doctor has said I have a heart problem
+                        </span>
+                      </label>
+
+                      <label className="flex items-start space-x-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          name="hasChestPain"
+                          checked={formData.hasChestPain}
+                          onChange={handleInputChange}
+                          className="mt-1 h-4 w-4 text-orange-500 focus:ring-orange-500 border-gray-300 rounded"
+                        />
+                        <span className="text-sm text-gray-700">
+                          I feel pain in my chest during physical activity or at rest
+                        </span>
+                      </label>
+
+                      <label className="flex items-start space-x-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          name="hasDizziness"
+                          checked={formData.hasDizziness}
+                          onChange={handleInputChange}
+                          className="mt-1 h-4 w-4 text-orange-500 focus:ring-orange-500 border-gray-300 rounded"
+                        />
+                        <span className="text-sm text-gray-700">
+                          I experience dizziness, loss of balance, or lose consciousness
+                        </span>
+                      </label>
+
+                      <label className="flex items-start space-x-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          name="hasJointProblems"
+                          checked={formData.hasJointProblems}
+                          onChange={handleInputChange}
+                          className="mt-1 h-4 w-4 text-orange-500 focus:ring-orange-500 border-gray-300 rounded"
+                        />
+                        <span className="text-sm text-gray-700">
+                          I have bone or joint problems that could worsen with physical activity
+                        </span>
+                      </label>
+
+                      <label className="flex items-start space-x-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          name="takesMedication"
+                          checked={formData.takesMedication}
+                          onChange={handleInputChange}
+                          className="mt-1 h-4 w-4 text-orange-500 focus:ring-orange-500 border-gray-300 rounded"
+                        />
+                        <span className="text-sm text-gray-700">
+                          I am currently taking medication for blood pressure or a heart condition
+                        </span>
+                      </label>
+
+                      <label className="flex items-start space-x-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          name="hasOtherConditions"
+                          checked={formData.hasOtherConditions}
+                          onChange={handleInputChange}
+                          className="mt-1 h-4 w-4 text-orange-500 focus:ring-orange-500 border-gray-300 rounded"
+                        />
+                        <span className="text-sm text-gray-700">
+                          I have other medical conditions that may affect my ability to exercise safely
+                        </span>
+                      </label>
+
+                      {formData.hasOtherConditions && (
+                        <div className="ml-7">
+                          <textarea
+                            name="otherConditionsDetails"
+                            value={formData.otherConditionsDetails}
+                            onChange={handleInputChange}
+                            rows={2}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm"
+                            placeholder="Please provide details..."
+                          />
+                        </div>
+                      )}
+
+                      {(formData.hasHeartCondition || formData.hasChestPain || formData.hasDizziness || 
+                        formData.hasJointProblems || formData.takesMedication || formData.hasOtherConditions) && (
+                        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <p className="text-sm text-yellow-800">
+                            ⚠️ Based on your responses, we recommend consulting with a healthcare provider before starting intense exercise. 
+                            Our trainers will provide appropriate modifications during your orientation.
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-xs text-blue-800">
+                          💡 <strong>Note:</strong> After payment, you&apos;ll receive a link to complete a comprehensive health screening (PAR-Q+) 
+                          before your first visit. This is for your safety and helps us design the best program for you.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Terms & Conditions */}
                   <div>
                     <label className="flex items-start space-x-3 cursor-pointer">
@@ -563,5 +800,6 @@ export default function SignupPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }

@@ -266,11 +266,20 @@ async function createNewUserFromPayment(paymentData: Record<string, unknown>) {
       reference,
     });
 
-    // Send welcome email asynchronously
+    // Extract PAR-Q data from metadata if provided
+    const parqBasic = (metadata as Record<string, unknown>).parq_basic;
+    const needsParQFollowUp = parqBasic && (parqBasic as Record<string, unknown>).needsFollowUp === true;
+
+    // Send welcome email with PAR-Q link if needed
+    const emailMessage = needsParQFollowUp 
+      ? `Complete your comprehensive health screening at: ${process.env.NEXT_PUBLIC_BASE_URL}/member/par-q`
+      : '';
+
     sendWelcomeEmail(
       result.user.email,
       result.user.firstName,
-      result.qrCode
+      result.qrCode,
+      needsParQFollowUp ? emailMessage : undefined
     ).catch(error => logger.error('❌ Welcome email failed:', error));
 
   } catch (error) {

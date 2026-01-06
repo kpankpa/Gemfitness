@@ -29,6 +29,12 @@ model User {
   registrationType   RegistrationType @default(SELF) // SELF, WALK_IN, or ADMIN
   paymentReference   String?        // Reference for registration payment
   profileImage       String?        // Profile image URL
+  
+  // PAR-Q (Physical Activity Readiness Questionnaire) Fields
+  parqCompleted      Boolean        @default(false)
+  parqCompletedAt    DateTime?
+  parqRiskLevel      String?        // low, medium, high
+  
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
   
@@ -46,6 +52,7 @@ model User {
   staffEventCheckIns EventCheckIn[] @relation("StaffCheckIns")
   staffClassCancellations ClassCancellation[] @relation("StaffCancellations")
   paymentTransactions PaymentTransaction[] @relation("UserTransactions")
+  parqResponses ParQResponse[]
 
   @@index([email])
   @@index([phone])
@@ -601,3 +608,20 @@ model PaymentTransaction {
   @@map("payment_transactions")
 }
 
+// PAR-Q Response model - Track health screening responses
+model ParQResponse {
+  id                   String   @id @default(cuid())
+  userId               String
+  responses            String   // JSON string of all question responses
+  otherReasonDetails   String?  // Details for "other reason" question
+  riskLevel            String   // 'low', 'medium', 'high'
+  completedAt          DateTime
+  createdAt            DateTime @default(now())
+  
+  // Relations
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([riskLevel])
+  @@map("parq_responses")
+}

@@ -1988,6 +1988,38 @@ export default function AdminDashboard() {
     }
 
     try {
+      // First, check if member has completed PAR-Q
+      const memberCheck = await fetch(`/api/members/check-parq?qrCode=${encodeURIComponent(dataToSend.qrCode)}`);
+      const memberData = await memberCheck.json();
+      
+      if (memberData.requiresParQ) {
+        // Show PAR-Q warning and prompt
+        const shouldContinue = confirm(
+          `⚠️ PAR-Q Health Screening Required\n\n` +
+          `Member: ${memberData.memberName}\n` +
+          `This member has not completed their health screening (PAR-Q).\n\n` +
+          `Options:\n` +
+          `• Complete PAR-Q now (recommended)\n` +
+          `• Allow check-in anyway (proceed)\n\n` +
+          `Press OK to proceed with check-in, or Cancel to complete PAR-Q first.`
+        );
+        
+        if (!shouldContinue) {
+          // Offer to open PAR-Q form
+          const openForm = confirm(
+            `Would you like to have the member complete their health screening now?\n\n` +
+            `This will open the PAR-Q form on this device.`
+          );
+          
+          if (openForm) {
+            window.open(`/member/par-q?memberId=${memberData.memberId}`, '_blank');
+          }
+          return;
+        }
+        // If they chose to continue, add a note about PAR-Q requirement
+        console.warn('⚠️ Check-in allowed without PAR-Q completion for member:', memberData.memberId);
+      }
+
       const result = await performCheckIn({
         qrCode: dataToSend.qrCode,
         method: dataToSend.method || 'qr',

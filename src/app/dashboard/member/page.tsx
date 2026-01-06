@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
+import ParQBanner from '@/components/ParQBanner';
 import { 
   User, 
   Mail, 
@@ -42,6 +43,7 @@ type UserData = {
   emergencyPhone: string;
   fitnessGoals: string | null;
   qrCode: string | null;
+  parqCompleted?: boolean;
   subscriptions?: Array<{
     id: string;
     plan: string;
@@ -214,6 +216,12 @@ export default function MemberDashboardPage() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
+        {/* PAR-Q Banner for existing members who haven't completed it */}
+        <ParQBanner 
+          parqCompleted={userData.parqCompleted ?? false} 
+          firstName={userData.firstName}
+        />
+
         {/* Stats Grid - Premium Modern Design */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-6 mb-6 md:mb-8">
           {/* Current Streak - Fire Theme with Glassmorphism */}
