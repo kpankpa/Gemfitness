@@ -84,6 +84,7 @@ import {
 import Image from 'next/image';
 import AdminSidebar from '@/components/AdminSidebar';
 import ParQManagement from '@/components/admin/ParQManagement';
+import ReportsAnalytics from '@/components/admin/ReportsAnalytics';
 import ProfilePictureUpload from '@/components/ProfilePictureUpload';
 import type { Member } from '@/types';
 import { printRegistrationReceipt, generateReceiptNumber } from '@/lib/receipt-printer';
@@ -206,7 +207,7 @@ export default function AdminDashboard() {
   }>>([]);
   const [isLoadingFees, setIsLoadingFees] = useState(false);
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'checkin' | 'members' | 'classes' | 'events' | 'attendance' | 'payments' | 'plans' | 'staff' | 'analytics' | 'audit' | 'settings' | 'parq'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'checkin' | 'members' | 'classes' | 'events' | 'attendance' | 'payments' | 'plans' | 'staff' | 'analytics' | 'audit' | 'settings' | 'parq' | 'reports'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [memberStatusFilter, setMemberStatusFilter] = useState<'all' | 'active' | 'expiring_soon' | 'expired'>('all');
   const [planFilter, setPlanFilter] = useState<string>('all');
@@ -1294,10 +1295,17 @@ export default function AdminDashboard() {
       if (response.status === 409 && data?.fields) {
         const issues: Record<string, string> = {};
         const target = data.fields;
-        if (Array.isArray(target)) target.forEach((f: string) => { issues[String(f)] = 'Already in use'; });
-        else issues[String(target)] = 'Already in use';
+        if (Array.isArray(target)) {
+          target.forEach((f: string) => { 
+            issues[String(f)] = f === 'email' ? 'Email already exists in system' : 'Already in use'; 
+          });
+        } else {
+          issues[String(target)] = target === 'email' ? 'Email already exists in system' : 'Already in use';
+        }
         setEditMemberFieldErrors(issues);
-        pushToast('Please fix the highlighted fields', 'error');
+        pushToast(target === 'email' || (Array.isArray(target) && target.includes('email')) 
+          ? 'Email address is already registered to another member' 
+          : 'Please fix the highlighted fields', 'error');
         return;
       }
 
@@ -1439,10 +1447,17 @@ export default function AdminDashboard() {
       if (response.status === 409 && data?.fields) {
         const issues: Record<string, string> = {};
         const target = data.fields;
-        if (Array.isArray(target)) target.forEach((f: string) => { issues[String(f)] = 'Already in use'; });
-        else issues[String(target)] = 'Already in use';
+        if (Array.isArray(target)) {
+          target.forEach((f: string) => { 
+            issues[String(f)] = f === 'email' ? 'Email already exists in system' : 'Already in use'; 
+          });
+        } else {
+          issues[String(target)] = target === 'email' ? 'Email already exists in system' : 'Already in use';
+        }
         setNewMemberErrors(issues);
-        pushToast('Please fix the highlighted fields', 'error');
+        pushToast(target === 'email' || (Array.isArray(target) && target.includes('email')) 
+          ? 'Email address is already registered to another member' 
+          : 'Please fix the highlighted fields', 'error');
         return;
       }
 
@@ -2191,6 +2206,7 @@ export default function AdminDashboard() {
                   {activeTab === 'payments' && 'Payment tracking and revenue'}
                   {activeTab === 'plans' && 'Membership plan management'}
                   {activeTab === 'staff' && 'Staff account management'}
+                  {activeTab === 'reports' && 'Comprehensive reports and data exports'}
                   {activeTab === 'analytics' && 'Business analytics and reports'}
                   {activeTab === 'parq' && 'PAR-Q health screening and safety advice'}
                   {activeTab === 'audit' && 'Security and activity audit logs'}
@@ -4455,6 +4471,30 @@ export default function AdminDashboard() {
 
         {/* PAR-Q Tab */}
         {activeTab === 'parq' && <ParQManagement />}
+
+        {/* Reports Tab */}
+        {activeTab === 'reports' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <Card className="border-2 border-gray-100">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-6 w-6 text-red-600" />
+                  Reports & Analytics
+                </CardTitle>
+                <CardDescription>
+                  Comprehensive insights and data analysis
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            {/* Lazy load the Reports component */}
+            <ReportsAnalytics />
+          </motion.div>
+        )}
 
         {/* Settings Tab */}
         {activeTab === 'settings' && isManager && (
