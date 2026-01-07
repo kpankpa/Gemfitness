@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionForApi } from '@/lib/auth/dal';
 import { prisma } from '@/lib/prisma';
 import { paystackService } from '@/lib/services/paystack';
+import { sendEventBookingConfirmation } from '@/lib/services/email/mock';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * POST /api/events/[id]/register
- * Register for an event
+ * Register for an event (free or paid)
  */
 export async function POST(
   request: NextRequest,
@@ -21,7 +22,7 @@ export async function POST(
 
     const { id: eventId } = await params;
     const body = await request.json();
-    const { userId } = body;
+    const { userId, paymentMethod } = body; // paymentMethod: "CARD" | "MOMO" | "CASH"
 
     // Use session userId if not provided
     const targetUserId = userId || session.userId;
@@ -33,7 +34,7 @@ export async function POST(
         _count: {
           select: {
             bookings: {
-              where: { status: 'registered' }
+              where: { status: { in: ['registered', 'confirmed'] } }
             }
           }
         }
@@ -63,7 +64,7 @@ export async function POST(
       where: {
         userId: targetUserId,
         eventId: eventId,
-        status: 'registered'
+        status: { in: ['registered', 'confirmed'] }
       }
     });
 
@@ -73,54 +74,190 @@ export async function POST(
       }, { status: 400 });
     }
 
-    // Create registration
-    const booking = await prisma.eventBooking.create({
+    // Get user details
+    const user = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: {
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true
+      }
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // FREE EVENT - Instant registration
+    if (event.isFree) {
+      const ticketQRCode = `EVENT-${event.id}-USER-${targetUserId}-${Date.now()}`;
+      
+      const booking = await prisma.eventBooking.create({
+        data: {
+          userId: targetUserId,
+          eventId: eventId,
+          status: 'confirmed',
+          paymentStatus: null, // Free event
+          ticketQRData: ticketQRCode,
+          ticketGeneratedAt: new Date()
+        },
+        include: {
+          event: {
+            select: {
+              title: true,
+              eventDate: true,
+              location: true,
+              isFree: true,
+              price: true
+            }
+          }
+        }
+      });
+
+      // Send confirmation email
+      await sendEventBookingConfirmation(user.email, user.firstName, {
+        eventTitle: booking.event.title,
+        eventDate: booking.event.eventDate.toISOString(),
+        location: booking.event.location || 'GemFitness Tema',
+        ticketQRCode: ticketQRCode,
+        isFree: true
+      });
+
+      return NextResponse.json({
+        success: true,
+        type: 'FREE_EVENT',
+        message: 'Successfully registered for event',
+        registration: {
+          id: booking.id,
+          userName: `${user.firstName} ${user.lastName}`,
+          email: user.email,
+          phone: user.phone,
+          eventTitle: booking.event.title,
+          eventDate: booking.event.eventDate.toISOString(),
+          location: booking.event.location,
+          isFree: true,
+          ticketQRCode: ticketQRCode,
+          status: booking.status
+        }
+      });
+    }
+
+    // PAID EVENT - Initialize payment
+    const amount = event.price!;
+    
+    if (!paymentMethod) {
+      return NextResponse.json({ 
+        error: 'Payment method required for paid events' 
+      }, { status: 400 });
+    }
+
+    // Generate unique reference
+    const reference = `EVT-${eventId.substring(0, 8)}-${targetUserId.substring(0, 8)}-${Date.now()}`;
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+
+    // Store pending booking
+    await prisma.pendingEventBooking.create({
       data: {
         userId: targetUserId,
         eventId: eventId,
-        status: 'registered'
-      },
-      include: {
-        user: {
-          select: {
-            firstName: true,
-            lastName: true,
-            email: true,
-            phone: true
-          }
-        },
-        event: {
-          select: {
-            title: true,
-            eventDate: true,
-            location: true,
-            isFree: true,
-            price: true
-          }
+        paymentReference: reference,
+        amount: amount,
+        paymentMethod: paymentMethod,
+        expiresAt: expiresAt,
+        metadata: {
+          userName: `${user.firstName} ${user.lastName}`,
+          userEmail: user.email,
+          userPhone: user.phone,
+          eventTitle: event.title,
+          eventDate: event.eventDate.toISOString()
         }
       }
     });
 
-    // Generate QR code for ticket (simple format)
-    const ticketQRCode = `EVENT-${event.id}-USER-${targetUserId}-${booking.id}`;
+    // Initialize payment based on method
 
-    return NextResponse.json({
-      success: true,
-      message: 'Successfully registered for event',
-      registration: {
-        id: booking.id,
-        userName: `${booking.user.firstName} ${booking.user.lastName}`,
-        email: booking.user.email,
-        phone: booking.user.phone,
-        eventTitle: booking.event.title,
-        eventDate: booking.event.eventDate.toISOString(),
-        location: booking.event.location,
-        isFree: booking.event.isFree,
-        price: booking.event.price,
-        ticketQRCode: ticketQRCode,
-        status: booking.status
+    if (paymentMethod === 'CARD') {
+      // Card payment via Paystack
+      const cardPayment = await paystackService.initializeCardPayment(
+        user.email,
+        amount,
+        reference,
+        {
+          userId: targetUserId,
+          eventId: eventId,
+          eventTitle: event.title,
+          type: 'event_booking'
+        }
+      );
+
+      return NextResponse.json({
+        success: true,
+        type: 'PAID_EVENT_CARD',
+        message: 'Payment initialized. Redirect customer to complete payment.',
+        paymentUrl: cardPayment.authorization_url,
+        accessCode: cardPayment.access_code,
+        reference: reference,
+        amount: amount,
+        expiresAt: expiresAt.toISOString()
+      });
+
+    } else if (paymentMethod === 'MOMO') {
+      // Mobile Money via Paystack
+      if (!user.phone) {
+        return NextResponse.json({ 
+          error: 'Phone number required for Mobile Money payment' 
+        }, { status: 400 });
       }
-    });
+
+      const momoPayment = await paystackService.initializeMobileMoneyPayment(
+        user.email,
+        amount,
+        user.phone,
+        reference,
+        {
+          userId: targetUserId,
+          eventId: eventId,
+          eventTitle: event.title,
+          type: 'event_booking'
+        }
+      );
+
+      return NextResponse.json({
+        success: true,
+        type: 'PAID_EVENT_MOMO',
+        message: 'Mobile Money payment initiated. Customer will receive USSD prompt on their phone.',
+        reference: reference,
+        amount: amount,
+        phoneNumber: user.phone,
+        provider: momoPayment.provider,
+        expiresAt: expiresAt.toISOString(),
+        instructions: `USSD prompt sent to ${user.phone}. Customer should dial the code on their phone to authorize payment.`
+      });
+
+    } else if (paymentMethod === 'CASH') {
+      // Cash payment (staff records payment manually)
+      const cashPayment = paystackService.initializeCashPayment(
+        amount,
+        reference
+      );
+
+      return NextResponse.json({
+        success: true,
+        type: 'PAID_EVENT_CASH',
+        message: 'Cash payment recorded. Awaiting staff confirmation.',
+        reference: cashPayment.reference,
+        amount: cashPayment.amount,
+        expiresAt: expiresAt.toISOString(),
+        instructions: 'Payment will be confirmed after cash is received and verified by staff.'
+      });
+
+    } else {
+      return NextResponse.json({ 
+        error: 'Invalid payment method. Use CARD, MOMO, or CASH' 
+      }, { status: 400 });
+    }
+
   } catch (error) {
     console.error('Error registering for event:', error);
     return NextResponse.json(

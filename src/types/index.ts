@@ -35,6 +35,9 @@ export interface CheckIn {
   checkedBy: string;
   date?: string;
   checkInTime: Date | string; // Full timestamp for filtering
+  profileImage?: string | null;
+  email?: string;
+  phone?: string;
 }
 
 export interface Member {
@@ -58,6 +61,10 @@ export interface Member {
   emergencyPhone?: string;
   fitnessGoals?: string;
   medicalConditions?: string;
+  profileImage?: string | null;
+  parqCompleted?: boolean;
+  parqCompletedAt?: Date | string | null;
+  parqRiskLevel?: 'low' | 'medium' | 'high' | null;
 }
 
 export interface Payment {

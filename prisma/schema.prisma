@@ -29,6 +29,7 @@ model User {
   registrationType   RegistrationType @default(SELF) // SELF, WALK_IN, or ADMIN
   paymentReference   String?        // Reference for registration payment
   profileImage       String?        // Profile image URL
+  profileImageGracePeriodEnd DateTime? // 7 days from registration to upload profile picture
   
   // PAR-Q (Physical Activity Readiness Questionnaire) Fields
   parqCompleted      Boolean        @default(false)
@@ -129,9 +130,9 @@ model Payment {
   id               String         @id @default(cuid())
   subscriptionId   String
   amount           Float
-  paymentMethod    String         @default("CARD")
+  paymentMethod    String         @default("CASH") // CASH, MOMO, or CARD
   paymentDate      DateTime
-  reference        String         @unique // Paystack reference
+  reference        String         @unique // Paystack/MoMo/Cash reference
   status           PaymentStatus  @default(PENDING)
   paystackResponse Json?          // Store full webhook data
   createdAt        DateTime       @default(now())
@@ -198,6 +199,8 @@ model Class {
   currentBookings     Int            @default(0)  // Current number of bookings
   schedule            String         // "Mon, Wed, Fri - 6:30 AM"
   color               String?        // Gradient color for UI
+  isFree              Boolean        @default(true) // True if included in membership
+  price               Float?         // Price per class if not free
   status              ClassStatus    @default(ACTIVE)
   cancellationReason  String?        // Reason if cancelled
   cancelledAt         DateTime?      // When cancelled
@@ -226,12 +229,15 @@ enum ClassStatus {
 
 // ClassBooking model - Member class bookings
 model ClassBooking {
-  id          String   @id @default(cuid())
-  userId      String
-  classId     String
-  bookedFor   DateTime // When the class is scheduled
-  status      String   @default("confirmed") // "confirmed", "cancelled", "attended"
-  createdAt   DateTime @default(now())
+  id                 String    @id @default(cuid())
+  userId             String
+  classId            String
+  bookedFor          DateTime  // When the class is scheduled
+  status             String    @default("confirmed") // "confirmed", "cancelled", "attended"
+  paymentStatus      String?   // "PENDING", "COMPLETED", "FAILED" (null for free classes)
+  paymentRef         String?   // Payment reference for paid classes
+  amountPaid         Float?    // Amount paid for this booking
+  createdAt          DateTime  @default(now())
   
   // Relations
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -240,6 +246,7 @@ model ClassBooking {
   @@index([userId])
   @@index([classId])
   @@index([bookedFor])
+  @@index([paymentStatus])
   @@map("class_bookings")
 }
 
@@ -254,9 +261,7 @@ model Event {
   image                 String?        // Event banner/poster URL
   maxAttendees          Int?           // Null = unlimited
   isFree                Boolean        @default(true)
-  price                 Float?         // Event ticket price if not free (regular price)
-  earlyBirdPrice        Float?         // Early bird discount price
-  earlyBirdDeadline     DateTime?      // When early bird pricing ends
+  price                 Float?         // Event ticket price if not free
   status                EventStatus    @default(UPCOMING)
   category              EventCategory? // Event category/type
   tags                  String[]       // Event tags for filtering
@@ -326,6 +331,45 @@ model EventBooking {
   @@index([checkedIn])
   @@index([paymentStatus])
   @@map("event_bookings")
+}
+
+// PendingEventBooking model - Temporary storage for events awaiting payment
+model PendingEventBooking {
+  id               String   @id @default(cuid())
+  userId           String
+  eventId          String
+  paymentReference String   @unique
+  amount           Float
+  paymentMethod    String   // "CARD", "MOMO", "CASH"
+  metadata         Json?    // Store additional data (user info, event info)
+  createdAt        DateTime @default(now())
+  expiresAt        DateTime // Payment must complete within 30 minutes
+  
+  @@index([userId])
+  @@index([eventId])
+  @@index([paymentReference])
+  @@index([expiresAt])
+  @@map("pending_event_bookings")
+}
+
+// PendingClassBooking model - Temporary storage for paid classes awaiting payment
+model PendingClassBooking {
+  id               String   @id @default(cuid())
+  userId           String
+  classId          String
+  bookedFor        DateTime // When the class is scheduled
+  paymentReference String   @unique
+  amount           Float
+  paymentMethod    String   // "CARD", "MOMO", "CASH"
+  metadata         Json?    // Store additional data (user info, class info)
+  createdAt        DateTime @default(now())
+  expiresAt        DateTime // Payment must complete within 30 minutes
+  
+  @@index([userId])
+  @@index([classId])
+  @@index([paymentReference])
+  @@index([expiresAt])
+  @@map("pending_class_bookings")
 }
 
 // Plan model - Membership plan templates
@@ -624,4 +668,52 @@ model ParQResponse {
   @@index([userId])
   @@index([riskLevel])
   @@map("parq_responses")
+}
+
+// Pending Registration model - Store registration data while payment is pending
+model PendingRegistration {
+  id                   String   @id @default(cuid())
+  email                String   @unique
+  phone                String   
+  firstName            String
+  lastName             String
+  dateOfBirth          DateTime
+  address              String?
+  emergencyContact     String
+  emergencyPhone       String
+  fitnessGoals         String?
+  medicalConditions    String?
+  
+  // PAR-Q data
+  hasHeartCondition    Boolean  @default(false)
+  hasChestPain         Boolean  @default(false)
+  hasDizziness         Boolean  @default(false)
+  hasJointProblems     Boolean  @default(false)
+  takesMedication      Boolean  @default(false)
+  hasOtherConditions   Boolean  @default(false)
+  otherConditionsDetails String?
+  
+  // Membership and payment
+  plan                 MembershipPlan
+  registrationType     RegistrationType @default(WALK_IN)
+  paymentMethod        String           // CASH, MOMO, CARD
+  paymentReference     String   @unique
+  amountPaid           Float
+  momoReference        String?
+  
+  // Auto-generated password
+  password             String
+  
+  // Status
+  paymentStatus        String   @default("pending") // pending, success, failed
+  expiresAt            DateTime // Auto-delete after 24 hours if not completed
+  
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  
+  @@index([email])
+  @@index([paymentReference])
+  @@index([paymentStatus])
+  @@index([expiresAt])
+  @@map("pending_registrations")
 }

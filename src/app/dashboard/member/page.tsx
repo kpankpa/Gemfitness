@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import ParQBanner from '@/components/ParQBanner';
+import ProfileCompletionBanner from '@/components/ProfileCompletionBanner';
+import ProfilePictureUpload from '@/components/ProfilePictureUpload';
 import { 
   User, 
   Mail, 
@@ -44,6 +46,8 @@ type UserData = {
   fitnessGoals: string | null;
   qrCode: string | null;
   parqCompleted?: boolean;
+  profileImage?: string | null;
+  profileImageGracePeriodEnd?: Date | null;
   subscriptions?: Array<{
     id: string;
     plan: string;
@@ -78,6 +82,7 @@ export default function MemberDashboardPage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
+  const [showProfileUploadModal, setShowProfileUploadModal] = useState(false);
 
   // Use user directly from context instead of duplicating in state
   const userData = user as unknown as UserData | null;
@@ -216,6 +221,30 @@ export default function MemberDashboardPage() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
+        {/* Profile Completion Banner */}
+        {userData && (
+          <ProfileCompletionBanner
+            hasProfileImage={!!userData.profileImage}
+            gracePeriodEnded={
+              userData.profileImageGracePeriodEnd
+                ? new Date() > new Date(userData.profileImageGracePeriodEnd)
+                : false
+            }
+            daysRemaining={
+              userData.profileImageGracePeriodEnd
+                ? Math.max(
+                    0,
+                    Math.ceil(
+                      (new Date(userData.profileImageGracePeriodEnd).getTime() - new Date().getTime()) /
+                        (1000 * 60 * 60 * 24)
+                    )
+                  )
+                : 0
+            }
+            onUploadClick={() => setShowProfileUploadModal(true)}
+          />
+        )}
+
         {/* PAR-Q Banner for existing members who haven't completed it */}
         <ParQBanner 
           parqCompleted={userData.parqCompleted ?? false} 
@@ -834,6 +863,32 @@ export default function MemberDashboardPage() {
           </Card>
         </div>
       </div>
+
+      {/* Profile Upload Modal */}
+      {showProfileUploadModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold">Upload Profile Picture</h2>
+                <button
+                  onClick={() => setShowProfileUploadModal(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ✕
+                </button>
+              </div>
+              <ProfilePictureUpload
+                currentImage={userData?.profileImage}
+                onUploadSuccess={() => {
+                  // Update user context or refetch user data
+                  window.location.reload();
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

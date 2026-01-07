@@ -187,3 +187,180 @@ export async function sendPasswordResetEmail(
     html,
   });
 }
+
+/**
+ * Send event booking confirmation with QR ticket
+ */
+export async function sendEventBookingConfirmation(
+  email: string,
+  firstName: string,
+  eventDetails: {
+    eventTitle: string;
+    eventDate: string;
+    location: string;
+    ticketQRCode: string;
+    isFree: boolean;
+    price?: number;
+  }
+): Promise<EmailResponse> {
+  const formattedDate = new Date(eventDetails.eventDate).toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .ticket-box { background: white; border: 2px dashed #8b5cf6; padding: 20px; margin: 20px 0; border-radius: 10px; text-align: center; }
+        .qr-code { font-size: 18px; font-family: monospace; background: #f3f4f6; padding: 15px; border-radius: 5px; margin: 10px 0; word-break: break-all; }
+        .info-row { display: flex; justify-content: space-between; margin: 10px 0; }
+        .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🎫 Event Registration Confirmed!</h1>
+        </div>
+        <div class="content">
+          <h2>Hi ${firstName}!</h2>
+          <p>Your registration for <strong>${eventDetails.eventTitle}</strong> has been confirmed!</p>
+          
+          <div class="ticket-box">
+            <h3>📅 Event Details</h3>
+            <p><strong>${eventDetails.eventTitle}</strong></p>
+            <p>📍 ${eventDetails.location}</p>
+            <p>🕐 ${formattedDate}</p>
+            ${!eventDetails.isFree ? `<p>💰 GH₵ ${eventDetails.price?.toFixed(2)}</p>` : '<p>✅ Free Event</p>'}
+            
+            <h4 style="margin-top: 30px;">Your Ticket QR Code:</h4>
+            <div class="qr-code">${eventDetails.ticketQRCode}</div>
+            <p style="color: #666; font-size: 14px;">Present this QR code at the event check-in</p>
+          </div>
+          
+          <h3>What to Bring:</h3>
+          <ul>
+            <li>This email with your QR code (digital or printed)</li>
+            <li>A valid ID</li>
+            <li>Water bottle and towel</li>
+            <li>Comfortable workout attire</li>
+          </ul>
+          
+          <p><strong>Important:</strong> Arrive at least 15 minutes before the event starts for check-in.</p>
+          
+          <p>We're excited to see you there!</p>
+          
+          <p><strong>The GemFitness Team</strong></p>
+        </div>
+        <div class="footer">
+          <p>© 2025 GemFitness. All rights reserved.</p>
+          <p>Need help? Contact us at support@gemfitness.com</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: email,
+    subject: `Event Confirmed: ${eventDetails.eventTitle} 🎫`,
+    html,
+    from: 'GemFitness Events <events@gemfitness.com>',
+  });
+}
+
+/**
+ * Send class booking confirmation
+ */
+export async function sendClassBookingConfirmation(
+  email: string,
+  firstName: string,
+  classDetails: {
+    className: string;
+    instructor: string;
+    schedule: string;
+    bookedFor: string;
+    isFree: boolean;
+    price?: number;
+  }
+): Promise<EmailResponse> {
+  const formattedDate = new Date(classDetails.bookedFor).toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .class-box { background: white; border-left: 4px solid #f97316; padding: 20px; margin: 20px 0; border-radius: 5px; }
+        .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🏋️ Class Booking Confirmed!</h1>
+        </div>
+        <div class="content">
+          <h2>Hi ${firstName}!</h2>
+          <p>You're all set for <strong>${classDetails.className}</strong>!</p>
+          
+          <div class="class-box">
+            <h3>📋 Class Details</h3>
+            <p><strong>Class:</strong> ${classDetails.className}</p>
+            <p><strong>Instructor:</strong> ${classDetails.instructor}</p>
+            <p><strong>Schedule:</strong> ${classDetails.schedule}</p>
+            <p><strong>Date/Time:</strong> ${formattedDate}</p>
+            ${!classDetails.isFree ? `<p><strong>Price:</strong> GH₵ ${classDetails.price?.toFixed(2)}</p>` : '<p><strong>Included in your membership</strong> ✅</p>'}
+          </div>
+          
+          <h3>Before You Come:</h3>
+          <ul>
+            <li>Arrive 10 minutes early for equipment setup</li>
+            <li>Bring water and a towel</li>
+            <li>Wear comfortable workout clothes and proper footwear</li>
+            <li>Check in at reception with your QR code</li>
+          </ul>
+          
+          <p><strong>Cancellation Policy:</strong> Please cancel at least 12 hours before the class to avoid losing your booking credit.</p>
+          
+          <p>See you in class!</p>
+          
+          <p><strong>The GemFitness Team</strong></p>
+        </div>
+        <div class="footer">
+          <p>© 2025 GemFitness. All rights reserved.</p>
+          <p>Manage your bookings in your dashboard</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: email,
+    subject: `Class Confirmed: ${classDetails.className} on ${formattedDate}`,
+    html,
+    from: 'GemFitness Classes <classes@gemfitness.com>',
+  });
+}

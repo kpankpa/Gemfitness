@@ -11,6 +11,7 @@ interface ReceiptData {
   memberId: string;
   email: string;
   phone: string;
+  password?: string; // Auto-generated password for walk-in registrations
   registrationType: 'SINGLE' | 'COUPLE' | 'FAMILY';
   registrationFee: number;
   membershipPlan: string;
@@ -18,8 +19,14 @@ interface ReceiptData {
   planDuration: string;
   firstPaymentDate: string;
   paymentMethod: 'CASH' | 'MOMO' | 'CARD';
+  momoReference?: string;
+  amountPaid?: number;
   qrCode: string;
   receivedBy: string;
+  emergencyContact?: string;
+  emergencyPhone?: string;
+  parqCompleted?: boolean;
+  parqRiskLevel?: string;
 }
 
 export function printRegistrationReceipt(data: ReceiptData) {
@@ -206,6 +213,32 @@ export function printRegistrationReceipt(data: ReceiptData) {
         <div class="row-label">Email:</div>
         <div class="row-value" style="font-size: 9px;">${data.email}</div>
       </div>
+      ${data.password ? `
+      <div style="background: #f0f0f0; padding: 6px; margin: 8px 0; border: 2px dashed #000;">
+        <div style="text-align: center; font-weight: bold; font-size: 10px; margin-bottom: 3px;">LOGIN CREDENTIALS</div>
+        <div class="row">
+          <div class="row-label">Username:</div>
+          <div class="row-value" style="font-size: 9px;">${data.email}</div>
+        </div>
+        <div class="row">
+          <div class="row-label">Password:</div>
+          <div class="row-value" style="font-size: 12px; letter-spacing: 1px;">${data.password}</div>
+        </div>
+        <div style="text-align: center; font-size: 8px; margin-top: 3px;">Please keep this safe!</div>
+      </div>
+      ` : ''}
+      ${data.emergencyContact ? `
+      <div class="divider"></div>
+      <div class="section-title">Emergency Contact</div>
+      <div class="row">
+        <div class="row-label">Name:</div>
+        <div class="row-value">${data.emergencyContact}</div>
+      </div>
+      <div class="row">
+        <div class="row-label">Phone:</div>
+        <div class="row-value">${data.emergencyPhone}</div>
+      </div>
+      ` : ''}
       
       <div class="divider"></div>
       
@@ -243,12 +276,18 @@ export function printRegistrationReceipt(data: ReceiptData) {
       <div class="section-title">Payment Details</div>
       <div class="row total-row">
         <div class="row-label">TOTAL PAID:</div>
-        <div class="row-value amount">GH₵ ${data.registrationFee.toFixed(2)}</div>
+        <div class="row-value amount">GH₵ ${(data.amountPaid || data.registrationFee).toFixed(2)}</div>
       </div>
       <div class="row">
         <div class="row-label">Method:</div>
         <div class="row-value">${data.paymentMethod}</div>
       </div>
+      ${data.momoReference ? `
+      <div class="row">
+        <div class="row-label">MoMo Ref:</div>
+        <div class="row-value" style="font-size: 9px;">${data.momoReference}</div>
+      </div>
+      ` : ''}
       <div class="row">
         <div class="row-label">Status:</div>
         <div class="row-value">PAID</div>
@@ -259,6 +298,16 @@ export function printRegistrationReceipt(data: ReceiptData) {
       </div>
       
       <div class="divider"></div>
+      
+      ${data.parqCompleted ? `
+      <!-- Health Screening Status -->
+      <div style="background: #e8f5e9; padding: 6px; margin: 8px 0; border-left: 3px solid #4caf50;">
+        <div style="font-size: 10px; font-weight: bold; margin-bottom: 2px;">✓ Health Screening Complete</div>
+        <div style="font-size: 9px;">Risk Level: ${data.parqRiskLevel || 'LOW'}</div>
+      </div>
+      
+      <div class="divider"></div>
+      ` : ''}
       
       <!-- QR Code Section -->
       <div class="qr-section">

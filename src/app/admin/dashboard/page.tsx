@@ -83,6 +83,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import Image from 'next/image';
 import AdminSidebar from '@/components/AdminSidebar';
+import ParQManagement from '@/components/admin/ParQManagement';
+import ProfilePictureUpload from '@/components/ProfilePictureUpload';
 import type { Member } from '@/types';
 import { printRegistrationReceipt, generateReceiptNumber } from '@/lib/receipt-printer';
 
@@ -132,8 +134,6 @@ export default function AdminDashboard() {
     image?: string;
     category?: string;
     tags?: string[];
-    earlyBirdPrice?: number;
-    earlyBirdDeadline?: string;
   }>>([]);
   const [isLoadingClasses, setIsLoadingClasses] = useState(false);
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
@@ -206,7 +206,7 @@ export default function AdminDashboard() {
   }>>([]);
   const [isLoadingFees, setIsLoadingFees] = useState(false);
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'checkin' | 'members' | 'classes' | 'events' | 'attendance' | 'payments' | 'plans' | 'staff' | 'analytics' | 'audit' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'checkin' | 'members' | 'classes' | 'events' | 'attendance' | 'payments' | 'plans' | 'staff' | 'analytics' | 'audit' | 'settings' | 'parq'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [memberStatusFilter, setMemberStatusFilter] = useState<'all' | 'active' | 'expiring_soon' | 'expired'>('all');
   const [planFilter, setPlanFilter] = useState<string>('all');
@@ -316,7 +316,6 @@ export default function AdminDashboard() {
   const [isUpdatingMember, setIsUpdatingMember] = useState(false);
   const [memberEditError, setMemberEditError] = useState<string | null>(null);
   const [editMemberFieldErrors, setEditMemberFieldErrors] = useState<Record<string, string>>({});
-  const [editMemberProfileFile, setEditMemberProfileFile] = useState<File | null>(null);
 
   // Ticket generation states
   const [, setIsGeneratingTickets] = useState(false);
@@ -341,12 +340,28 @@ export default function AdminDashboard() {
     phone: '',
     password: '',
     dateOfBirth: '',
-    registrationType: 'SELF' as 'SELF' | 'WALK_IN' | 'ADMIN',
-    plan: 'ONE_MONTH'
+    registrationType: 'WALK_IN' as 'SELF' | 'WALK_IN' | 'ADMIN',
+    plan: 'ONE_MONTH',
+    address: '',
+    emergencyContact: '',
+    emergencyPhone: '',
+    fitnessGoals: '',
+    medicalConditions: '',
+    // PAR-Q fields
+    hasHeartCondition: false,
+    hasChestPain: false,
+    hasDizziness: false,
+    hasJointProblems: false,
+    takesMedication: false,
+    hasOtherConditions: false,
+    otherConditionsDetails: '',
+    // Payment fields
+    paymentMethod: 'CASH' as 'CASH' | 'MOMO',
+    amountPaid: '',
+    momoReference: '',
   });
   const [isRegistering, setIsRegistering] = useState(false);
   const [newMemberErrors, setNewMemberErrors] = useState<Record<string, string>>({});
-  const [newMemberProfileFile, setNewMemberProfileFile] = useState<File | null>(null);
 
   const { push: pushToast } = useToast();
 
@@ -394,6 +409,14 @@ export default function AdminDashboard() {
     qrCode?: string;
     plan: string;
     registrationType: string;
+    password?: string;
+    paymentMethod?: 'CASH' | 'MOMO' | 'CARD';
+    amountPaid?: number;
+    momoReference?: string;
+    emergencyContact?: string;
+    emergencyPhone?: string;
+    parqCompleted?: boolean;
+    parqRiskLevel?: string;
   } | null>(null);
   
   // Duplicate check-in warning state
@@ -434,8 +457,6 @@ export default function AdminDashboard() {
     maxAttendees: '',
     isFree: true,
     price: '',
-    earlyBirdPrice: '',
-    earlyBirdDeadline: '',
     category: 'OTHER',
     tags: '',
     status: 'UPCOMING'
@@ -742,6 +763,7 @@ export default function AdminDashboard() {
     if (activeTab === 'settings') {
       fetchSettings();
     }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, isAuthenticated]);
 
@@ -1246,12 +1268,11 @@ export default function AdminDashboard() {
         return;
       }
 
-      // Use FormData for potential file upload
+      // Use FormData for member update
       const form = new FormData();
       Object.entries(editMemberFormData).forEach(([k, v]) => {
         if (v !== undefined && v !== null) form.append(k, String(v));
       });
-      if (editMemberProfileFile) form.append('profileImage', editMemberProfileFile, editMemberProfileFile.name);
 
       const response = await fetch(`/api/members/${editMemberFormData.id}`, {
         method: 'PUT',
@@ -1371,7 +1392,15 @@ export default function AdminDashboard() {
     setIsRegistering(true);
     setNewMemberErrors({});
     try {
-      const parsed = memberCreateSchema.safeParse(newMember);
+      // Auto-generate secure password if not provided
+      const autoPassword = `GYM${Math.random().toString(36).slice(-8).toUpperCase()}${Math.floor(Math.random() * 100)}`;
+      const memberData = {
+        ...newMember,
+        password: newMember.password || autoPassword,
+        registrationType: 'WALK_IN', // Force WALK_IN for receptionist registration
+      };
+      
+      const parsed = memberCreateSchema.safeParse(memberData);
       if (!parsed.success) {
         const issues: Record<string, string> = {};
         parsed.error.issues.forEach((iss) => {
@@ -1384,10 +1413,12 @@ export default function AdminDashboard() {
 
       // Use FormData to support file upload
       const form = new FormData();
-      Object.entries(newMember).forEach(([k, v]) => {
+      Object.entries(memberData).forEach(([k, v]) => {
         if (v !== undefined && v !== null) form.append(k, String(v));
       });
-      if (newMemberProfileFile) form.append('profileImage', newMemberProfileFile, newMemberProfileFile.name);
+      
+      // Store generated password for receipt
+      const generatedPassword = memberData.password;
 
       const response = await fetch('/api/members', {
         method: 'POST',
@@ -1419,8 +1450,14 @@ export default function AdminDashboard() {
         // Store registered member data for receipt
         setRegisteredMemberData({
           ...data.user,
-          plan: newMember.plan,
-          registrationType: newMember.registrationType
+          plan: memberData.plan,
+          registrationType: memberData.registrationType,
+          password: generatedPassword,
+          paymentMethod: memberData.paymentMethod,
+          amountPaid: memberData.amountPaid,
+          momoReference: memberData.momoReference,
+          emergencyContact: memberData.emergencyContact,
+          emergencyPhone: memberData.emergencyPhone,
         });
         setRegistrationSuccess(true);
         // Refresh members list
@@ -1468,15 +1505,22 @@ export default function AdminDashboard() {
       memberId: registeredMemberData.id,
       email: registeredMemberData.email,
       phone: registeredMemberData.phone,
+      password: registeredMemberData.password, // Auto-generated password
       registrationType: registeredMemberData.registrationType as 'SINGLE' | 'COUPLE' | 'FAMILY',
       registrationFee: regFee,
       membershipPlan: plan.name,
       planPrice: plan.price,
       planDuration: plan.duration,
       firstPaymentDate: nextMonth.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      paymentMethod: 'CASH', // Default, can be changed
+      paymentMethod: registeredMemberData.paymentMethod || 'CASH',
+      amountPaid: registeredMemberData.amountPaid,
+      momoReference: registeredMemberData.momoReference,
       qrCode: registeredMemberData.qrCode || 'N/A',
       receivedBy: user?.email || 'Receptionist',
+      emergencyContact: registeredMemberData.emergencyContact,
+      emergencyPhone: registeredMemberData.emergencyPhone,
+      parqCompleted: registeredMemberData.parqCompleted,
+      parqRiskLevel: registeredMemberData.parqRiskLevel,
     });
   };
 
@@ -1492,8 +1536,23 @@ export default function AdminDashboard() {
       phone: '',
       password: '',
       dateOfBirth: '',
-      registrationType: 'SELF',
-      plan: 'ONE_MONTH'
+      registrationType: 'WALK_IN',
+      plan: 'ONE_MONTH',
+      address: '',
+      emergencyContact: '',
+      emergencyPhone: '',
+      fitnessGoals: '',
+      medicalConditions: '',
+      hasHeartCondition: false,
+      hasChestPain: false,
+      hasDizziness: false,
+      hasJointProblems: false,
+      takesMedication: false,
+      hasOtherConditions: false,
+      otherConditionsDetails: '',
+      paymentMethod: 'CASH',
+      amountPaid: '',
+      momoReference: '',
     });
   };
 
@@ -1815,8 +1874,6 @@ export default function AdminDashboard() {
         maxAttendees: eventData.maxAttendees?.toString() || '',
         isFree: eventData.isFree,
         price: eventData.price?.toString() || '',
-        earlyBirdPrice: eventData.earlyBirdPrice?.toString() || '',
-        earlyBirdDeadline: eventData.earlyBirdDeadline ? new Date(eventData.earlyBirdDeadline).toISOString().slice(0, 16) : '',
         category: eventData.category || 'OTHER',
         tags: eventData.tags?.join(', ') || '',
         status: eventData.status
@@ -1836,8 +1893,6 @@ export default function AdminDashboard() {
         maxAttendees: '',
         isFree: true,
         price: '',
-        earlyBirdPrice: '',
-        earlyBirdDeadline: '',
         category: 'OTHER',
         tags: '',
         status: 'UPCOMING'
@@ -1866,8 +1921,6 @@ export default function AdminDashboard() {
       maxAttendees: '',
       isFree: true,
       price: '',
-      earlyBirdPrice: '',
-      earlyBirdDeadline: '',
       category: 'OTHER',
       tags: '',
       status: 'UPCOMING'
@@ -2028,13 +2081,14 @@ export default function AdminDashboard() {
       });
 
       if (result.success) {
-        alert(`✅ Check-in successful for ${result.checkIn?.member}!`);
+        pushToast(`Check-in successful! ${result.checkIn?.member} checked in at ${new Date().toLocaleTimeString()}`);
         setShowCheckInModal(false);
         setShowDuplicateWarning(false);
         setDuplicateCheckInInfo(null);
         setCheckInData({ qrCode: '', memberId: '', method: 'qr' });
         
-        // Refresh analytics
+        // Refresh check-ins and analytics
+        await fetchCheckIns();
         await fetchAnalytics();
       } else if (result.duplicate && result.lastCheckIn) {
         // Show duplicate warning modal
@@ -2138,6 +2192,7 @@ export default function AdminDashboard() {
                   {activeTab === 'plans' && 'Membership plan management'}
                   {activeTab === 'staff' && 'Staff account management'}
                   {activeTab === 'analytics' && 'Business analytics and reports'}
+                  {activeTab === 'parq' && 'PAR-Q health screening and safety advice'}
                   {activeTab === 'audit' && 'Security and activity audit logs'}
                   {activeTab === 'settings' && 'System configuration and preferences'}
                 </p>
@@ -3373,7 +3428,7 @@ export default function AdminDashboard() {
                         <tr>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Time</th>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Member</th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">ID</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase hidden md:table-cell">Contact</th>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Method</th>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase hidden sm:table-cell">Checked By</th>
                         </tr>
@@ -3382,8 +3437,39 @@ export default function AdminDashboard() {
                         {checkIns.map((checkin) => (
                           <tr key={checkin.id} className="hover:bg-gray-50">
                             <td className="px-4 py-3 text-sm text-gray-900 font-medium">{checkin.time}</td>
-                            <td className="px-4 py-3 text-sm text-gray-900">{checkin.member}</td>
-                            <td className="px-4 py-3 text-sm text-gray-600 font-mono text-xs">{checkin.memberId}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                {checkin.profileImage ? (
+                                  <Image
+                                    src={checkin.profileImage}
+                                    alt={checkin.member}
+                                    width={40}
+                                    height={40}
+                                    className="rounded-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                                    <User className="h-5 w-5 text-gray-500" />
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900">{checkin.member}</p>
+                                  <p className="text-xs text-gray-500 font-mono">{checkin.memberId}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 hidden md:table-cell">
+                              <div className="text-xs text-gray-600">
+                                <p className="flex items-center gap-1">
+                                  <Mail className="h-3 w-3" />
+                                  {checkin.email || 'N/A'}
+                                </p>
+                                <p className="flex items-center gap-1 mt-1">
+                                  <Phone className="h-3 w-3" />
+                                  {checkin.phone || 'N/A'}
+                                </p>
+                              </div>
+                            </td>
                             <td className="px-4 py-3">
                               <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                                 checkin.method === 'qr' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
@@ -4367,6 +4453,9 @@ export default function AdminDashboard() {
           </motion.div>
         )}
 
+        {/* PAR-Q Tab */}
+        {activeTab === 'parq' && <ParQManagement />}
+
         {/* Settings Tab */}
         {activeTab === 'settings' && isManager && (
           <motion.div
@@ -4960,121 +5049,297 @@ export default function AdminDashboard() {
                     <X className="h-6 w-6" />
                   </button>
                 </div>
-                <div className="p-6">
-            <form onSubmit={handleRegisterMember} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1">First Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={newMember.firstName}
-                    onChange={(e) => setNewMember({ ...newMember, firstName: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                    {newMemberErrors.firstName && (
-                      <p className="text-sm text-red-600 mt-1">{newMemberErrors.firstName}</p>
+                <div className="p-6 max-h-[70vh] overflow-y-auto">
+                  <form onSubmit={handleRegisterMember} className="space-y-6">
+              {/* Basic Information */}
+              <div className="border-b pb-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Basic Information</h3>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">First Name *</label>
+                      <input
+                        type="text"
+                        required
+                        value={newMember.firstName}
+                        onChange={(e) => setNewMember({ ...newMember, firstName: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                      {newMemberErrors.firstName && (
+                        <p className="text-sm text-red-600 mt-1">{newMemberErrors.firstName}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Last Name *</label>
+                      <input
+                        type="text"
+                        required
+                        value={newMember.lastName}
+                        onChange={(e) => setNewMember({ ...newMember, lastName: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                      {newMemberErrors.lastName && (
+                        <p className="text-sm text-red-600 mt-1">{newMemberErrors.lastName}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Email *</label>
+                    <input
+                      type="email"
+                      required
+                      value={newMember.email}
+                      onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                    {newMemberErrors.email && (
+                      <p className="text-sm text-red-600 mt-1">{newMemberErrors.email}</p>
                     )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Last Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={newMember.lastName}
-                    onChange={(e) => setNewMember({ ...newMember, lastName: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                    {newMemberErrors.lastName && (
-                      <p className="text-sm text-red-600 mt-1">{newMemberErrors.lastName}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Phone *</label>
+                    <input
+                      type="tel"
+                      required
+                      value={newMember.phone}
+                      onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                    {newMemberErrors.phone && (
+                      <p className="text-sm text-red-600 mt-1">{newMemberErrors.phone}</p>
                     )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Date of Birth *</label>
+                    <input
+                      type="date"
+                      required
+                      value={newMember.dateOfBirth}
+                      onChange={(e) => setNewMember({ ...newMember, dateOfBirth: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Address</label>
+                    <input
+                      type="text"
+                      value={newMember.address}
+                      onChange={(e) => setNewMember({ ...newMember, address: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      placeholder="Street address, city"
+                    />
+                  </div>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Email</label>
-                <input
-                  type="email"
-                  required
-                  value={newMember.email}
-                  onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-                {newMemberErrors.email && (
-                  <p className="text-sm text-red-600 mt-1">{newMemberErrors.email}</p>
-                )}
+
+              {/* Emergency Contact */}
+              <div className="border-b pb-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Emergency Contact *</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Contact Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={newMember.emergencyContact}
+                      onChange={(e) => setNewMember({ ...newMember, emergencyContact: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      placeholder="Full name of emergency contact"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Contact Phone *</label>
+                    <input
+                      type="tel"
+                      required
+                      value={newMember.emergencyPhone}
+                      onChange={(e) => setNewMember({ ...newMember, emergencyPhone: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      placeholder="Emergency contact phone number"
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Phone</label>
-                <input
-                  type="tel"
-                  required
-                  value={newMember.phone}
-                  onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-                {newMemberErrors.phone && (
-                  <p className="text-sm text-red-600 mt-1">{newMemberErrors.phone}</p>
-                )}
+
+              {/* Health Screening (PAR-Q) */}
+              <div className="border-b pb-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Health Screening (PAR-Q) *</h3>
+                <p className="text-sm text-gray-600 mb-3">Please answer the following health questions:</p>
+                <div className="space-y-2">
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newMember.hasHeartCondition}
+                      onChange={(e) => setNewMember({ ...newMember, hasHeartCondition: e.target.checked })}
+                      className="mt-1 w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
+                    />
+                    <span className="text-sm">Has a doctor ever said you have a heart condition?</span>
+                  </label>
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newMember.hasChestPain}
+                      onChange={(e) => setNewMember({ ...newMember, hasChestPain: e.target.checked })}
+                      className="mt-1 w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
+                    />
+                    <span className="text-sm">Do you feel pain in your chest during physical activity?</span>
+                  </label>
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newMember.hasDizziness}
+                      onChange={(e) => setNewMember({ ...newMember, hasDizziness: e.target.checked })}
+                      className="mt-1 w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
+                    />
+                    <span className="text-sm">Do you lose balance due to dizziness or lose consciousness?</span>
+                  </label>
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newMember.hasJointProblems}
+                      onChange={(e) => setNewMember({ ...newMember, hasJointProblems: e.target.checked })}
+                      className="mt-1 w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
+                    />
+                    <span className="text-sm">Do you have bone or joint problems that could worsen with exercise?</span>
+                  </label>
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newMember.takesMedication}
+                      onChange={(e) => setNewMember({ ...newMember, takesMedication: e.target.checked })}
+                      className="mt-1 w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
+                    />
+                    <span className="text-sm">Are you taking medication for blood pressure or heart condition?</span>
+                  </label>
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newMember.hasOtherConditions}
+                      onChange={(e) => setNewMember({ ...newMember, hasOtherConditions: e.target.checked })}
+                      className="mt-1 w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
+                    />
+                    <span className="text-sm">Do you have any other health conditions?</span>
+                  </label>
+                  {newMember.hasOtherConditions && (
+                    <div className="ml-6">
+                      <label className="block text-sm font-medium mb-1">Please specify:</label>
+                      <textarea
+                        value={newMember.otherConditionsDetails}
+                        onChange={(e) => setNewMember({ ...newMember, otherConditionsDetails: e.target.value })}
+                        rows={2}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        placeholder="Describe other health conditions..."
+                      />
+                    </div>
+                  )}
+                  {(newMember.hasHeartCondition || newMember.hasChestPain || newMember.hasDizziness || 
+                    newMember.hasJointProblems || newMember.takesMedication || newMember.hasOtherConditions) && (
+                    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 mt-3">
+                      <p className="text-sm text-yellow-800">
+                        ⚠️ Health concerns detected. Staff will review before first visit.
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Password</label>
-                <input
-                  type="password"
-                  required
-                  value={newMember.password}
-                  onChange={(e) => setNewMember({ ...newMember, password: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-                {newMemberErrors.password && (
-                  <p className="text-sm text-red-600 mt-1">{newMemberErrors.password}</p>
-                )}
+
+              {/* Additional Health Info */}
+              <div className="border-b pb-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Additional Information</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Fitness Goals</label>
+                    <textarea
+                      value={newMember.fitnessGoals}
+                      onChange={(e) => setNewMember({ ...newMember, fitnessGoals: e.target.value })}
+                      rows={2}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      placeholder="What are your fitness goals? (e.g., weight loss, muscle gain)"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Medical Conditions (Detailed)</label>
+                    <textarea
+                      value={newMember.medicalConditions}
+                      onChange={(e) => setNewMember({ ...newMember, medicalConditions: e.target.value })}
+                      rows={2}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      placeholder="List any medical conditions, allergies, or medications"
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Date of Birth</label>
-                <input
-                  type="date"
-                  required
-                  value={newMember.dateOfBirth}
-                  onChange={(e) => setNewMember({ ...newMember, dateOfBirth: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
+
+              {/* Membership Plan */}
+              <div className="border-b pb-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Membership Plan *</h3>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Select Plan</label>
+                  <select
+                    value={newMember.plan}
+                    onChange={(e) => setNewMember({ ...newMember, plan: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    <option value="ONE_MONTH">1 Month - GH₵ 200</option>
+                    <option value="THREE_MONTHS">3 Months - GH₵ 500</option>
+                    <option value="ONE_YEAR">1 Year - GH₵ 2,200</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Registration Type</label>
-                <select
-                  value={newMember.registrationType}
-                  onChange={(e) => setNewMember({ ...newMember, registrationType: e.target.value as 'SELF' | 'WALK_IN' | 'ADMIN' })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                >
-                  <option value="SELF">Self Registration - GH₵ 250</option>
-                  <option value="WALK_IN">Walk-In - GH₵ 250</option>
-                  <option value="ADMIN">Admin Registration - Free</option>
-                </select>
+
+              {/* Payment Collection */}
+              <div className="border-b pb-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Payment Details *</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Payment Method *</label>
+                    <select
+                      value={newMember.paymentMethod}
+                      onChange={(e) => setNewMember({ ...newMember, paymentMethod: e.target.value as 'CASH' | 'MOMO' })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    >
+                      <option value="CASH">Cash</option>
+                      <option value="MOMO">Mobile Money (MoMo)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Amount Paid (GH₵) *</label>
+                    <input
+                      type="number"
+                      required
+                      value={newMember.amountPaid}
+                      onChange={(e) => setNewMember({ ...newMember, amountPaid: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      placeholder="Enter amount received"
+                      step="0.01"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Registration: GH₵ 250 + Plan cost
+                    </p>
+                  </div>
+                  {newMember.paymentMethod === 'MOMO' && (
+                    <div>
+                      <label className="block text-sm font-medium mb-1">MoMo Reference Number</label>
+                      <input
+                        type="text"
+                        value={newMember.momoReference}
+                        onChange={(e) => setNewMember({ ...newMember, momoReference: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        placeholder="MoMo transaction reference"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Membership Plan</label>
-                <select
-                  value={newMember.plan}
-                  onChange={(e) => setNewMember({ ...newMember, plan: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                >
-                  <option value="ONE_MONTH">1 Month - GH₵ 200</option>
-                  <option value="THREE_MONTHS">3 Months - GH₵ 450</option>
-                  <option value="SIX_MONTHS">6 Months - GH₵ 1000</option>
-                  <option value="TWELVE_MONTHS">12 Months - GH₵ 2000</option>
-                  <option value="DAILY">Daily Walk-In - GH₵ 50</option>
-                </select>
+
+              {/* Auto-generated password info */}
+              <div className="bg-blue-50 border-l-4 border-blue-400 p-3">
+                <p className="text-sm text-blue-800">
+                  ℹ️ A secure password will be auto-generated and printed on the receipt.
+                </p>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Profile Photo (optional)</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setNewMemberProfileFile(e.target.files ? e.target.files[0] : null)}
-                  className="w-full"
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
+
+              <div className="flex gap-3 pt-4 border-t">
                 <Button
                   type="button"
                   variant="outline"
@@ -5092,14 +5357,14 @@ export default function AdminDashboard() {
                 </Button>
               </div>
             </form>
-            </div>
-            </>
-            )}
           </div>
-        </div>
+        </>
       )}
+    </div>
+  </div>
+)}
 
-      {/* Check-In Modal */}
+{/* Registration Success Modal */}
       {showCheckInModal && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
@@ -5659,32 +5924,6 @@ export default function AdminDashboard() {
                         />
                       </div>
 
-                      {/* Early Bird Pricing */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <div>
-                          <label className="block text-sm font-medium mb-1">Early Bird Price (GH₵)</label>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={eventFormData.earlyBirdPrice}
-                            onChange={(e) => setEventFormData({ ...eventFormData, earlyBirdPrice: e.target.value })}
-                            placeholder="e.g., 35.00"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          />
-                          <p className="text-xs text-gray-600 mt-1">Discounted price for early registrations</p>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium mb-1">Early Bird Deadline</label>
-                          <input
-                            type="datetime-local"
-                            value={eventFormData.earlyBirdDeadline}
-                            onChange={(e) => setEventFormData({ ...eventFormData, earlyBirdDeadline: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          />
-                          <p className="text-xs text-gray-600 mt-1">When early bird pricing ends</p>
-                        </div>
-                      </div>
                     </div>
                   )}
                 </div>
@@ -6859,18 +7098,15 @@ export default function AdminDashboard() {
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Profile Photo (optional)
-                  </label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setEditMemberProfileFile(e.target.files ? e.target.files[0] : null)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  <ProfilePictureUpload
+                    currentImage={selectedMember?.profileImage || null}
+                    userId={selectedMember?.id}
+                    isStaffMode={true}
+                    onUploadSuccess={() => {
+                      // Refresh members list
+                      fetchMembers();
+                    }}
                   />
-                  {editMemberProfileFile && (
-                    <p className="text-xs text-gray-600 mt-1">Selected: {editMemberProfileFile.name}</p>
-                  )}
                 </div>
               </div>
             </form>

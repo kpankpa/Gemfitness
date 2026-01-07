@@ -62,7 +62,10 @@ export async function GET(request: NextRequest) {
             id: true,
             firstName: true,
             lastName: true,
-            qrCode: true
+            qrCode: true,
+            profileImage: true,
+            email: true,
+            phone: true
           }
         }
       },
@@ -84,7 +87,10 @@ export async function GET(request: NextRequest) {
       }),
       method: checkIn.method,
       checkedBy: checkIn.checkedBy || 'system',
-      checkInTime: checkIn.checkInTime
+      checkInTime: checkIn.checkInTime,
+      profileImage: checkIn.user.profileImage,
+      email: checkIn.user.email,
+      phone: checkIn.user.phone
     }));
     console.timeEnd('🔄 Format CheckIn Data');
 
@@ -116,7 +122,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('🔍 Looking up user... (sanitized)');
+    console.log('🔍 Looking up user...');
     let user;
     if (userId) {
       user = await prisma.user.findUnique({
@@ -186,6 +192,24 @@ export async function POST(request: NextRequest) {
         { error: 'Member not found' },
         { status: 404 }
       );
+    }
+
+    // Check profile picture requirement (only for members, staff can check in without)
+    if (user.role === 'MEMBER' && !forceCheckIn) {
+      const hasProfileImage = !!user.profileImage;
+
+      if (!hasProfileImage) {
+        return NextResponse.json(
+          {
+            error: 'Profile picture required',
+            message: 'Please upload a profile picture to check in. Contact reception for assistance.',
+            requiresProfilePicture: true,
+            memberName: `${user.firstName} ${user.lastName}`,
+            memberId: user.id
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // Check if member has active subscription

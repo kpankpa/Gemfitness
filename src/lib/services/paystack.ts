@@ -12,6 +12,11 @@ interface PaystackInitializePayment {
   metadata?: Record<string, string | number | boolean>;
   callback_url?: string;
   channels?: string[];
+  currency?: 'GHS' | 'NGN' | 'USD' | 'ZAR';
+  mobile_money?: {
+    phone: string;
+    provider: 'mtn' | 'vod' | 'tgo'; // MTN, Vodafone, AirtelTigo
+  };
 }
 
 interface PaystackTransactionData {
@@ -58,24 +63,130 @@ export class PaystackService {
    */
   async initializePayment(paymentData: PaystackInitializePayment): Promise<PaystackResponse> {
     try {
+      const payload: Record<string, unknown> = {
+        email: paymentData.email,
+        amount: paymentData.amount,
+        reference: paymentData.reference,
+        currency: paymentData.currency || 'GHS',
+        channels: paymentData.channels || ['card', 'bank', 'ussd', 'qr', 'mobile_money'],
+      };
+
+      if (paymentData.callback_url) {
+        payload.callback_url = paymentData.callback_url;
+      }
+
+      if (paymentData.metadata) {
+        payload.metadata = paymentData.metadata;
+      }
+
+      // If mobile money is specified, add mobile money details
+      if (paymentData.mobile_money) {
+        payload.mobile_money = {
+          phone: paymentData.mobile_money.phone,
+          provider: paymentData.mobile_money.provider,
+        };
+        // Force mobile_money channel only when mobile money is specified
+        payload.channels = ['mobile_money'];
+      }
+
       const response = await fetch('https://api.paystack.co/transaction/initialize', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.secretKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...paymentData,
-          channels: paymentData.channels || ['card', 'bank', 'ussd', 'qr', 'mobile_money'],
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
+      
+      if (!response.ok) {
+        console.error('Paystack API error:', data);
+        throw new Error(data.message || 'Failed to initialize payment');
+      }
+
       return data;
     } catch (error) {
       console.error('Paystack initialization error:', error);
-      throw new Error('Failed to initialize payment');
+      throw error;
     }
+  }
+
+  /**
+   * Initialize Mobile Money payment specifically
+   * This sends USSD prompt to customer's phone
+   */
+  async initializeMobileMoneyPayment(
+    email: string,
+    amount: number,
+    phone: string,
+    reference: string,
+    metadata?: Record<string, string | number | boolean>
+  ): Promise<{ provider: 'mtn' | 'vod' | 'tgo' }> {
+    const formattedPhone = this.formatPhoneNumber(phone);
+    const provider = this.detectMoMoProvider(formattedPhone);
+    
+    if (!provider) {
+      throw new Error('Unable to detect mobile money provider from phone number');
+    }
+    
+    await this.initializePayment({
+      email,
+      amount: this.toKobo(amount),
+      reference,
+      currency: 'GHS',
+      mobile_money: {
+        phone: formattedPhone,
+        provider,
+      },
+      metadata: {
+        ...metadata,
+        payment_type: 'mobile_money',
+      },
+    });
+    
+    return { provider };
+  }
+
+  /**
+   * Initialize Cash payment (for record keeping)
+   * Creates a transaction reference for manual cash payment
+   */
+  initializeCashPayment(
+    amount: number,
+    reference: string
+  ): { reference: string; amount: number } {
+    
+    return {
+      reference,
+      amount,
+    };
+  }
+
+  /**
+   * Initialize Card payment
+   * Returns payment URL for customer to complete payment
+   */
+  async initializeCardPayment(
+    email: string,
+    amount: number,
+    reference: string,
+    metadata?: Record<string, string | number | boolean>
+  ): Promise<{ authorization_url: string; access_code: string }> {
+    const response = await this.initializePayment({
+      email,
+      amount: this.toKobo(amount),
+      reference,
+      currency: 'GHS',
+      channels: ['card', 'bank'],
+      metadata,
+    });
+    
+    const data = response.data as { authorization_url: string; access_code: string; reference: string };
+    return {
+      authorization_url: data.authorization_url,
+      access_code: data.access_code
+    };
   }
 
   /**
@@ -137,7 +248,52 @@ export class PaystackService {
   generateReference(prefix: string = 'GYM'): string {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-    return `${prefix}-${timestamp}-${random}`;
+    return `${prefix}_${timestamp}_${random}`;
+  }
+
+  /**
+   * Detect Mobile Money provider from phone number
+   */
+  detectMoMoProvider(phone: string): 'mtn' | 'vod' | 'tgo' | null {
+    // Remove spaces and special characters
+    const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+    
+    // MTN prefixes: 024, 054, 055, 059
+    if (/^(0|\+233)?(24|54|55|59)/.test(cleaned)) {
+      return 'mtn';
+    }
+    
+    // Vodafone prefixes: 020, 050
+    if (/^(0|\+233)?(20|50)/.test(cleaned)) {
+      return 'vod';
+    }
+    
+    // AirtelTigo prefixes: 027, 057, 026, 056
+    if (/^(0|\+233)?(27|57|26|56)/.test(cleaned)) {
+      return 'tgo';
+    }
+    
+    return null;
+  }
+
+  /**
+   * Format phone number for Paystack (0XXXXXXXXX format)
+   */
+  formatPhoneNumber(phone: string): string {
+    // Remove spaces and special characters
+    let cleaned = phone.replace(/[\s\-\(\)]/g, '');
+    
+    // If starts with +233, convert to 0
+    if (cleaned.startsWith('+233')) {
+      cleaned = '0' + cleaned.substring(4);
+    }
+    
+    // If starts with 233, convert to 0
+    if (cleaned.startsWith('233')) {
+      cleaned = '0' + cleaned.substring(3);
+    }
+    
+    return cleaned;
   }
 
   /**

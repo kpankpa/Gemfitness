@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { hashPassword } from '@/lib/auth/passwords';
 import { generateMemberQRCode } from '@/lib/qr/generator';
-import { sendWelcomeEmail } from '@/lib/services/email/mock';
+import { sendWelcomeEmail, sendEventBookingConfirmation, sendClassBookingConfirmation } from '@/lib/services/email/mock';
 import logger from '@/lib/logger';
 
 /**
@@ -129,8 +129,27 @@ async function handleChargeSuccess(data: Record<string, unknown>) {
   // Extract metadata
   const user_id = (metadata as Record<string, unknown>)?.user_id as string | undefined;
   const registration_type = (metadata as Record<string, unknown>)?.registration_type as string | undefined;
+  const channel = (metadata as Record<string, unknown>)?.channel as string | undefined;
 
-  // Case 1: User already exists (renewal or top-up)
+  // Case 1: Walk-in MoMo registration - complete from pending
+  if (channel === 'walk_in_registration') {
+    await handleWalkInRegistrationPayment(reference);
+    return;
+  }
+
+  // Case 2: Event booking payment
+  if ((metadata as Record<string, unknown>)?.type === 'event_booking') {
+    await handleEventBookingPayment(reference);
+    return;
+  }
+
+  // Case 3: Class booking payment
+  if ((metadata as Record<string, unknown>)?.type === 'class_booking') {
+    await handleClassBookingPayment(reference);
+    return;
+  }
+
+  // Case 4: User already exists (renewal or top-up)
   if (user_id && existingPayment) {
     const paidAtValue = (data as Record<string, unknown>).paid_at;
     await prisma.payment.update({
@@ -144,7 +163,7 @@ async function handleChargeSuccess(data: Record<string, unknown>) {
     return;
   }
 
-  // Case 2: New registration - create user and subscription
+  // Case 3: New online registration - create user and subscription
   if (!user_id && registration_type === 'new_signup') {
     await createNewUserFromPayment({
       reference,
@@ -377,4 +396,350 @@ async function handleSubscriptionNotRenew(data: Record<string, unknown>) {
 
   // Mark subscription for cancellation
   // Send confirmation email
+}
+
+/**
+ * Handle walk-in MoMo registration payment
+ * Complete user creation from pending registration
+ */
+async function handleWalkInRegistrationPayment(reference: string) {
+  logger.info('🏃 Processing walk-in MoMo payment:', { reference });
+
+  try {
+    // Find pending registration
+    const pendingReg = await prisma.pendingRegistration.findUnique({
+      where: { paymentReference: reference }
+    });
+
+    if (!pendingReg) {
+      logger.error('❌ Pending registration not found:', { reference });
+      return;
+    }
+
+    if (pendingReg.paymentStatus === 'success') {
+      logger.info('ℹ️ Walk-in registration already completed:', { reference });
+      return; // Idempotency
+    }
+
+    // Update pending status
+    await prisma.pendingRegistration.update({
+      where: { id: pendingReg.id },
+      data: { paymentStatus: 'success' }
+    });
+
+    // Create user from pending registration
+    const user = await prisma.user.create({
+      data: {
+        firstName: pendingReg.firstName,
+        lastName: pendingReg.lastName,
+        email: pendingReg.email,
+        phone: pendingReg.phone,
+        password: pendingReg.password, // Already hashed
+        role: 'MEMBER',
+        qrCode: '',
+        registrationType: 'WALK_IN',
+        registrationPaid: true,
+        emergencyContact: pendingReg.emergencyContact,
+        emergencyPhone: pendingReg.emergencyPhone,
+        dateOfBirth: pendingReg.dateOfBirth,
+        address: pendingReg.address || '',
+        fitnessGoals: pendingReg.fitnessGoals || '',
+        medicalConditions: pendingReg.medicalConditions || '',
+      }
+    });
+
+    // Generate QR code
+    const qrCodeResult = await generateMemberQRCode();
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { qrCode: qrCodeResult.token }
+    });
+
+    // Create PAR-Q response
+    const yesCount = [
+      pendingReg.hasHeartCondition,
+      pendingReg.hasChestPain,
+      pendingReg.hasDizziness,
+      pendingReg.hasJointProblems,
+      pendingReg.takesMedication,
+      pendingReg.hasOtherConditions
+    ].filter(Boolean).length;
+    
+    const riskLevel = yesCount === 0 ? 'LOW' : yesCount <= 2 ? 'MEDIUM' : 'HIGH';
+
+    await prisma.parQResponse.create({
+      data: {
+        userId: user.id,
+        responses: JSON.stringify({
+          hasHeartCondition: pendingReg.hasHeartCondition,
+          hasChestPain: pendingReg.hasChestPain,
+          hasDizziness: pendingReg.hasDizziness,
+          hasJointProblems: pendingReg.hasJointProblems,
+          takesMedication: pendingReg.takesMedication,
+          hasOtherConditions: pendingReg.hasOtherConditions,
+        }),
+        otherReasonDetails: pendingReg.otherConditionsDetails || '',
+        riskLevel,
+        completedAt: new Date(),
+      }
+    });
+
+    // Update user PAR-Q status
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        parqCompleted: true,
+        parqCompletedAt: new Date(),
+        parqRiskLevel: riskLevel,
+      }
+    });
+
+    // Create subscription
+    const planPrices: Record<string, number> = {
+      'ONE_MONTH': 200,
+      'THREE_MONTHS': 500,
+      'ONE_YEAR': 2200
+    };
+
+    const planDurations: Record<string, number> = {
+      'ONE_MONTH': 30,
+      'THREE_MONTHS': 90,
+      'ONE_YEAR': 365
+    };
+
+    const amount = planPrices[pendingReg.plan];
+    const duration = planDurations[pendingReg.plan];
+
+    const startDate = new Date();
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + duration);
+
+    const subscription = await prisma.subscription.create({
+      data: {
+        userId: user.id,
+        plan: pendingReg.plan as 'ONE_MONTH' | 'THREE_MONTHS' | 'ONE_YEAR',
+        amount,
+        startDate,
+        endDate,
+        status: 'ACTIVE',
+        registrationType: 'WALK_IN'
+      }
+    });
+
+    // Create payment record
+    await prisma.payment.create({
+      data: {
+        subscriptionId: subscription.id,
+        amount: pendingReg.amountPaid,
+        paymentMethod: 'MOMO',
+        paymentDate: new Date(),
+        reference: pendingReg.paymentReference,
+        status: 'SUCCESS'
+      }
+    });
+
+    // Delete pending registration
+    await prisma.pendingRegistration.delete({
+      where: { id: pendingReg.id }
+    });
+
+    logger.info('✅ Walk-in registration completed:', {
+      userId: user.id,
+      email: user.email,
+      reference,
+    });
+
+  } catch (error) {
+    logger.error('❌ Failed to complete walk-in registration:', error);
+    throw error;
+  }
+}
+
+/**
+ * Handle event booking payment
+ * Complete event registration from pending booking
+ */
+async function handleEventBookingPayment(reference: string) {
+  logger.info('🎫 Processing event booking payment:', { reference });
+
+  try {
+    // Find pending event booking
+    const pendingBooking = await prisma.pendingEventBooking.findUnique({
+      where: { paymentReference: reference }
+    });
+
+    if (!pendingBooking) {
+      logger.error('❌ Pending event booking not found:', { reference });
+      return;
+    }
+
+    // Check if already processed
+    const existingBooking = await prisma.eventBooking.findFirst({
+      where: {
+        userId: pendingBooking.userId,
+        eventId: pendingBooking.eventId,
+        paymentRef: reference
+      }
+    });
+
+    if (existingBooking) {
+      logger.info('ℹ️ Event booking already completed:', { reference });
+      await prisma.pendingEventBooking.delete({
+        where: { id: pendingBooking.id }
+      });
+      return; // Idempotency
+    }
+
+    // Generate QR ticket
+    const ticketQRCode = `EVENT-${pendingBooking.eventId}-USER-${pendingBooking.userId}-${Date.now()}`;
+
+    // Create confirmed event booking
+    const booking = await prisma.eventBooking.create({
+      data: {
+        userId: pendingBooking.userId,
+        eventId: pendingBooking.eventId,
+        status: 'confirmed',
+        paymentStatus: 'COMPLETED',
+        paymentRef: reference,
+        ticketQRData: ticketQRCode,
+        ticketGeneratedAt: new Date()
+      }
+    });
+
+    // Delete pending booking
+    await prisma.pendingEventBooking.delete({
+      where: { id: pendingBooking.id }
+    });
+
+    logger.info('✅ Event booking completed:', {
+      bookingId: booking.id,
+      userId: pendingBooking.userId,
+      eventId: pendingBooking.eventId,
+      reference
+    });
+
+    // Send confirmation email
+    const user = await prisma.user.findUnique({
+      where: { id: pendingBooking.userId },
+      select: { email: true, firstName: true }
+    });
+
+    const event = await prisma.event.findUnique({
+      where: { id: pendingBooking.eventId },
+      select: { title: true, eventDate: true, location: true, isFree: true, price: true }
+    });
+
+    if (user && event) {
+      await sendEventBookingConfirmation(user.email, user.firstName, {
+        eventTitle: event.title,
+        eventDate: event.eventDate.toISOString(),
+        location: event.location || 'GemFitness Tema',
+        ticketQRCode: ticketQRCode,
+        isFree: event.isFree,
+        price: event.price || undefined
+      });
+    }
+
+  } catch (error) {
+    logger.error('❌ Failed to complete event booking:', error);
+    throw error;
+  }
+}
+
+/**
+ * Handle class booking payment
+ * Complete class enrollment from pending booking
+ */
+async function handleClassBookingPayment(reference: string) {
+  logger.info('🏋️ Processing class booking payment:', { reference });
+
+  try {
+    // Find pending class booking
+    const pendingBooking = await prisma.pendingClassBooking.findUnique({
+      where: { paymentReference: reference }
+    });
+
+    if (!pendingBooking) {
+      logger.error('❌ Pending class booking not found:', { reference });
+      return;
+    }
+
+    // Check if already processed
+    const existingBooking = await prisma.classBooking.findFirst({
+      where: {
+        userId: pendingBooking.userId,
+        classId: pendingBooking.classId,
+        paymentRef: reference
+      }
+    });
+
+    if (existingBooking) {
+      logger.info('ℹ️ Class booking already completed:', { reference });
+      await prisma.pendingClassBooking.delete({
+        where: { id: pendingBooking.id }
+      });
+      return; // Idempotency
+    }
+
+    // Create confirmed class booking
+    const booking = await prisma.classBooking.create({
+      data: {
+        userId: pendingBooking.userId,
+        classId: pendingBooking.classId,
+        bookedFor: pendingBooking.bookedFor,
+        status: 'confirmed',
+        paymentStatus: 'COMPLETED',
+        paymentRef: reference,
+        amountPaid: pendingBooking.amount
+      }
+    });
+
+    // Update class current bookings count
+    await prisma.class.update({
+      where: { id: pendingBooking.classId },
+      data: {
+        currentBookings: {
+          increment: 1
+        }
+      }
+    });
+
+    // Delete pending booking
+    await prisma.pendingClassBooking.delete({
+      where: { id: pendingBooking.id }
+    });
+
+    logger.info('✅ Class booking completed:', {
+      bookingId: booking.id,
+      userId: pendingBooking.userId,
+      classId: pendingBooking.classId,
+      reference
+    });
+
+    // Send confirmation email
+    const user = await prisma.user.findUnique({
+      where: { id: pendingBooking.userId },
+      select: { email: true, firstName: true }
+    });
+
+    const classData = await prisma.class.findUnique({
+      where: { id: pendingBooking.classId },
+      select: { name: true, instructor: true, schedule: true, isFree: true, price: true }
+    });
+
+    if (user && classData) {
+      await sendClassBookingConfirmation(user.email, user.firstName, {
+        className: classData.name,
+        instructor: classData.instructor,
+        schedule: classData.schedule,
+        bookedFor: pendingBooking.bookedFor.toISOString(),
+        isFree: classData.isFree,
+        price: classData.price || undefined
+      });
+    }
+
+  } catch (error) {
+    logger.error('❌ Failed to complete class booking:', error);
+    throw error;
+  }
 }

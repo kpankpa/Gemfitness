@@ -100,8 +100,6 @@ export async function PUT(
       maxAttendees,
       isFree,
       price,
-      earlyBirdPrice,
-      earlyBirdDeadline,
       category,
       tags,
       status
@@ -160,8 +158,6 @@ export async function PUT(
         ...(maxAttendees !== undefined && { maxAttendees: maxAttendees ? parseInt(maxAttendees) : null }),
         ...(isFree !== undefined && { isFree: Boolean(isFree) }),
         ...(price !== undefined && { price: price ? parseFloat(price) : null }),
-        ...(earlyBirdPrice !== undefined && { earlyBirdPrice: earlyBirdPrice ? parseFloat(earlyBirdPrice) : null }),
-        ...(earlyBirdDeadline !== undefined && { earlyBirdDeadline: earlyBirdDeadline ? new Date(earlyBirdDeadline) : null }),
         ...(category && { category }),
         ...(tagArray && { tags: tagArray }),
         ...(status && { status: status as $Enums.EventStatus })

@@ -93,6 +93,9 @@ export async function POST(request: NextRequest) {
     // Create user, subscription, and payment in a transaction
     const result = await prisma.$transaction(async (tx) => {
       // Create user
+      const gracePeriodEnd = new Date();
+      gracePeriodEnd.setDate(gracePeriodEnd.getDate() + 7); // 7 days grace period
+
       const user = await tx.user.create({
         data: {
           email: data.email,
@@ -108,6 +111,7 @@ export async function POST(request: NextRequest) {
           dateOfBirth: new Date(data.dateOfBirth),
           role: 'MEMBER',
           qrCode: '',
+          profileImageGracePeriodEnd: gracePeriodEnd,
         },
       });
 

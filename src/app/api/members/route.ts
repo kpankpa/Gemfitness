@@ -118,7 +118,26 @@ export async function POST(request: NextRequest) {
     password: z.string().min(6),
     registrationType: z.string().optional(),
     plan: z.string(),
-    dateOfBirth: z.string()
+    dateOfBirth: z.string(),
+    // Emergency contact
+    emergencyContact: z.string().min(2),
+    emergencyPhone: z.string().min(7),
+    // PAR-Q fields
+    hasHeartCondition: z.union([z.boolean(), z.string()]).transform(val => val === true || val === 'true'),
+    hasChestPain: z.union([z.boolean(), z.string()]).transform(val => val === true || val === 'true'),
+    hasDizziness: z.union([z.boolean(), z.string()]).transform(val => val === true || val === 'true'),
+    hasJointProblems: z.union([z.boolean(), z.string()]).transform(val => val === true || val === 'true'),
+    takesMedication: z.union([z.boolean(), z.string()]).transform(val => val === true || val === 'true'),
+    hasOtherConditions: z.union([z.boolean(), z.string()]).transform(val => val === true || val === 'true'),
+    otherConditionsDetails: z.string().optional(),
+    // Payment fields
+    paymentMethod: z.enum(['CASH', 'MOMO']),
+    amountPaid: z.union([z.number(), z.string()]).transform(val => typeof val === 'string' ? parseFloat(val) : val),
+    momoReference: z.string().optional(),
+    // Additional profile fields
+    address: z.string().optional(),
+    fitnessGoals: z.string().optional(),
+    medicalConditions: z.string().optional()
   });
 
   try {
@@ -147,7 +166,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 });
     }
 
-    const { firstName, lastName, email, phone, password, registrationType = 'SELF', plan, dateOfBirth } = parsed.data;
+    const { 
+      firstName, lastName, email, phone, password, registrationType = 'WALK_IN', plan, dateOfBirth,
+      emergencyContact, emergencyPhone,
+      hasHeartCondition, hasChestPain, hasDizziness, hasJointProblems, takesMedication, hasOtherConditions, otherConditionsDetails,
+      paymentMethod, amountPaid, momoReference,
+      address, fitnessGoals, medicalConditions
+    } = parsed.data;
 
     // Hash password
     const hashedPassword = await hash(password, 12);
@@ -166,9 +191,12 @@ export async function POST(request: NextRequest) {
           qrCode: '', // Will be generated after user creation
           registrationType: registrationType as $Enums.RegistrationType,
           registrationPaid: false,
-          emergencyContact: '',
-          emergencyPhone: '',
-          dateOfBirth: new Date(dateOfBirth)
+          emergencyContact,
+          emergencyPhone,
+          dateOfBirth: new Date(dateOfBirth),
+          address: address || '',
+          fitnessGoals: fitnessGoals || '',
+          medicalConditions: medicalConditions || ''
         }
       });
     } catch (err: unknown) {
@@ -184,6 +212,36 @@ export async function POST(request: NextRequest) {
     await prisma.user.update({
       where: { id: user.id },
       data: { qrCode: qrCodeResult.token }
+    });
+
+    // Create PAR-Q response
+    const parqAnswered = hasHeartCondition || hasChestPain || hasDizziness || hasJointProblems || takesMedication || hasOtherConditions;
+    const yesCount = [hasHeartCondition, hasChestPain, hasDizziness, hasJointProblems, takesMedication, hasOtherConditions].filter(Boolean).length;
+    const riskLevel = yesCount === 0 ? 'LOW' : yesCount <= 2 ? 'MEDIUM' : 'HIGH';
+
+    await prisma.parQResponse.create({
+      data: {
+        userId: user.id,
+        type: 'BASIC',
+        hasHeartCondition,
+        hasChestPain,
+        hasDizziness,
+        hasJointProblems,
+        takesMedication,
+        hasOtherConditions,
+        otherConditionsDetails: otherConditionsDetails || '',
+        riskLevel: riskLevel as $Enums.RiskLevel
+      }
+    });
+
+    // Update user PAR-Q completion status
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        parqCompleted: true,
+        parqCompletedAt: new Date(),
+        parqRiskLevel: riskLevel as $Enums.RiskLevel
+      }
     });
 
     // For now, automatically mark registration as paid and create subscription
@@ -231,10 +289,10 @@ export async function POST(request: NextRequest) {
     await prisma.payment.create({
       data: {
         subscriptionId: subscription.id,
-        amount,
-        paymentMethod: 'CASH',
+        amount: amountPaid,
+        paymentMethod: paymentMethod,
         paymentDate: new Date(),
-        reference: `SUB_${Date.now()}`,
+        reference: paymentMethod === 'MOMO' && momoReference ? momoReference : `CASH_${Date.now()}`,
         status: 'SUCCESS'
       }
     });
@@ -279,8 +337,17 @@ export async function POST(request: NextRequest) {
         id: user.id,
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
+        phone: user.phone,
         qrCode: `GYM|${qrCodeResult.token}`,
-        registrationPaid: updatedUser.registrationPaid
+        registrationPaid: updatedUser.registrationPaid,
+        emergencyContact,
+        emergencyPhone,
+        paymentMethod,
+        amountPaid,
+        momoReference: momoReference || null,
+        plan: planKey,
+        parqCompleted: true,
+        parqRiskLevel: riskLevel
       }
     });
   } catch (error) {
