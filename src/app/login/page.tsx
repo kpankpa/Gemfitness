@@ -40,6 +40,7 @@ export default function LoginPage() {
       }, 0);
       return () => clearTimeout(timer);
     }
+    return undefined; // Explicitly return undefined for the else case
   }, [verified]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
