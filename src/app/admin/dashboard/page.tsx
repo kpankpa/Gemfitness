@@ -2,26 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { z } from 'zod';
-import { useToast } from '@/components/ToastProvider';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
-import { useMembers } from '@/hooks/useMembers';
-import { useCheckIns } from '@/hooks/useCheckIns';
-import { useAnalytics } from '@/hooks/useAnalytics';
 import { motion } from 'framer-motion';
-import QRScanner from '@/components/QRScanner';
-import WebcamQRScanner from '@/components/WebcamQRScanner';
-import WaitlistModal from '@/components/admin/WaitlistModal';
-import BulkEmailModal from '@/components/admin/BulkEmailModal';
-import ClassReviewsModal from '@/components/admin/ClassReviewsModal';
-import MemberClassHistoryModal from '@/components/admin/MemberClassHistoryModal';
-import ClassEnrollmentModal from '@/components/admin/ClassEnrollmentModal';
-import ClassAttendanceModal from '@/components/admin/ClassAttendanceModal';
-import ClassAnalyticsCards from '@/components/admin/ClassAnalyticsCards';
-import EventDetailsModal from '@/components/admin/EventDetailsModal';
-import EventAttendeeModal from '@/components/admin/EventAttendeeModal';
-import EventAnalyticsCards from '@/components/admin/EventAnalyticsCards';
-import EventCalendarView from '@/components/admin/EventCalendarView';
 import {
   Users,
   User,
@@ -72,6 +54,26 @@ import {
   LayoutGrid,
   CalendarDays,
 } from 'lucide-react';
+import Image from 'next/image';
+import { useToast } from '@/components/ToastProvider';
+import { useAuth } from '@/contexts/AuthContext';
+import { useMembers } from '@/hooks/useMembers';
+import { useCheckIns } from '@/hooks/useCheckIns';
+import { useAnalytics } from '@/hooks/useAnalytics';
+import { usePaymentAnalytics } from '@/hooks/usePaymentAnalytics';
+import QRScanner from '@/components/QRScanner';
+import WebcamQRScanner from '@/components/WebcamQRScanner';
+import WaitlistModal from '@/components/admin/WaitlistModal';
+import BulkEmailModal from '@/components/admin/BulkEmailModal';
+import ClassReviewsModal from '@/components/admin/ClassReviewsModal';
+import MemberClassHistoryModal from '@/components/admin/MemberClassHistoryModal';
+import ClassEnrollmentModal from '@/components/admin/ClassEnrollmentModal';
+import ClassAttendanceModal from '@/components/admin/ClassAttendanceModal';
+import ClassAnalyticsCards from '@/components/admin/ClassAnalyticsCards';
+import EventDetailsModal from '@/components/admin/EventDetailsModal';
+import EventAttendeeModal from '@/components/admin/EventAttendeeModal';
+import EventAnalyticsCards from '@/components/admin/EventAnalyticsCards';
+import EventCalendarView from '@/components/admin/EventCalendarView';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -81,7 +83,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import Image from 'next/image';
 import AdminSidebar from '@/components/AdminSidebar';
 import ParQManagement from '@/components/admin/ParQManagement';
 import ReportsAnalytics from '@/components/admin/ReportsAnalytics';
@@ -89,19 +90,13 @@ import ProfilePictureUpload from '@/components/ProfilePictureUpload';
 import type { Member } from '@/types';
 import { printRegistrationReceipt, generateReceiptNumber } from '@/lib/receipt-printer';
 
-// Mock data for features not yet implemented (Payments)
-const mockStats = {
-  revenue: 45680,
-  pendingPayments: 12,
-  revenueGrowth: '+15%',
-};
-
 export default function AdminDashboard() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
   const { members, fetchMembers, currentPage, pageSize, totalMembers } = useMembers();
   const { checkIns, stats: checkInStats, isCheckingIn, performCheckIn, fetchCheckIns, fetchStats } = useCheckIns();
   const { analytics, fetchAnalytics } = useAnalytics();
+  const { paymentAnalytics, fetchPaymentAnalytics } = usePaymentAnalytics();
   
   // Classes and Events state
   const [classes, setClasses] = useState<Array<{
@@ -212,13 +207,13 @@ export default function AdminDashboard() {
   const [memberStatusFilter, setMemberStatusFilter] = useState<'all' | 'active' | 'expiring_soon' | 'expired'>('all');
   const [planFilter, setPlanFilter] = useState<string>('all');
   const [paymentMethod, setPaymentMethod] = useState<'momo' | 'cash' | 'card'>('momo');
+  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
+  const [isLoadingPayments, setIsLoadingPayments] = useState(false);
   
   const loading = authLoading;
   
   // Modal states (TODO: Implement modals for editing members and day passes)
   const [showNewMemberModal, setShowNewMemberModal] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [showMemberModal, setShowMemberModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [showDeleteMemberModal, setShowDeleteMemberModal] = useState(false);
   const [isSubmittingMember, setIsSubmittingMember] = useState(false);
@@ -521,13 +516,19 @@ export default function AdminDashboard() {
     entityId?: string;
     userId: string;
     userName: string;
+    userEmail: string;
     changes?: Record<string, unknown>;
     ipAddress?: string;
+    userAgent?: string;
+    sessionId?: string;
+    metadata?: Record<string, unknown>;
     timestamp: string;
   }>>([]);
   const [isLoadingAuditLogs, setIsLoadingAuditLogs] = useState(false);
   const [auditLogFilter, setAuditLogFilter] = useState<string>('all');
   const [auditDateRange, setAuditDateRange] = useState({ start: '', end: '' });
+  const [selectedAuditLog, setSelectedAuditLog] = useState<any>(null);
+  const [showAuditLogDetails, setShowAuditLogDetails] = useState(false);
 
   // Settings state with validation
   const [activeSettingsTab, setActiveSettingsTab] = useState<'general' | 'payment' | 'notifications' | 'security'>('general');
@@ -576,6 +577,23 @@ export default function AdminDashboard() {
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsErrors, setSettingsErrors] = useState<Record<string, string>>({});
 
+  // Fetch payment history
+  const fetchPaymentHistory = async () => {
+    setIsLoadingPayments(true);
+    try {
+      const response = await fetch('/api/payments/history?limit=10&page=1');
+      const data = await response.json();
+      
+      if (data.success) {
+        setPaymentHistory(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching payment history:', error);
+    } finally {
+      setIsLoadingPayments(false);
+    }
+  };
+
   // Fetch audit logs
   const fetchAuditLogs = async () => {
     setIsLoadingAuditLogs(true);
@@ -584,14 +602,19 @@ export default function AdminDashboard() {
       if (auditLogFilter !== 'all') params.append('action', auditLogFilter);
       if (auditDateRange.start) params.append('startDate', auditDateRange.start);
       if (auditDateRange.end) params.append('endDate', auditDateRange.end);
+      params.append('page', '1');
+      params.append('limit', '100');
 
       const response = await fetch(`/api/audit-logs?${params.toString()}`);
       const data = await response.json();
       
-      if (data.success && Array.isArray(data.logs)) {
+      if (data.success && Array.isArray(data.data)) {
+        setAuditLogs(data.data);
+      } else if (data.success && Array.isArray(data.logs)) {
+        // Backward compatibility with old format
         setAuditLogs(data.logs);
       } else {
-        // Mock data for now until API is implemented
+        console.error('Invalid audit logs response:', data);
         setAuditLogs([]);
       }
     } catch (error) {
@@ -711,6 +734,8 @@ export default function AdminDashboard() {
     fetchCheckIns();
     fetchStats();
     fetchAnalytics();
+    fetchPaymentAnalytics();
+    fetchPaymentHistory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, authLoading, user?.role, router]);
 
@@ -724,6 +749,7 @@ export default function AdminDashboard() {
 
       return () => clearInterval(interval);
     }
+    return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, activeTab]);
 
@@ -767,23 +793,6 @@ export default function AdminDashboard() {
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, isAuthenticated]);
-
-  // Utility function to get plan pricing
-  const getPlanPrice = (planName: string): string => {
-    const pricingMap: Record<string, string> = {
-      '1 Month': '200',
-      '3 Months': '450', 
-      '6 Months': '1000',
-      '12 Months': '2000',
-      'ONE_MONTH': '200',
-      'THREE_MONTHS': '450',
-      'SIX_MONTHS': '1000', 
-      'TWELVE_MONTHS': '2000',
-      'DAILY': '50',
-      'Daily Walk-In': '50',
-    };
-    return pricingMap[planName] || '0';
-  };
 
   // Fetch classes from API
   const fetchClasses = async () => {
@@ -1520,7 +1529,7 @@ export default function AdminDashboard() {
       memberId: registeredMemberData.id,
       email: registeredMemberData.email,
       phone: registeredMemberData.phone,
-      password: registeredMemberData.password, // Auto-generated password
+      password: registeredMemberData.password || 'AUTO-GENERATED', // Auto-generated password
       registrationType: registeredMemberData.registrationType as 'SINGLE' | 'COUPLE' | 'FAMILY',
       registrationFee: regFee,
       membershipPlan: plan.name,
@@ -1528,14 +1537,14 @@ export default function AdminDashboard() {
       planDuration: plan.duration,
       firstPaymentDate: nextMonth.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
       paymentMethod: registeredMemberData.paymentMethod || 'CASH',
-      amountPaid: registeredMemberData.amountPaid,
-      momoReference: registeredMemberData.momoReference,
+      ...(registeredMemberData.amountPaid !== undefined && { amountPaid: registeredMemberData.amountPaid }),
+      momoReference: registeredMemberData.momoReference || 'N/A',
       qrCode: registeredMemberData.qrCode || 'N/A',
       receivedBy: user?.email || 'Receptionist',
-      emergencyContact: registeredMemberData.emergencyContact,
-      emergencyPhone: registeredMemberData.emergencyPhone,
-      parqCompleted: registeredMemberData.parqCompleted,
-      parqRiskLevel: registeredMemberData.parqRiskLevel,
+      ...(registeredMemberData.emergencyContact && { emergencyContact: registeredMemberData.emergencyContact }),
+      ...(registeredMemberData.emergencyPhone && { emergencyPhone: registeredMemberData.emergencyPhone }),
+      ...(registeredMemberData.parqCompleted !== undefined && { parqCompleted: registeredMemberData.parqCompleted }),
+      ...(registeredMemberData.parqRiskLevel && { parqRiskLevel: registeredMemberData.parqRiskLevel }),
     });
   };
 
@@ -2538,7 +2547,7 @@ export default function AdminDashboard() {
                                 size="sm"
                                 onClick={() => { 
                                   setSelectedMember(member as Member);
-                                  setShowMemberModal(true);
+                                  setShowNewMemberModal(true);
                                 }}
                                 title="View member details"
                               >
@@ -2746,7 +2755,7 @@ export default function AdminDashboard() {
                               className="flex-1 border-2"
                               onClick={() => {
                                 setSelectedClassForModal(classItem);
-                                setShowMemberModal(true);
+                                setShowNewMemberModal(true);
                               }}
                             >
                               <Eye className="h-4 w-4 mr-1" />
@@ -3563,30 +3572,47 @@ export default function AdminDashboard() {
                     </div>
 
                     {/* Revenue Stats */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                       <div className="p-4 bg-green-50 rounded-lg border-2 border-green-200">
                         <p className="text-sm text-gray-600 mb-1">Total Revenue</p>
-                        <p className="text-2xl font-bold text-green-700">GH₵ {mockStats.revenue.toLocaleString()}</p>
-                        <p className="text-xs text-green-600 mt-1">{mockStats.revenueGrowth} from last month</p>
+                        <p className="text-2xl font-bold text-green-700">GH₵ {paymentAnalytics.totalRevenue.toLocaleString()}</p>
+                        <p className="text-xs text-green-600 mt-1">Success Rate: {paymentAnalytics.paymentSuccessRate}%</p>
                       </div>
                       <div className="p-4 bg-yellow-50 rounded-lg border-2 border-yellow-200">
-                        <p className="text-sm text-gray-600 mb-1">Pending Payments</p>
-                        <p className="text-2xl font-bold text-yellow-700">{mockStats.pendingPayments}</p>
-                        <p className="text-xs text-yellow-600 mt-1">Requires follow-up</p>
+                        <p className="text-sm text-gray-600 mb-1">Outstanding</p>
+                        <p className="text-2xl font-bold text-yellow-700">{paymentAnalytics.outstandingPayments}</p>
+                        <p className="text-xs text-yellow-600 mt-1">GH₵ {paymentAnalytics.outstandingAmount.toLocaleString()}</p>
                       </div>
                       <div className="p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
-                        <p className="text-sm text-gray-600 mb-1">This Month</p>
+                        <p className="text-sm text-gray-600 mb-1">Monthly MRR</p>
                         <p className="text-2xl font-bold text-blue-700">
-                          GH₵ {analytics?.monthlyRevenue?.toLocaleString() || '0'}
+                          GH₵ {paymentAnalytics.monthlyRecurringRevenue.toLocaleString()}
                         </p>
                         <p className="text-xs text-blue-600 mt-1">
-                          {analytics?.monthlyTransactions || 0} transactions
+                          ARR: GH₵ {paymentAnalytics.annualRecurringRevenue.toLocaleString()}
                         </p>
+                      </div>
+                      <div className="p-4 bg-purple-50 rounded-lg border-2 border-purple-200">
+                        <p className="text-sm text-gray-600 mb-1">Payment Methods</p>
+                        <div className="text-sm text-gray-700">
+                          {paymentAnalytics.paymentMethodBreakdown.slice(0, 2).map((method, index) => (
+                            <div key={index} className="flex justify-between">
+                              <span className="capitalize">{method.method}:</span>
+                              <span className="font-semibold">{method.percentage.toFixed(1)}%</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
 
                     {/* Payment History Table */}
                     <div className="overflow-x-auto">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900">Recent Payment History</h3>
+                        {isLoadingPayments && (
+                          <div className="text-sm text-gray-500">Loading payments...</div>
+                        )}
+                      </div>
                       <table className="w-full">
                         <thead className="bg-gray-50 border-b-2 border-gray-200">
                           <tr>
@@ -3594,27 +3620,52 @@ export default function AdminDashboard() {
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Member</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Plan</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Amount</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Method</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Status</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Reference</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                          {members.slice(0, 5).map((member) => (
-                            <tr key={member.id} className="hover:bg-gray-50">
-                              <td className="px-4 py-3 text-sm text-gray-900">{member.joinDate}</td>
-                              <td className="px-4 py-3 text-sm font-medium text-gray-900">{member.name}</td>
-                              <td className="px-4 py-3 text-sm text-gray-600">{member.plan}</td>
-                              <td className="px-4 py-3 text-sm font-semibold text-gray-900">
-                                GH₵ {getPlanPrice(member.plan)}
+                          {paymentHistory.length > 0 ? (
+                            paymentHistory.map((payment) => (
+                              <tr key={payment.id} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 text-sm text-gray-900">
+                                  {payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('en-GB') : 'N/A'}
+                                </td>
+                                <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                  {payment.member?.name || 'N/A'}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-600">
+                                  {payment.member?.plan ? payment.member.plan.replace('_', ' ') : 'N/A'}
+                                </td>
+                                <td className="px-4 py-3 text-sm font-semibold text-gray-900">
+                                  {payment.currency} {payment.amount.toLocaleString()}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-600 capitalize">
+                                  {payment.paymentMethod === 'paystack' ? 'Card/Bank' : 
+                                   payment.paymentMethod === 'momo' ? 'MTN MoMo' : 
+                                   payment.paymentMethod}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                    payment.status === 'success' ? 'bg-green-100 text-green-700' :
+                                    payment.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                                    'bg-red-100 text-red-700'
+                                  }`}>
+                                    {payment.status === 'success' ? 'Success' : 
+                                     payment.status === 'pending' ? 'Pending' : 'Failed'}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-600">{payment.reference}</td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                                {isLoadingPayments ? 'Loading payments...' : 'No payment history found'}
                               </td>
-                              <td className="px-4 py-3">
-                                <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
-                                  Success
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-sm text-gray-600">PAY-{member.id.toString().padStart(6, '0')}</td>
                             </tr>
-                          ))}
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -4379,13 +4430,35 @@ export default function AdminDashboard() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                     >
                       <option value="all">All Actions</option>
-                      <option value="LOGIN">Login</option>
-                      <option value="LOGOUT">Logout</option>
-                      <option value="CREATE">Create</option>
-                      <option value="UPDATE">Update</option>
-                      <option value="DELETE">Delete</option>
-                      <option value="PAYMENT">Payment</option>
-                      <option value="CHECKIN">Check-in</option>
+                      <option value="login">Login</option>
+                      <option value="logout">Logout</option>
+                      <option value="login_failed">Login Failed</option>
+                      <option value="member_created">Member Created</option>
+                      <option value="member_updated">Member Updated</option>
+                      <option value="member_deleted">Member Deleted</option>
+                      <option value="member_suspended">Member Suspended</option>
+                      <option value="member_activated">Member Activated</option>
+                      <option value="subscription_created">Subscription Created</option>
+                      <option value="subscription_updated">Subscription Updated</option>
+                      <option value="subscription_cancelled">Subscription Cancelled</option>
+                      <option value="subscription_renewed">Subscription Renewed</option>
+                      <option value="payment_created">Payment Created</option>
+                      <option value="payment_success">Payment Success</option>
+                      <option value="payment_failed">Payment Failed</option>
+                      <option value="payment_refunded">Payment Refunded</option>
+                      <option value="checkin_created">Check-in</option>
+                      <option value="checkout_created">Check-out</option>
+                      <option value="checkin_manual">Manual Check-in</option>
+                      <option value="class_created">Class Created</option>
+                      <option value="class_updated">Class Updated</option>
+                      <option value="class_deleted">Class Deleted</option>
+                      <option value="class_enrolled">Class Enrolled</option>
+                      <option value="event_created">Event Created</option>
+                      <option value="event_updated">Event Updated</option>
+                      <option value="event_deleted">Event Deleted</option>
+                      <option value="settings_updated">Settings Updated</option>
+                      <option value="staff_created">Staff Created</option>
+                      <option value="role_changed">Role Changed</option>
                     </select>
                   </div>
                   <div>
@@ -4438,23 +4511,39 @@ export default function AdminDashboard() {
                             <td className="px-4 py-3 text-sm text-gray-900">
                               {new Date(log.timestamp).toLocaleString()}
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-900">{log.userName}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium text-gray-900">{log.userName}</span>
+                                <span className="text-xs text-gray-500">{log.userEmail}</span>
+                              </div>
+                            </td>
                             <td className="px-4 py-3">
                               <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                log.action === 'LOGIN' ? 'bg-green-100 text-green-700' :
-                                log.action === 'LOGOUT' ? 'bg-gray-100 text-gray-700' :
-                                log.action === 'CREATE' ? 'bg-blue-100 text-blue-700' :
-                                log.action === 'UPDATE' ? 'bg-yellow-100 text-yellow-700' :
-                                log.action === 'DELETE' ? 'bg-red-100 text-red-700' :
-                                'bg-purple-100 text-purple-700'
+                                log.action.includes('login') ? 'bg-green-100 text-green-700' :
+                                log.action.includes('logout') ? 'bg-gray-100 text-gray-700' :
+                                log.action.includes('created') ? 'bg-blue-100 text-blue-700' :
+                                log.action.includes('updated') ? 'bg-yellow-100 text-yellow-700' :
+                                log.action.includes('deleted') ? 'bg-red-100 text-red-700' :
+                                log.action.includes('payment') ? 'bg-green-100 text-green-700' :
+                                log.action.includes('checkin') || log.action.includes('checkout') ? 'bg-purple-100 text-purple-700' :
+                                log.action.includes('failed') ? 'bg-red-100 text-red-700' :
+                                'bg-gray-100 text-gray-700'
                               }`}>
-                                {log.action}
+                                {log.action.replace(/_/g, ' ').toUpperCase()}
                               </span>
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-600">{log.entityType}</td>
                             <td className="px-4 py-3 text-sm text-gray-600 font-mono">{log.ipAddress || 'N/A'}</td>
                             <td className="px-4 py-3">
-                              <Button variant="ghost" size="sm" className="text-orange-600">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-orange-600 hover:bg-orange-50"
+                                onClick={() => {
+                                  setSelectedAuditLog(log);
+                                  setShowAuditLogDetails(true);
+                                }}
+                              >
                                 <Eye className="h-4 w-4" />
                               </Button>
                             </td>
@@ -7140,7 +7229,7 @@ export default function AdminDashboard() {
                 <div className="md:col-span-2">
                   <ProfilePictureUpload
                     currentImage={selectedMember?.profileImage || null}
-                    userId={selectedMember?.id}
+                    userId={selectedMember?.id || ''}
                     isStaffMode={true}
                     onUploadSuccess={() => {
                       // Refresh members list
@@ -7298,13 +7387,13 @@ export default function AdminDashboard() {
             title: selectedEventForModal.title,
             description: selectedEventForModal.description,
             eventDate: selectedEventForModal.eventDate,
-            endDate: selectedEventForModal.endDate,
+            endDate: selectedEventForModal.endDate ?? null,
             location: selectedEventForModal.location,
-            image: selectedEventForModal.image,
-            maxAttendees: selectedEventForModal.maxAttendees,
+            ...(selectedEventForModal.image && { image: selectedEventForModal.image }),
+            ...(selectedEventForModal.maxAttendees !== undefined && { maxAttendees: selectedEventForModal.maxAttendees }),
             registered: selectedEventForModal.registered,
             isFree: selectedEventForModal.isFree,
-            price: selectedEventForModal.price,
+            ...(selectedEventForModal.price !== undefined && { price: selectedEventForModal.price }),
             status: selectedEventForModal.status,
           }}
         />
@@ -7618,6 +7707,126 @@ export default function AdminDashboard() {
                   Close
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Audit Log Details Modal */}
+      {showAuditLogDetails && selectedAuditLog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Audit Log Details</h3>
+                <button
+                  onClick={() => {
+                    setShowAuditLogDetails(false);
+                    setSelectedAuditLog(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 space-y-6">
+              {/* Basic Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Timestamp</label>
+                  <p className="text-sm text-gray-900">{new Date(selectedAuditLog.timestamp).toLocaleString()}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Action</label>
+                  <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
+                    selectedAuditLog.action.includes('login') ? 'bg-green-100 text-green-700' :
+                    selectedAuditLog.action.includes('logout') ? 'bg-gray-100 text-gray-700' :
+                    selectedAuditLog.action.includes('created') ? 'bg-blue-100 text-blue-700' :
+                    selectedAuditLog.action.includes('updated') ? 'bg-yellow-100 text-yellow-700' :
+                    selectedAuditLog.action.includes('deleted') ? 'bg-red-100 text-red-700' :
+                    selectedAuditLog.action.includes('payment') ? 'bg-green-100 text-green-700' :
+                    selectedAuditLog.action.includes('checkin') || selectedAuditLog.action.includes('checkout') ? 'bg-purple-100 text-purple-700' :
+                    selectedAuditLog.action.includes('failed') ? 'bg-red-100 text-red-700' :
+                    'bg-gray-100 text-gray-700'
+                  }`}>
+                    {selectedAuditLog.action.replace(/_/g, ' ').toUpperCase()}
+                  </span>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">User</label>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{selectedAuditLog.userName}</p>
+                    <p className="text-xs text-gray-500">{selectedAuditLog.userEmail}</p>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Entity Type</label>
+                  <p className="text-sm text-gray-900">{selectedAuditLog.entityType}</p>
+                </div>
+                {selectedAuditLog.entityId && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Entity ID</label>
+                    <p className="text-sm text-gray-900 font-mono">{selectedAuditLog.entityId}</p>
+                  </div>
+                )}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">IP Address</label>
+                  <p className="text-sm text-gray-900 font-mono">{selectedAuditLog.ipAddress || 'N/A'}</p>
+                </div>
+              </div>
+
+              {/* Additional Details */}
+              {selectedAuditLog.userAgent && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">User Agent</label>
+                  <p className="text-sm text-gray-900 break-all">{selectedAuditLog.userAgent}</p>
+                </div>
+              )}
+
+              {selectedAuditLog.sessionId && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Session ID</label>
+                  <p className="text-sm text-gray-900 font-mono">{selectedAuditLog.sessionId}</p>
+                </div>
+              )}
+
+              {/* Changes */}
+              {selectedAuditLog.changes && Object.keys(selectedAuditLog.changes).length > 0 && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Changes</label>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <pre className="text-sm text-gray-900 whitespace-pre-wrap">
+                      {JSON.stringify(selectedAuditLog.changes, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+
+              {/* Metadata */}
+              {selectedAuditLog.metadata && Object.keys(selectedAuditLog.metadata).length > 0 && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Additional Metadata</label>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <pre className="text-sm text-gray-900 whitespace-pre-wrap">
+                      {JSON.stringify(selectedAuditLog.metadata, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
+              <Button
+                onClick={() => {
+                  setShowAuditLogDetails(false);
+                  setSelectedAuditLog(null);
+                }}
+                variant="outline"
+              >
+                Close
+              </Button>
             </div>
           </div>
         </div>

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import bcrypt from 'bcryptjs';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { verifySessionForApi } from '@/lib/auth/dal';
 import { isAdminOrManager, isAdmin } from '@/lib/auth/permissions';
-import bcrypt from 'bcryptjs';
-import { Prisma } from '@prisma/client';
 
 // GET /api/staff - List all staff members
 export async function GET(req: NextRequest) {

@@ -17,9 +17,9 @@
  */
 
 import { NextResponse } from 'next/server';
+import { $Enums } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { verifySessionForApi } from '@/lib/auth/dal';
-import { $Enums } from '@prisma/client';
 
 export async function GET() {
   try {

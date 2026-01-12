@@ -31,6 +31,13 @@ model User {
   profileImage       String?        // Profile image URL
   profileImageGracePeriodEnd DateTime? // 7 days from registration to upload profile picture
   
+  // Email Verification (OTP)
+  emailVerified      Boolean        @default(false)
+  otpCode            String?        // 6-digit OTP code
+  otpExpiry          DateTime?      // OTP expiration time
+  otpAttempts        Int            @default(0) // Failed attempts counter
+  otpLastSent        DateTime?      // Rate limiting for resend
+  
   // PAR-Q (Physical Activity Readiness Questionnaire) Fields
   parqCompleted      Boolean        @default(false)
   parqCompletedAt    DateTime?
@@ -53,6 +60,7 @@ model User {
   staffEventCheckIns EventCheckIn[] @relation("StaffCheckIns")
   staffClassCancellations ClassCancellation[] @relation("StaffCancellations")
   paymentTransactions PaymentTransaction[] @relation("UserTransactions")
+  auditLogs     AuditLog[]
   parqResponses ParQResponse[]
 
   @@index([email])
@@ -381,7 +389,7 @@ model Plan {
   price           Float              // Price in GH₵
   duration        Int                // Duration in days
   durationUnit    String             @default("days") // "days", "months", "years"
-  currency        String             @default("GH₵")
+  currency        String             @default("GHS")
   features        String[]           // Array of feature descriptions
   status          PlanStatus         @default(ACTIVE)
   isPopular       Boolean            @default(false)
@@ -433,7 +441,7 @@ model RegistrationFee {
   description String?  // Description text
   maxMembers  Int?     // NULL for single, 2 for couple, 5 for family
   status      String   @default("ACTIVE") // "ACTIVE" or "INACTIVE"
-  currency    String   @default("GH₵")
+  currency    String   @default("GHS")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -716,4 +724,33 @@ model PendingRegistration {
   @@index([paymentStatus])
   @@index([expiresAt])
   @@map("pending_registrations")
+}
+
+// Audit Log model - Track all system activities
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      String   // login, logout, member_created, member_updated, member_deleted, subscription_created, etc.
+  entityType  String   // User, Subscription, Payment, CheckIn, Class, Event, etc.
+  entityId    String?  // ID of the affected entity
+  userId      String   // ID of the user who performed the action
+  userName    String   // Name of the user who performed the action
+  userEmail   String   // Email of the user who performed the action
+  changes     Json?    // JSON object containing the changes made (before/after values)
+  ipAddress   String?  // IP address from where the action was performed
+  userAgent   String?  // User agent string
+  sessionId   String?  // Session ID for tracking user sessions
+  metadata    Json?    // Additional metadata about the action
+  timestamp   DateTime @default(now())
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([action])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([userId])
+  @@index([timestamp])
+  @@index([action, entityType])
+  @@index([timestamp, action])
+  @@map("audit_logs")
 }

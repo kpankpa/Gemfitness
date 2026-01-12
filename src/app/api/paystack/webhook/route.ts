@@ -1,9 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hashPassword } from '@/lib/auth/passwords';
 import { generateMemberQRCode } from '@/lib/qr/generator';
 import { sendWelcomeEmail, sendEventBookingConfirmation, sendClassBookingConfirmation } from '@/lib/services/email/mock';
+import { ReceiptEmailService } from '@/lib/services/payment/receipt-generator';
+import { generateOTP, sendOTPEmail, getOTPExpiry } from '@/lib/services/email/resend';
 import logger from '@/lib/logger';
 
 /**
@@ -180,11 +182,12 @@ async function handleChargeSuccess(data: Record<string, unknown>) {
  * Create new user account from successful payment
  */
 async function createNewUserFromPayment(paymentData: Record<string, unknown>) {
-  const { reference, amount, customer, metadata, paid_at } = paymentData as {
+  const { reference, amount, customer, metadata, authorization, paid_at } = paymentData as {
     reference: string;
     amount: number;
     customer: { email: string };
     metadata: Record<string, string>;
+    authorization?: Record<string, unknown>;
     paid_at: string;
   };
 
@@ -241,6 +244,12 @@ async function createNewUserFromPayment(paymentData: Record<string, unknown>) {
           dateOfBirth: new Date(metadata.date_of_birth),
           role: 'MEMBER',
           qrCode: '',
+          // Email verification - generate OTP
+          emailVerified: false,
+          otpCode: generateOTP(),
+          otpExpiry: getOTPExpiry(),
+          otpAttempts: 0,
+          otpLastSent: new Date(),
         },
       });
 
@@ -276,13 +285,51 @@ async function createNewUserFromPayment(paymentData: Record<string, unknown>) {
         },
       });
 
-      return { user, subscription, qrCode: `GYM|${qrCodeResult.token}` };
+      // Create comprehensive payment transaction record
+      const paymentTransaction = await tx.paymentTransaction.create({
+        data: {
+          userId: user.id,
+          reference,
+          amount,
+          currency: 'GHS',
+          status: 'success',
+          paymentMethod: 'paystack',
+          transactionType: 'subscription',
+          relatedEntityId: subscription.id,
+          relatedEntityType: 'subscription',
+          paymentGatewayId: '',
+          metadata: {
+            plan: dbPlan,
+            duration: endDate.getTime() - startDate.getTime(),
+            registrationType: 'SELF',
+            customerEmail: customer.email,
+            authorization: authorization ? JSON.stringify(authorization) : null
+          },
+          paidAt: new Date(paid_at),
+        },
+      });
+
+      return { user, subscription, paymentTransaction, qrCode: `GYM|${qrCodeResult.token}` };
     });
 
     logger.info('✅ User created from webhook:', {
       userId: result.user.id,
       email: result.user.email,
       reference,
+    });
+
+    // Send OTP verification email (primary - for email verification)
+    sendOTPEmail({
+      to: result.user.email,
+      firstName: result.user.firstName,
+      otpCode: result.user.otpCode || '',
+    }).catch(error => {
+      logger.error('❌ OTP email failed:', { userId: result.user.id, error });
+    });
+
+    // Send payment receipt email (async, don't wait)
+    ReceiptEmailService.sendReceiptEmail(result.paymentTransaction.id).catch(error => {
+      logger.error('❌ Receipt email failed:', { transactionId: result.paymentTransaction.id, error });
     });
 
     // Extract PAR-Q data from metadata if provided
@@ -538,6 +585,27 @@ async function handleWalkInRegistrationPayment(reference: string) {
       }
     });
 
+    // Create comprehensive payment transaction record
+    const paymentTransaction = await prisma.paymentTransaction.create({
+      data: {
+        userId: user.id,
+        reference: pendingReg.paymentReference,
+        amount: pendingReg.amountPaid,
+        currency: 'GHS',
+        status: 'success',
+        paymentMethod: 'momo',
+        transactionType: 'subscription',
+        relatedEntityId: subscription.id,
+        relatedEntityType: 'subscription',
+        metadata: {
+          plan: pendingReg.plan,
+          registrationType: 'WALK_IN',
+          processedAt: new Date().toISOString()
+        },
+        paidAt: new Date(),
+      }
+    });
+
     // Delete pending registration
     await prisma.pendingRegistration.delete({
       where: { id: pendingReg.id }
@@ -547,6 +615,11 @@ async function handleWalkInRegistrationPayment(reference: string) {
       userId: user.id,
       email: user.email,
       reference,
+    });
+
+    // Send payment receipt email (async, don't wait)
+    ReceiptEmailService.sendReceiptEmail(paymentTransaction.id).catch(error => {
+      logger.error('❌ Walk-in receipt email failed:', { transactionId: paymentTransaction.id, error });
     });
 
   } catch (error) {
@@ -630,14 +703,26 @@ async function handleEventBookingPayment(reference: string) {
     });
 
     if (user && event) {
-      await sendEventBookingConfirmation(user.email, user.firstName, {
+      const eventData: {
+        eventTitle: string;
+        eventDate: string;
+        location: string;
+        ticketQRCode: string;
+        isFree: boolean;
+        price?: number;
+      } = {
         eventTitle: event.title,
         eventDate: event.eventDate.toISOString(),
         location: event.location || 'GemFitness Tema',
         ticketQRCode: ticketQRCode,
-        isFree: event.isFree,
-        price: event.price || undefined
-      });
+        isFree: event.isFree
+      };
+      
+      if (typeof event.price === 'number' && event.price > 0) {
+        eventData.price = event.price;
+      }
+      
+      await sendEventBookingConfirmation(user.email, user.firstName, eventData);
     }
 
   } catch (error) {
@@ -728,14 +813,26 @@ async function handleClassBookingPayment(reference: string) {
     });
 
     if (user && classData) {
-      await sendClassBookingConfirmation(user.email, user.firstName, {
+      const classBookingData: {
+        className: string;
+        instructor: string;
+        schedule: string;
+        bookedFor: string;
+        isFree: boolean;
+        price?: number;
+      } = {
         className: classData.name,
         instructor: classData.instructor,
         schedule: classData.schedule,
         bookedFor: pendingBooking.bookedFor.toISOString(),
-        isFree: classData.isFree,
-        price: classData.price || undefined
-      });
+        isFree: classData.isFree
+      };
+      
+      if (typeof classData.price === 'number' && classData.price > 0) {
+        classBookingData.price = classData.price;
+      }
+      
+      await sendClassBookingConfirmation(user.email, user.firstName, classBookingData);
     }
 
   } catch (error) {

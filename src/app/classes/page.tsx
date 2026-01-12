@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import PageHero from '@/components/PageHero';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { motion } from 'framer-motion';
 import { Dumbbell, Heart, Users, Flame, Zap, Target, Clock, CheckCircle2, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import PageHero from '@/components/PageHero';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 
 interface Class {
   id: string;
@@ -169,7 +169,7 @@ export default function ClassesPage() {
   };
 
   const getIconForType = (type: string) => {
-    const typeMap: Record<string, React.ComponentType<unknown>> = {
+    const typeMap: Record<string, React.ComponentType<{ className?: string }>> = {
       'Cardio': Heart,
       'HIIT': Flame,
       'Strength': Dumbbell,

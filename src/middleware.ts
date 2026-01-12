@@ -30,8 +30,12 @@ const publicRoutes = [
 
 // API routes that don't require authentication
 const publicApiRoutes = [
-  '/api/auth/signup',
   '/api/auth/login',
+  '/api/auth/verify-otp',
+  '/api/auth/resend-otp', 
+  '/api/auth/create-user-from-payment',
+  '/api/payment/initialize',
+  '/api/payment/verify',
   '/api/classes',
   '/api/events',
 ];

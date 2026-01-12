@@ -4,9 +4,9 @@ import { useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { XCircle, AlertTriangle, RefreshCw, Home, Mail, Phone, Loader2 } from 'lucide-react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import Link from 'next/link';
 
 interface PaymentError {
   reference?: string;
@@ -24,9 +24,9 @@ function PaymentFailedContent() {
   
   const [retrying, setRetrying] = useState(false);
   const error: PaymentError = {
-    reference: reference || undefined,
+    ...(reference && { reference }),
     message: message || 'Payment was not completed',
-    reason: reason || undefined,
+    ...(reason && { reason })
   };
 
   const getErrorMessage = () => {

@@ -10,15 +10,27 @@ const prisma = new PrismaClient({
   log: ['query', 'info', 'warn', 'error'],
 });
 
-async function testCheckIn() {
+async function testCheckIn(): Promise<void> {
   console.log('🔍 Testing check-in functionality...\n');
-
+  
   try {
     // 1. Check database connection
     console.log('1️⃣ Testing database connection...');
     await prisma.$connect();
     console.log('✅ Database connected successfully\n');
+    
+    // Call the helper function but don't use the return value
+    await findOrCreateTestMember();
+  } catch (error) {
+    console.error('❌ Error:', error);
+    throw error;
+  } finally {
+    await prisma.$disconnect();
+  }
+}
 
+async function findOrCreateTestMember() {
+  try {
     // 2. Get a member with active subscription
     console.log('2️⃣ Looking for member with active subscription...');
     const member = await prisma.user.findFirst({
@@ -103,9 +115,8 @@ async function testCheckIn() {
     return member;
 
   } catch (error) {
-    console.error('❌ Error:', error);
-  } finally {
-    await prisma.$disconnect();
+    console.error('❌ Error finding/creating test member:', error);
+    throw error;
   }
 }
 
@@ -194,6 +205,7 @@ async function createTestCheckIn() {
 
   } catch (error) {
     console.error('❌ Error creating check-in:', error);
+    throw error;
   } finally {
     await prisma.$disconnect();
   }

@@ -26,12 +26,12 @@ interface Event {
 }
 
 const pricingOptions = [
-  { name: 'Daily', price: '₦2,000', duration: '1 Day', features: ['Full Gym Access', 'All Classes', 'Equipment Usage'] },
-  { name: 'Weekly', price: '₦5,000', duration: '7 Days', features: ['Full Gym Access', 'All Classes', 'Equipment Usage', 'Guest Pass'] },
-  { name: 'Monthly', price: '₦15,000', duration: '30 Days', features: ['Full Gym Access', 'All Classes', 'Equipment Usage', 'Priority Booking', '1 Guest Pass'], popular: true },
-  { name: '3 Months', price: '₦38,000', duration: '90 Days', features: ['Full Gym Access', 'All Classes', 'Equipment Usage', 'Priority Booking', '2 Guest Passes', 'Nutrition Guide'] },
-  { name: '6 Months', price: '₦70,000', duration: '180 Days', features: ['Full Gym Access', 'All Classes', 'Equipment Usage', 'Priority Booking', '4 Guest Passes', 'Nutrition Guide', 'Progress Tracking'] },
-  { name: 'Annual', price: '₦120,000', duration: '365 Days', features: ['Full Gym Access', 'All Classes', 'Equipment Usage', 'Priority Booking', 'Unlimited Guest Passes', 'Nutrition Guide', 'Progress Tracking', 'Free Merchandise'], featured: true },
+  { name: 'Daily', price: 'GH₵20', duration: '1 Day', features: ['Full Gym Access', 'All Classes', 'Equipment Usage'] },
+  { name: 'Weekly', price: 'GH₵50', duration: '7 Days', features: ['Full Gym Access', 'All Classes', 'Equipment Usage', 'Guest Pass'] },
+  { name: 'Monthly', price: 'GH₵150', duration: '30 Days', features: ['Full Gym Access', 'All Classes', 'Equipment Usage', 'Priority Booking', '1 Guest Pass'], popular: true },
+  { name: '3 Months', price: 'GH₵400', duration: '90 Days', features: ['Full Gym Access', 'All Classes', 'Equipment Usage', 'Priority Booking', '2 Guest Passes', 'Nutrition Guide'] },
+  { name: '6 Months', price: 'GH₵750', duration: '180 Days', features: ['Full Gym Access', 'All Classes', 'Equipment Usage', 'Priority Booking', '4 Guest Passes', 'Nutrition Guide', 'Progress Tracking'] },
+  { name: 'Annual', price: 'GH₵1,400', duration: '365 Days', features: ['Full Gym Access', 'All Classes', 'Equipment Usage', 'Priority Booking', 'Unlimited Guest Passes', 'Nutrition Guide', 'Progress Tracking', 'Free Merchandise'], featured: true },
 ];
 
 export default function EventsPage() {
@@ -196,7 +196,7 @@ export default function EventsPage() {
                             <div className="flex items-center space-x-3">
                               <DollarSign className="w-4 h-4 text-orange-500" />
                               <span className="text-sm font-semibold text-gray-900">
-                                ₦{event.price?.toLocaleString()}
+                                GH₵{event.price?.toLocaleString()}
                               </span>
                             </div>
                           )}

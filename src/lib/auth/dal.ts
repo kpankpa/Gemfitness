@@ -1,7 +1,7 @@
 import 'server-only';
 import { cache } from 'react';
-import { getSession } from './session';
 import { prisma } from '@/lib/prisma';
+import { getSession } from './session';
 
 /**
  * Verify and get the current user's session
@@ -29,6 +29,46 @@ export async function verifySessionForApi() {
   }
 
   return { isAuth: true, userId: session.userId, role: session.role };
+}
+
+/**
+ * Enhanced session verification that includes user details for audit logging
+ */
+export async function verifySessionWithUserDetails() {
+  const session = await getSession();
+
+  if (!session?.userId) {
+    return { isAuth: false, userId: null, role: null, firstName: '', lastName: '', email: '' };
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        role: true
+      }
+    });
+
+    if (!user) {
+      return { isAuth: false, userId: null, role: null, firstName: '', lastName: '', email: '' };
+    }
+
+    return {
+      isAuth: true,
+      userId: user.id,
+      role: user.role,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email
+    };
+  } catch (error) {
+    console.error('Failed to fetch user details for session:', error);
+    return { isAuth: false, userId: null, role: null, firstName: '', lastName: '', email: '' };
+  }
 }
 
 /**

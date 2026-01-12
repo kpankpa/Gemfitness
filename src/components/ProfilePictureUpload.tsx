@@ -2,9 +2,9 @@
 
 import { useState, useRef } from 'react';
 import { Camera, Upload, User, Trash2 } from 'lucide-react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import Image from 'next/image';
 
 interface ProfilePictureUploadProps {
   currentImage?: string | null;

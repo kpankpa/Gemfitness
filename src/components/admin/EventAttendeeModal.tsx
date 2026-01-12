@@ -15,8 +15,8 @@ import {
   Calendar,
   MapPin
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import Image from 'next/image';
+import { Button } from '@/components/ui/button';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 
 interface Attendee {

@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 import {
   Mail,
   Lock,
@@ -12,12 +12,15 @@ import {
   EyeOff,
   ArrowRight,
   AlertCircle,
+  CheckCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function LoginPage() {
-  const router = useRouter();
+  const searchParams = useSearchParams();
+  const verified = searchParams.get('verified');
+  
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -26,6 +29,18 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  // Show success message if redirected from verification
+  useEffect(() => {
+    if (verified === 'true') {
+      // Use a timeout to avoid calling setState synchronously in effect
+      const timer = setTimeout(() => {
+        setSuccessMessage('Email verified successfully! You can now login.');
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [verified]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -57,6 +72,11 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (!response.ok) {
+        // Check if email verification is needed
+        if (data.needsVerification && data.redirectUrl) {
+          window.location.href = data.redirectUrl;
+          return;
+        }
         setError(data.error || 'Login failed. Please try again.');
         setIsSubmitting(false);
         return;
@@ -140,6 +160,18 @@ export default function LoginPage() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-5">
+                {/* Success Message */}
+                {successMessage && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3"
+                  >
+                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-green-700">{successMessage}</p>
+                  </motion.div>
+                )}
+
                 {/* Error Message */}
                 {error && (
                   <motion.div

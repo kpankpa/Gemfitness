@@ -2,13 +2,6 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import QRCodeDisplay from '@/components/QRCodeDisplay';
-import ParQBanner from '@/components/ParQBanner';
-import ProfileCompletionBanner from '@/components/ProfileCompletionBanner';
-import ProfilePictureUpload from '@/components/ProfilePictureUpload';
 import { 
   User, 
   Mail, 
@@ -32,6 +25,13 @@ import {
   Zap,
   TrendingDown,
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import QRCodeDisplay from '@/components/QRCodeDisplay';
+import ParQBanner from '@/components/ParQBanner';
+import ProfileCompletionBanner from '@/components/ProfileCompletionBanner';
+import ProfilePictureUpload from '@/components/ProfilePictureUpload';
 
 type UserData = {
   id: string;
@@ -879,7 +879,7 @@ export default function MemberDashboardPage() {
                 </button>
               </div>
               <ProfilePictureUpload
-                currentImage={userData?.profileImage}
+                currentImage={userData?.profileImage || null}
                 onUploadSuccess={() => {
                   // Update user context or refetch user data
                   window.location.reload();

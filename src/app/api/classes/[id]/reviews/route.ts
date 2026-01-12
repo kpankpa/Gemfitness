@@ -4,7 +4,7 @@ import { verifySessionForApi } from '@/lib/auth/dal';
 
 // GET /api/classes/[id]/reviews - Get class reviews
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

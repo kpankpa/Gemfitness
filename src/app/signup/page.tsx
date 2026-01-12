@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Script from 'next/script';
 import {
   User,
@@ -15,19 +15,26 @@ import {
   ArrowRight,
   AlertCircle,
 } from 'lucide-react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import Link from 'next/link';
 
 // Declare PaystackPop for TypeScript
 declare global {
   interface Window {
     PaystackPop: {
+      new(): {
+        resumeTransaction: (accessCode: string, options: {
+          onSuccess: (response: { reference: string }) => void;
+          onCancel: () => void;
+        }) => void;
+      };
       setup: (config: {
         key: string;
         email: string;
         amount: number;
         ref: string;
+        currency?: string;
         metadata?: Record<string, unknown>;
         callback: (response: { reference: string }) => void;
         onClose: () => void;
@@ -95,7 +102,6 @@ const membershipPlans = {
 
 export default function SignupPage() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const planParam = searchParams.get('plan') || 'quarterly';
   const [selectedPlan, setSelectedPlan] = useState(planParam);
   const [paystackLoaded, setPaystackLoaded] = useState(false);
@@ -124,6 +130,8 @@ export default function SignupPage() {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [lastSubmissionTime, setLastSubmissionTime] = useState(0);
+  const SUBMISSION_COOLDOWN = 3000; // 3 seconds between submissions
   const [error, setError] = useState('');
 
   // Update selected plan when URL parameter changes
@@ -149,7 +157,18 @@ export default function SignupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Prevent rapid submissions
+    const now = Date.now();
+    if (now - lastSubmissionTime < SUBMISSION_COOLDOWN) {
+      setError(`Please wait ${Math.ceil((SUBMISSION_COOLDOWN - (now - lastSubmissionTime)) / 1000)} seconds before submitting again.`);
+      return;
+    }
+
+    if (isSubmitting) return;
+    
     setIsSubmitting(true);
+    setLastSubmissionTime(now);
     setError('');
 
     try {
@@ -227,37 +246,9 @@ export default function SignupPage() {
         return;
       }
 
-      const handler = window.PaystackPop.setup({
-        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || 'pk_test_b09cfa8996ae56391d703103fd0d68b6ac14b5b4',
-        email: formData.email,
-        amount: total * 100, // Amount in kobo
-        ref: paymentData.data.reference,
-        metadata: {
-          custom_fields: [
-            {
-              display_name: 'Member Name',
-              variable_name: 'member_name',
-              value: `${formData.firstName} ${formData.lastName}`,
-            },
-            {
-              display_name: 'Membership Plan',
-              variable_name: 'plan',
-              value: selectedPlan,
-            },
-          ],
-        },
-        callback: (response) => {
-          // Payment successful - redirect to success page
-          router.push(`/payment/success?reference=${response.reference}`);
-        },
-        onClose: () => {
-          // User closed the popup
-          setIsSubmitting(false);
-          setError('Payment cancelled. Please try again when ready.');
-        },
-      });
-
-      handler.openIframe();
+      // Redirect to Paystack checkout page using the authorization_url
+      // This is the most reliable method as the transaction is already initialized
+      window.location.href = paymentData.data.authorization_url;
     } catch (error) {
       console.error('Payment error:', error);
       setError('An error occurred. Please try again.');

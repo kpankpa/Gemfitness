@@ -92,7 +92,7 @@ export async function POST(
 
 // GET /api/events/[id]/deadline - Check deadline status
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

@@ -14,12 +14,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { hash } from 'bcryptjs';
 import { $Enums } from '@prisma/client';
+import { z } from 'zod';
+import { prisma } from '@/lib/prisma';
 import { paystackService } from '@/lib/services/paystack';
 import { verifySessionForApi } from '@/lib/auth/dal';
-import { z } from 'zod';
+import { ReceiptEmailService } from '@/lib/services/payment/receipt-generator';
 
 const walkInRegistrationSchema = z.object({
   // Basic info
@@ -405,9 +406,36 @@ async function completeRegistration(pendingId: string) {
     }
   });
 
+  // Create comprehensive payment transaction record
+  const paymentTransaction = await prisma.paymentTransaction.create({
+    data: {
+      userId: user.id,
+      reference: pending.paymentReference,
+      amount: pending.amountPaid,
+      currency: 'GHS',
+      status: 'success',
+      paymentMethod: pending.paymentMethod.toLowerCase(),
+      transactionType: 'subscription',
+      relatedEntityId: subscription.id,
+      relatedEntityType: 'subscription',
+      metadata: {
+        plan: pending.plan,
+        registrationType: 'WALK_IN',
+        processedAt: new Date().toISOString(),
+        staffProcessed: true
+      },
+      paidAt: new Date(),
+    }
+  });
+
   // Delete pending registration
   await prisma.pendingRegistration.delete({
     where: { id: pending.id }
+  });
+
+  // Send payment receipt email (async, don't wait)
+  ReceiptEmailService.sendReceiptEmail(paymentTransaction.id).catch(error => {
+    console.error('❌ Walk-in receipt email failed:', { transactionId: paymentTransaction.id, error });
   });
 
   return {

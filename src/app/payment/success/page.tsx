@@ -4,9 +4,9 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { CheckCircle, Home, User, CreditCard, Loader2 } from 'lucide-react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import Link from 'next/link';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 
 interface PaymentData {
@@ -74,15 +74,68 @@ function PaymentSuccessContent() {
 
         setPaymentData(verifyData);
 
-        // Fetch user data (payment webhook should have created the user)
-        // Wait a bit for webhook to process
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        const userResponse = await fetch('/api/auth/session');
-        const sessionData = await userResponse.json();
+        // For new signups, prioritize creating user from payment data over existing sessions
+        // This prevents admin sessions from interfering with new user registration
+        if (verifyData.customer?.email) {
+          console.log('Processing new user signup from payment data...');
+          
+          try {
+            const createUserResponse = await fetch('/api/auth/create-user-from-payment', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                paymentData: verifyData,
+                reference: reference,
+              }),
+            });
 
-        if (userResponse.ok && sessionData.user) {
-          setUserData(sessionData.user);
+            const createUserData = await createUserResponse.json();
+            
+            if (createUserResponse.ok && createUserData.success) {
+              console.log('User created successfully, redirecting to verification');
+              // Always use the payment customer email, not any existing session
+              router.push(`/verify-email?email=${encodeURIComponent(verifyData.customer.email)}`);
+              return;
+            } else {
+              console.error('Failed to create user:', createUserData.message);
+              // If user already exists, still redirect to verify with payment email
+              if (createUserData.error === 'DUPLICATE_USER') {
+                router.push(`/verify-email?email=${encodeURIComponent(verifyData.customer.email)}`);
+                return;
+              }
+            }
+          } catch (error) {
+            console.error('Error creating user:', error);
+          }
+        }
+
+        // Fallback: Try to fetch existing user session (for cases where user already exists)
+        let userSession = null;
+        try {
+          const userResponse = await fetch('/api/auth/session');
+          const sessionData = await userResponse.json();
+          if (userResponse.ok && sessionData.user) {
+            userSession = sessionData.user;
+          }
+        } catch {
+          console.log('No session found');
+        }
+
+        // Only use existing session if it matches the payment email
+        if (userSession && userSession.email === verifyData.customer?.email) {
+          setUserData(userSession);
+          
+          // Check if email verification is needed
+          if (!userSession.emailVerified) {
+            router.push(`/verify-email?email=${encodeURIComponent(userSession.email)}`);
+            return;
+          }
+        } else if (verifyData.customer?.email) {
+          // If session doesn't match payment email, use payment email for verification
+          router.push(`/verify-email?email=${encodeURIComponent(verifyData.customer.email)}`);
+          return;
         }
 
         setLoading(false);
@@ -94,7 +147,7 @@ function PaymentSuccessContent() {
     };
 
     verifyPayment();
-  }, [reference]);
+  }, [reference, router]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-GH', {

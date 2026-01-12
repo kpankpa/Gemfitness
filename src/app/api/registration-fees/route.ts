@@ -19,7 +19,6 @@ import { isAdmin } from '@/lib/auth/permissions';
 // GET /api/registration-fees - Get all registration fees
 export async function GET() {
   try {
-    // @ts-expect-error - registrationFee model exists after prisma generate
     const fees = await prisma.registrationFee.findMany({
       where: {
         status: 'ACTIVE',
@@ -32,7 +31,6 @@ export async function GET() {
     // If no fees exist, seed with default values
     if (fees.length === 0) {
       const defaultFees = await Promise.all([
-        // @ts-expect-error - registrationFee model exists after prisma generate
         prisma.registrationFee.create({
           data: {
             type: 'SINGLE',
@@ -44,7 +42,6 @@ export async function GET() {
             currency: 'GH₵',
           },
         }),
-        // @ts-expect-error - registrationFee model exists after prisma generate
         prisma.registrationFee.create({
           data: {
             type: 'COUPLE',
@@ -56,7 +53,6 @@ export async function GET() {
             currency: 'GH₵',
           },
         }),
-        // @ts-expect-error - registrationFee model exists after prisma generate
         prisma.registrationFee.create({
           data: {
             type: 'FAMILY',
@@ -114,13 +110,12 @@ export async function PUT(req: Request) {
 
     // Update each fee
     const updates = fees.map((fee: { type: string; price: number; description?: string; maxMembers?: number }) =>
-      // @ts-expect-error - registrationFee model exists after prisma generate
       prisma.registrationFee.updateMany({
         where: { type: fee.type },
         data: {
           price: fee.price,
-          description: fee.description,
-          maxMembers: fee.maxMembers,
+          ...(fee.description !== undefined && { description: fee.description }),
+          ...(fee.maxMembers !== undefined && { maxMembers: fee.maxMembers }),
           updatedAt: new Date(),
         },
       })
@@ -129,7 +124,6 @@ export async function PUT(req: Request) {
     await Promise.all(updates);
 
     // Fetch updated fees
-    // @ts-expect-error - registrationFee model exists after prisma generate
     const updatedFees = await prisma.registrationFee.findMany({
       where: {
         status: 'ACTIVE',

@@ -64,7 +64,7 @@ export async function POST(
 
 // DELETE /api/classes/templates/[id] - Delete template
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

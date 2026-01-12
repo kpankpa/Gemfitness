@@ -4,6 +4,7 @@ import { verifyPassword } from '@/lib/auth/passwords';
 import { createSession } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
 import logger, { logAuth, logError } from '@/lib/logger';
+import { AuditLogger, getClientInfo } from '@/lib/audit/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,9 +50,40 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         email: user.email,
       });
+
+      // Log failed login attempt
+      const { ipAddress, userAgent } = getClientInfo(request);
+      await AuditLogger.logAuth(
+        'login_failed',
+        user.id,
+        `${user.firstName} ${user.lastName}`,
+        user.email,
+        ipAddress,
+        userAgent,
+        { reason: 'invalid_password' }
+      );
+
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
+      );
+    }
+
+    // Check if email is verified (only for members, staff can login without verification)
+    if (user.role === 'MEMBER' && !user.emailVerified) {
+      logger.warn('Login attempt with unverified email', { 
+        userId: user.id,
+        email: user.email,
+      });
+
+      return NextResponse.json(
+        { 
+          error: 'Email not verified',
+          needsVerification: true,
+          email: user.email,
+          redirectUrl: `/verify-email?email=${encodeURIComponent(user.email)}`,
+        },
+        { status: 403 }
       );
     }
 
@@ -75,6 +107,18 @@ export async function POST(request: NextRequest) {
       email: user.email,
       role: user.role,
     });
+
+    // Log successful login
+    const { ipAddress, userAgent } = getClientInfo(request);
+    await AuditLogger.logAuth(
+      'login',
+      user.id,
+      `${user.firstName} ${user.lastName}`,
+      user.email,
+      ipAddress,
+      userAgent,
+      { role: user.role, sessionCreated: true }
+    );
 
     // Determine redirect based on role
     const redirectMap: Record<string, string> = {

@@ -1,8 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { 
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
@@ -11,6 +9,8 @@ import {
   DollarSign, Users, TrendingUp, Calendar, Download, 
   Filter, Activity, Award
 } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 interface Transaction {
   date: Date | string;
@@ -153,9 +153,9 @@ export default function ReportsAnalytics() {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
+    return new Intl.NumberFormat('en-GH', {
       style: 'currency',
-      currency: 'NGN'
+      currency: 'GHS',
     }).format(amount);
   };
 
@@ -356,7 +356,7 @@ function RevenueReport({ data, formatCurrency }: { data: ReportData; formatCurre
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={data.breakdown.daily}>
+            <LineChart data={data.breakdown.daily || []}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis />
@@ -378,7 +378,7 @@ function RevenueReport({ data, formatCurrency }: { data: ReportData; formatCurre
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={data.breakdown.byPlan}
+                  data={data.breakdown?.byPlan || []}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -386,7 +386,7 @@ function RevenueReport({ data, formatCurrency }: { data: ReportData; formatCurre
                   fill="#8884d8"
                   dataKey="revenue"
                 >
-                  {data.breakdown.byPlan?.map((entry, index) => (
+                  {data.breakdown.byPlan?.map((_entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -480,7 +480,7 @@ function AttendanceReport({ data }: { data: ReportData }) {
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.breakdown.daily}>
+            <BarChart data={data.breakdown?.daily || []}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis />
@@ -500,7 +500,7 @@ function AttendanceReport({ data }: { data: ReportData }) {
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.breakdown.hourly}>
+            <BarChart data={data.breakdown?.hourly || []}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="hour" />
               <YAxis />
@@ -593,7 +593,7 @@ function MemberGrowthReport({ data }: { data: ReportData }) {
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={data.breakdown.daily}>
+            <LineChart data={data.breakdown?.daily || []}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis />

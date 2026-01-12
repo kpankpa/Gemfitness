@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { $Enums } from '@prisma/client';
 import { verifySessionForApi } from '@/lib/auth/dal';
 import { prisma } from '@/lib/prisma';
-import { $Enums } from '@prisma/client';
 import { getEventStatus } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';

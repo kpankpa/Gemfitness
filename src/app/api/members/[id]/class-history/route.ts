@@ -4,7 +4,7 @@ import { verifySessionForApi } from '@/lib/auth/dal';
 
 // GET /api/members/[id]/class-history - Get member's class history
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

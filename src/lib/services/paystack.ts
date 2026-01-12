@@ -71,6 +71,13 @@ export class PaystackService {
         channels: paymentData.channels || ['card', 'bank', 'ussd', 'qr', 'mobile_money'],
       };
 
+      // Debug logging for currency
+      console.log('🔍 Paystack payload currency debug:', {
+        passedCurrency: paymentData.currency,
+        finalCurrency: payload.currency,
+        fullPayload: payload
+      });
+
       if (paymentData.callback_url) {
         payload.callback_url = paymentData.callback_url;
       }
@@ -179,7 +186,7 @@ export class PaystackService {
       reference,
       currency: 'GHS',
       channels: ['card', 'bank'],
-      metadata,
+      ...(metadata && { metadata }),
     });
     
     const data = response.data as { authorization_url: string; access_code: string; reference: string };
@@ -246,9 +253,18 @@ export class PaystackService {
    * Generate payment reference
    */
   generateReference(prefix: string = 'GYM'): string {
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-    return `${prefix}_${timestamp}_${random}`;
+    // Use multiple entropy sources for maximum uniqueness
+    const now = new Date();
+    const randomBytes = crypto.randomBytes(8).toString('hex').toUpperCase();
+    const dateString = now.toISOString().replace(/[-:T]/g, '').substring(0, 14);
+    const nanoTime = process.hrtime.bigint().toString().slice(-8);
+    
+    // Format: PREFIX_YYYYMMDDHHMMSS_RANDOMHEX_NANOTIME
+    const reference = `${prefix}_${dateString}_${randomBytes}_${nanoTime}`;
+    
+    console.log('🔍 Generated reference:', reference);
+    
+    return reference;
   }
 
   /**

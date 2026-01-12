@@ -85,7 +85,7 @@ export default function WebcamQRScanner({ onScan, onClose }: WebcamQRScannerProp
 
   // Simplified QR detection - looks for GYM|<token> pattern in pixel data
   // In production, use jsQR library for proper QR decoding
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   const decodeQRFromImageData = (_imageData: ImageData): string | null => {
     // This is a placeholder. For real QR scanning, you'd need jsQR library
     // For now, we'll return null and recommend using the barcode scanner method

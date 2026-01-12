@@ -152,7 +152,7 @@ export async function POST(
         schedule: waitlistEntry.class.schedule,
         bookedFor: result.bookedFor.toISOString(),
         isFree: waitlistEntry.class.isFree,
-        price: waitlistEntry.class.price ?? undefined,
+        ...(waitlistEntry.class.price !== null && { price: waitlistEntry.class.price }),
       }
     );
 

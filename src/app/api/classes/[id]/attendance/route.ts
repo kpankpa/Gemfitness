@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
  * This correlates class enrollments with gym check-ins during class time
  */
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { $Enums } from '@prisma/client';
 import { verifySessionForApi } from '@/lib/auth/dal';
 import { prisma } from '@/lib/prisma';
-import { $Enums } from '@prisma/client';
 import { getEventStatus } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
  * Get details of a specific event
  */
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -196,7 +196,7 @@ export async function PUT(
  * Requires MANAGER or ADMIN role
  */
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

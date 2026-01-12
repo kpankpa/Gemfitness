@@ -3,8 +3,8 @@
 import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { QrCode, Camera, AlertCircle } from 'lucide-react';
-import { Button } from './ui/button';
 import { Input } from '@/components/ui/input';
+import { Button } from './ui/button';
 import { useToast } from './ToastProvider';
 
 interface QRScannerProps {
@@ -194,12 +194,12 @@ export default function QRScanner({ onScan, onError, placeholder = 'Enter or sca
         <div className="bg-white rounded-lg p-6 z-10 w-full max-w-md">
           {lookupResult.data && lookupResult.data.success ? (
             <>
-              <h3 className="text-lg font-bold">{lookupResult.data.user.firstName} {lookupResult.data.user.lastName}</h3>
-              <p className="text-sm text-gray-600">Membership: {lookupResult.data.membership.status}{lookupResult.data.membership.daysLeft ? ` — ${lookupResult.data.membership.daysLeft} days left` : ''}</p>
+              <h3 className="text-lg font-bold">{lookupResult.data.user?.firstName} {lookupResult.data.user?.lastName}</h3>
+              <p className="text-sm text-gray-600">Membership: {lookupResult.data.membership?.status}{lookupResult.data.membership?.daysLeft ? ` — ${lookupResult.data.membership.daysLeft} days left` : ''}</p>
               <p className="text-sm text-gray-600">Last check-in: {lookupResult.data.lastCheckIn ? new Date(lookupResult.data.lastCheckIn).toLocaleString() : 'Never'}</p>
               <div className="mt-4 flex gap-2">
-                <button className="bg-green-500 text-white px-4 py-2 rounded" onClick={() => handleConfirmCheckIn(lookupResult.code)}>Check In</button>
-                <button className="bg-yellow-500 text-white px-4 py-2 rounded" onClick={() => handleConfirmCheckIn(lookupResult.code, true)}>Force Check-in</button>
+                <button className="bg-green-500 text-white px-4 py-2 rounded" onClick={() => lookupResult.code && handleConfirmCheckIn(lookupResult.code)}>Check In</button>
+                <button className="bg-yellow-500 text-white px-4 py-2 rounded" onClick={() => lookupResult.code && handleConfirmCheckIn(lookupResult.code, true)}>Force Check-in</button>
                 <button className="border px-4 py-2 rounded" onClick={() => setLookupResult(null)}>Cancel</button>
               </div>
               {lookupResult.success && (

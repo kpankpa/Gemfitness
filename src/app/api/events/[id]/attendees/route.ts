@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
  * Get list of all attendees/registrations for an event
  */
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

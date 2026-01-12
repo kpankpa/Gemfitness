@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Search, UserPlus, UserMinus, Download, Mail, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import Image from 'next/image';
+import { Button } from '@/components/ui/button';
 
 interface EnrolledMember {
   id: string;

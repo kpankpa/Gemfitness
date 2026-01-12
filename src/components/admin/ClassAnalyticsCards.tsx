@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Users, TrendingUp, Target, BarChart3 } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface ClassAnalytics {
   summary: {

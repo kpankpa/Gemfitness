@@ -10,11 +10,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { isAdminOrManager } from '@/lib/auth/permissions';
 import { verifySessionForApi } from '@/lib/auth/dal';
-import { z } from 'zod';
-import { Prisma } from '@prisma/client';
 import { processMemberImage, ImageValidationError } from '../../../../lib/image/processor';
 
 // Validation schema for updating member
@@ -33,7 +33,7 @@ const updateMemberSchema = z.object({
 
 // GET /api/members/[id] - Fetch single member
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -145,21 +145,24 @@ export async function PUT(
     // Update member (handle unique constraint via Prisma)
     let updatedMember;
     try {
+      // Build update data object conditionally to handle exactOptionalPropertyTypes
+      const updateData: any = {};
+      if (validatedData.firstName !== undefined) updateData.firstName = validatedData.firstName;
+      if (validatedData.lastName !== undefined) updateData.lastName = validatedData.lastName;
+      if (validatedData.email !== undefined) updateData.email = validatedData.email;
+      if (validatedData.phone !== undefined) updateData.phone = validatedData.phone;
+      if (validatedData.dateOfBirth !== undefined) updateData.dateOfBirth = validatedData.dateOfBirth;
+      if (validatedData.address !== undefined) updateData.address = validatedData.address;
+      if (validatedData.emergencyContact !== undefined) updateData.emergencyContact = validatedData.emergencyContact;
+      if (validatedData.emergencyPhone !== undefined) updateData.emergencyPhone = validatedData.emergencyPhone;
+      if (validatedData.fitnessGoals !== undefined) updateData.fitnessGoals = validatedData.fitnessGoals;
+      if (validatedData.medicalConditions !== undefined) updateData.medicalConditions = validatedData.medicalConditions;
+      const profileImage = (validatedData as Partial<Record<string, unknown>>).profileImage as string | undefined;
+      if (profileImage !== undefined) updateData.profileImage = profileImage;
+
       updatedMember = await prisma.user.update({
         where: { id },
-        data: {
-          firstName: validatedData.firstName,
-          lastName: validatedData.lastName,
-          email: validatedData.email,
-          phone: validatedData.phone,
-          dateOfBirth: validatedData.dateOfBirth,
-          address: validatedData.address,
-          emergencyContact: validatedData.emergencyContact,
-          emergencyPhone: validatedData.emergencyPhone,
-          fitnessGoals: validatedData.fitnessGoals,
-          medicalConditions: validatedData.medicalConditions,
-          profileImage: (validatedData as Partial<Record<string, unknown>>).profileImage as string | undefined || undefined
-        }
+        data: updateData
       });
     } catch (err: unknown) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
@@ -189,7 +192,7 @@ export async function PUT(
 
 // DELETE /api/members/[id] - Delete member (admin only)
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

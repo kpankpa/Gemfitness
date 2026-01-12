@@ -1,0 +1,46 @@
+{
+  // TypeScript and ESLint settings
+  "typescript.preferences.includePackageJsonAutoImports": "off",
+  "typescript.suggest.autoImports": false,
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  
+  // ESLint settings
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact"
+  ],
+  "eslint.format.enable": true,
+  "eslint.codeAction.showDocumentation": {
+    "enable": true
+  },
+  
+  // Editor settings to catch issues early
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "explicit",
+    "source.removeUnusedImports": "explicit"
+  },
+  
+  // TypeScript compiler options in editor
+  "typescript.preferences.noSemicolons": "off",
+  "typescript.validate.enable": true,
+  
+  // File associations
+  "files.associations": {
+    "*.mjs": "javascript"
+  },
+  
+  // Problems panel configuration
+  "problems.decorations.enabled": true,
+  "problems.showCurrentInStatus": true,
+  
+  // Workbench settings for better error visibility  
+  "workbench.colorCustomizations": {
+    "editorError.foreground": "#ff0000",
+    "editorWarning.foreground": "#ff8800",
+    "editorInfo.foreground": "#0088ff"
+  }
+}

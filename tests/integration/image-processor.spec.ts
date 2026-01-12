@@ -1,6 +1,6 @@
+import fs from 'fs/promises';
 import { describe, it, expect, afterAll } from 'vitest';
 import { processMemberImage, removeMemberImages } from '../../src/lib/image/processor';
-import fs from 'fs/promises';
 
 // tiny 1x1 PNG base64 (valid minimal PNG)
 const tinyPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAAWgmWQ0AAAAASUVORK5CYII=';

@@ -1,8 +1,5 @@
 'use client';
 
-import PageHero from '@/components/PageHero';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { motion } from 'framer-motion';
 import {
   MapPin,
@@ -18,6 +15,9 @@ import {
   Youtube,
 } from 'lucide-react';
 import { useState } from 'react';
+import PageHero from '@/components/PageHero';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 
 const contactInfo = [
   {

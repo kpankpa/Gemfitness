@@ -3,25 +3,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 
-interface PaystackConfig {
-  key: string | undefined;
-  email: string;
-  amount: number;
-  currency: string;
-  reference: string;
-  metadata: {
-    eventId: string;
-    eventTitle: string;
-  };
-  callback: (response: PaystackResponse) => void;
-  onClose: () => void;
-}
-
-interface PaystackResponse {
-  status: string;
-  reference: string;
-}
-
 interface PaystackPaymentProps {
   amount: number;
   eventId: string;
@@ -30,16 +11,6 @@ interface PaystackPaymentProps {
   onSuccess: (reference: string) => void;
   onError: (error: string) => void;
   disabled?: boolean;
-}
-
-declare global {
-  interface Window {
-    PaystackPop: {
-      setup: (config: PaystackConfig) => {
-        openIframe: () => void;
-      };
-    };
-  }
 }
 
 export default function PaystackPayment({
@@ -64,18 +35,18 @@ export default function PaystackPayment({
     const reference = `EVT-${eventId.slice(-6).toUpperCase()}-${Date.now()}`;
 
     const handler = window.PaystackPop.setup({
-      key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
+      key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY!,
       email: userEmail,
       amount: amount * 100, // Convert to kobo
-      currency: 'GHS',
-      reference,
+      currency: 'GHS', // Ghana Cedis
+      ref: reference,
       metadata: {
         eventId,
         eventTitle,
       },
-      callback: function(response: PaystackResponse) {
+      callback: function(response: { reference: string }) {
         setIsProcessing(false);
-        if (response.status === 'success') {
+        if (response.reference) {
           onSuccess(response.reference);
         } else {
           onError('Payment was not completed');

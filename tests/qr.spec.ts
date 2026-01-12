@@ -3,7 +3,7 @@ import { validateQRCode, extractTokenFromQR, generateMemberQRCode } from '../src
 
 describe('QR utils', () => {
   it('validates generated QR', async () => {
-    const res = await generateMemberQRCode('test-id');
+    const res = await generateMemberQRCode();
     expect(res.qrCodeString.startsWith('GYM|')).toBe(true);
     expect(validateQRCode(res.qrCodeString)).toBe(true);
     const token = extractTokenFromQR(res.qrCodeString);

@@ -1,7 +1,7 @@
+import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifySessionForApi } from '@/lib/auth/dal';
-import crypto from 'crypto';
 
 // POST /api/events/[id]/checkin - Check in attendee with QR code
 export async function POST(
@@ -170,7 +170,7 @@ export async function POST(
 
 // GET /api/events/[id]/checkin - Get check-in statistics
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

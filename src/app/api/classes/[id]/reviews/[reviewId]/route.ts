@@ -4,7 +4,7 @@ import { verifySessionForApi } from '@/lib/auth/dal';
 
 // DELETE /api/classes/[id]/reviews/[reviewId] - Delete review
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string; reviewId: string }> }
 ) {
   try {

@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { MembershipPlan } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { verifySessionForApi } from '@/lib/auth/dal';
 import { isAdmin } from '@/lib/auth/permissions';
 import { updatePlanSchema } from '@/lib/validation/schemas';
-import type { MembershipPlan } from '@prisma/client';
 
 // GET /api/plans/[id] - Get single plan details
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -183,7 +183,7 @@ export async function PUT(
 
 // DELETE /api/plans/[id] - Archive plan (soft delete)
 export async function DELETE(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

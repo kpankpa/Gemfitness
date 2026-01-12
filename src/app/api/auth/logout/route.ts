@@ -1,11 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { deleteSession } from '@/lib/auth/session';
-import { verifySessionForApi } from '@/lib/auth/dal';
+import { verifySessionWithUserDetails } from '@/lib/auth/dal';
 import logger, { logAuth } from '@/lib/logger';
+import { AuditLogger, getClientInfo } from '@/lib/audit/logger';
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    const session = await verifySessionForApi();
+    const session = await verifySessionWithUserDetails();
 
     if (session.isAuth && session.userId) {
       logger.info('User logged out', {
@@ -13,6 +14,17 @@ export async function POST() {
       });
 
       logAuth('LOGOUT', session.userId);
+
+      // Log logout event
+      const { ipAddress, userAgent } = getClientInfo(request);
+      await AuditLogger.logAuth(
+        'logout',
+        session.userId,
+        `${session.firstName} ${session.lastName}`,
+        session.email,
+        ipAddress,
+        userAgent
+      );
     }
 
     await deleteSession();

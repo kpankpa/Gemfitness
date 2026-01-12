@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import bcrypt from 'bcryptjs';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { verifySessionForApi } from '@/lib/auth/dal';
 import { isAdmin } from '@/lib/auth/permissions';
-import bcrypt from 'bcryptjs';
-import { Prisma } from '@prisma/client';
 
 // GET /api/staff/[id] - Get single staff member details
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -215,7 +215,7 @@ export async function PUT(
 
 // DELETE /api/staff/[id] - Delete staff member
 export async function DELETE(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

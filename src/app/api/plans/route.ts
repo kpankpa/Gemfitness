@@ -132,7 +132,7 @@ export async function POST(req: Request) {
       data: {
         name,
         slug,
-        description,
+        ...(description && { description }),
         price,
         duration,
         durationUnit,

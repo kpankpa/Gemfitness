@@ -1,8 +1,5 @@
 'use client';
 
-import PageHero from '@/components/PageHero';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { motion } from 'framer-motion';
 import {
   Check,
@@ -21,6 +18,9 @@ import {
   Shield,
 } from 'lucide-react';
 import Link from 'next/link';
+import PageHero from '@/components/PageHero';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 
 const membershipPlans = [
   {

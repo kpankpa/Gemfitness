@@ -5,7 +5,7 @@ import { sendEmail } from '@/lib/services/email/mock';
 
 // POST /api/classes/[id]/waitlist/notify - Notify next person on waitlist
 export async function POST(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

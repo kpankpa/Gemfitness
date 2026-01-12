@@ -10,12 +10,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { hash } from 'bcryptjs';
 import { $Enums, Prisma } from '@prisma/client';
-import { generateMemberQRCode } from '@/lib/qr/generator';
 import { z } from 'zod';
-import { verifySessionForApi } from '@/lib/auth/dal';
+import { generateMemberQRCode } from '@/lib/qr/generator';
+import { prisma } from '@/lib/prisma';
+import { verifySessionForApi, verifySessionWithUserDetails } from '@/lib/auth/dal';
+import { AuditLogger, getClientInfo } from '@/lib/audit/logger';
 import { processMemberImage, ImageValidationError } from '../../../lib/image/processor';
 
 // GET /api/members - Fetch all members
@@ -142,7 +143,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // Auth: require staff
-    const session = await verifySessionForApi();
+    const session = await verifySessionWithUserDetails();
     if (!session?.isAuth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     if (!['ADMIN', 'MANAGER', 'RECEPTIONIST'].includes(session.role || '')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -215,22 +216,24 @@ export async function POST(request: NextRequest) {
     });
 
     // Create PAR-Q response
-    const parqAnswered = hasHeartCondition || hasChestPain || hasDizziness || hasJointProblems || takesMedication || hasOtherConditions;
+    // Compute risk level based on responses
     const yesCount = [hasHeartCondition, hasChestPain, hasDizziness, hasJointProblems, takesMedication, hasOtherConditions].filter(Boolean).length;
     const riskLevel = yesCount === 0 ? 'LOW' : yesCount <= 2 ? 'MEDIUM' : 'HIGH';
 
     await prisma.parQResponse.create({
       data: {
         userId: user.id,
-        type: 'BASIC',
-        hasHeartCondition,
-        hasChestPain,
-        hasDizziness,
-        hasJointProblems,
-        takesMedication,
-        hasOtherConditions,
-        otherConditionsDetails: otherConditionsDetails || '',
-        riskLevel: riskLevel as $Enums.RiskLevel
+        responses: JSON.stringify({
+          hasHeartCondition,
+          hasChestPain,
+          hasDizziness,
+          hasJointProblems,
+          takesMedication,
+          hasOtherConditions
+        }),
+        otherReasonDetails: otherConditionsDetails || '',
+        riskLevel: riskLevel,
+        completedAt: new Date()
       }
     });
 
@@ -240,13 +243,11 @@ export async function POST(request: NextRequest) {
       data: {
         parqCompleted: true,
         parqCompletedAt: new Date(),
-        parqRiskLevel: riskLevel as $Enums.RiskLevel
+        parqRiskLevel: riskLevel
       }
     });
 
-    // For now, automatically mark registration as paid and create subscription
     const planPrices = {
-      'ONE_MONTH': 200,
       'THREE_MONTHS': 500,
       'ONE_YEAR': 1800
     };
@@ -302,6 +303,7 @@ export async function POST(request: NextRequest) {
       where: { id: user.id },
       data: { registrationPaid: true }
     });
+
     // Handle profile image file upload if provided (multipart/form-data)
     try {
       if (profileFile) {
@@ -331,6 +333,31 @@ export async function POST(request: NextRequest) {
     } catch (err: unknown) {
       console.warn('Failed to save profile image:', err);
     }
+
+    // Get client info and log audit trail
+    const { ipAddress, userAgent } = getClientInfo(request);
+    try {
+      await AuditLogger.logMemberAction(
+        'member_created',
+        user.id,
+        session.userId!,
+        `${session.firstName} ${session.lastName}`,
+        session.email,
+        {
+          memberName: `${user.firstName} ${user.lastName}`,
+          memberEmail: user.email,
+          plan: planKey,
+          registrationType,
+          paymentMethod,
+          amountPaid
+        },
+        ipAddress,
+        userAgent
+      );
+    } catch (auditError) {
+      console.warn('Failed to log audit trail:', auditError);
+    }
+
     return NextResponse.json({ 
       success: true, 
         user: {

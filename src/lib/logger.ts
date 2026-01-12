@@ -1,5 +1,5 @@
-import winston from 'winston';
 import path from 'path';
+import winston from 'winston';
 
 // Define log format
 const logFormat = winston.format.combine(

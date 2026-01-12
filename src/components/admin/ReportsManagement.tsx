@@ -1,8 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import {
   Download,
   DollarSign,
@@ -25,6 +23,8 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 const COLORS = ['#f97316', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
 
@@ -438,7 +438,7 @@ function RevenueReport({ data }: { data: ReportData }) {
                     label
                   >
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    {data.breakdown.byMethod.map((entry: any, index: number) => (
+                    {data.breakdown.byMethod.map((_entry: any, index: number) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>

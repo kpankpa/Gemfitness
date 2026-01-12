@@ -80,7 +80,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${montserrat.variable}`}>
       <head>
-        <script src="https://js.paystack.co/v1/inline.js"></script>
+        <script src="https://js.paystack.co/v1/inline.js" async></script>
       </head>
       <body className="font-sans antialiased bg-white">
         <Providers>

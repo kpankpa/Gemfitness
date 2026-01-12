@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, ReactNode, useCallback } from 'react';
 
 type ToastType = 'info' | 'success' | 'error';
 type Toast = { id: number; type: ToastType; message: string };

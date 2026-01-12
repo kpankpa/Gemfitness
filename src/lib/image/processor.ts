@@ -13,7 +13,7 @@ export class ImageValidationError extends Error {
   }
 }
 
-export async function processMemberImage(buffer: Buffer, originalName: string, userId: string) {
+export async function processMemberImage(buffer: Buffer, _originalName: string, userId: string) {
   if (!buffer || !Buffer.isBuffer(buffer)) throw new ImageValidationError('NO_FILE', 'No file buffer provided');
   if (buffer.length > MAX_BYTES) throw new ImageValidationError('FILE_TOO_LARGE', 'File exceeds maximum allowed size');
 

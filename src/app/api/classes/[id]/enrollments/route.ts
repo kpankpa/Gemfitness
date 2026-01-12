@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
  * Get list of all enrolled members for a class
  */
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
