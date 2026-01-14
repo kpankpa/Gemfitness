@@ -22,57 +22,22 @@ import {
   ENHANCED_PLAN_TEMPLATES,
   EnhancedPlan
 } from '@/lib/plans/enhanced-features';
+import type { AdminPlan, PlanAnalytics } from '@/types';
 
 // Type alias for plan templates
 type PlanTemplate = EnhancedPlan;
-
-interface Plan {
-  id: string;
-  name: string;
-  slug: string;
-  description?: string;
-  price: number;
-  duration: number;
-  durationUnit: string;
-  features: string[];
-  isPopular: boolean;
-  isFeatured: boolean;
-  status: 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
-  activeMembers: number;
-  totalRevenue: number;
-  displayOrder: number;
-  createdAt: string;
-}
-
-interface PlanAnalytics {
-  monthlyRecurringRevenue: number;
-  annualRecurringRevenue: number;
-  totalActiveSubscriptions: number;
-  newSubscriptionsLast7Days: number;
-  newSubscriptionsLast30Days: number;
-  expiringInNext30Days: number;
-  churnRate: number;
-  topPerformingPlan: string;
-  planMetrics?: Array<{
-    plan: string;
-    newSubscriptions7Days: number;
-    newSubscriptions30Days: number;
-    expiringSoon: number;
-    renewalRate: number;
-  }>;
-}
 
 interface EnhancedPlansManagementProps {
   onClose?: () => void;
 }
 
 export default function EnhancedPlansManagement({ onClose: _onClose }: EnhancedPlansManagementProps) {
-  const [plans, setPlans] = useState<Plan[]>([]);
+  const [plans, setPlans] = useState<AdminPlan[]>([]);
   const [analytics, setAnalytics] = useState<PlanAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<AdminPlan | null>(null);
   const [viewMode, setViewMode] = useState<'cards' | 'analytics' | 'features'>('cards');
 
   // Form data for creating/editing plans
@@ -190,7 +155,7 @@ export default function EnhancedPlansManagement({ onClose: _onClose }: EnhancedP
     });
   };
 
-  const openEditModal = (plan: Plan) => {
+  const openEditModal = (plan: AdminPlan) => {
     setSelectedPlan(plan);
     setFormData({
       name: plan.name,

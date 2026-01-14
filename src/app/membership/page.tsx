@@ -19,41 +19,7 @@ import PageHero from '@/components/PageHero';
 import PlanComparison from '@/components/PlanComparison';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-
-// Dynamic data interfaces
-interface Plan {
-  id: string;
-  name: string;
-  slug: string;
-  description: string;
-  price: number;
-  originalPrice?: number;
-  duration: number;
-  durationUnit: string;
-  isPopular: boolean;
-  isFeatured: boolean;
-  features: string[];
-  valuePropositions: string[];
-  savings?: number;
-  comparisonText?: string;
-  memberCount?: number;
-}
-
-interface GymStats {
-  totalActiveMembers: number;
-  monthlyCheckIns: number;
-  planVariety: number;
-  establishedYear: number;
-  totalClasses: number;
-  certifiedTrainers: number;
-}
-
-interface SuccessStory {
-  name: string;
-  achievement: string;
-  plan: string;
-  quote: string;
-}
+import type { Plan, GymStats, SuccessStory, FeaturedBenefit } from '@/types';
 
 const memberPerks = [
   {
@@ -123,12 +89,6 @@ const faqs = [
     answer: 'We offer flexible membership options to suit your needs. Visit us to learn more about getting started.',
   },
 ];
-
-interface FeaturedBenefit {
-  icon: string;
-  title: string;
-  description: string;
-}
 
 export default function MembershipPage() {
   const [plans, setPlans] = useState<Plan[]>([]);

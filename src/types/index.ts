@@ -77,6 +77,23 @@ export interface Payment {
 }
 
 export interface Analytics {
+  totalMembers: number;
+  activeMembers: number;
+  expiringSoon: number;
+  todayCheckIns: number;
+  monthlyRevenue: number;
+  monthlyTransactions?: number;
+  recentPayments: Array<{
+    id: string;
+    member: string;
+    amount: number;
+    date: string;
+  }>;
+  attendanceRate?: string;
+}
+
+// Legacy analytics with nested stats (for backward compatibility)
+export interface AnalyticsWithStats {
   stats: {
     totalMembers: number;
     activeMembers: number;
@@ -134,6 +151,52 @@ export interface DashboardData {
   recentCheckIns: CheckIn[];
   bookedClasses: BookedClass[];
   availableClasses: AvailableClass[];
+}
+
+// ============================================
+// Event Types
+// ============================================
+
+export interface GymEvent {
+  id: string;
+  title: string;
+  name?: string; // Alias for title
+  description: string;
+  type?: string;
+  category?: string;
+  eventDate: string;
+  date?: string; // Alias for eventDate
+  startTime?: string;
+  endTime?: string;
+  location: string;
+  maxParticipants?: number;
+  maxAttendees?: number; // Alias for maxParticipants
+  registered?: number;
+  registeredCount?: number; // Alias for registered
+  isFree?: boolean;
+  isPaid?: boolean;
+  price?: number | null;
+  status: string;
+  imageUrl?: string;
+  organizer?: string;
+}
+
+// For admin calendar view
+export interface CalendarEvent extends GymEvent {
+  registered: number;
+  maxAttendees: number;
+  isFree: boolean;
+}
+
+// For public events page
+export interface PublicEvent extends GymEvent {
+  name: string;
+  type: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  maxParticipants: number;
+  isPaid: boolean;
 }
 
 // Advanced features types
@@ -295,4 +358,98 @@ export interface PaymentMetadata {
   fitnessGoals: string;
   medicalConditions: string;
   parq_basic?: ParQBasicResponse;
+}
+
+// ============================================
+// Plan & Membership Types
+// ============================================
+
+export interface PlanFeature {
+  id: string;
+  name: string;
+  description?: string;
+  categoryId: string;
+  isHighlight?: boolean;
+  valueProposition?: string;
+}
+
+export interface FeatureCategory {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+}
+
+export interface CategorizedFeature {
+  categoryId: string;
+  features: PlanFeature[];
+}
+
+export interface Plan {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  price: number;
+  originalPrice?: number;
+  duration: number;
+  durationUnit: string;
+  isPopular: boolean;
+  isFeatured: boolean;
+  features: string[];
+  categorizedFeatures?: CategorizedFeature[];
+  valuePropositions: string[];
+  savings?: number;
+  comparisonText?: string;
+  memberCount?: number;
+  targetAudience?: string;
+}
+
+export interface AdminPlan extends Plan {
+  status: 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+  activeMembers: number;
+  totalRevenue: number;
+  displayOrder: number;
+  createdAt: string;
+}
+
+export interface GymStats {
+  totalActiveMembers: number;
+  monthlyCheckIns: number;
+  planVariety: number;
+  establishedYear: number;
+  totalClasses: number;
+  certifiedTrainers: number;
+}
+
+export interface SuccessStory {
+  name: string;
+  achievement: string;
+  plan: string;
+  quote: string;
+}
+
+export interface FeaturedBenefit {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+}
+
+export interface PlanAnalytics {
+  monthlyRecurringRevenue: number;
+  annualRecurringRevenue: number;
+  totalActiveSubscriptions: number;
+  newSubscriptionsLast7Days: number;
+  newSubscriptionsLast30Days: number;
+  expiringInNext30Days: number;
+  churnRate: number;
+  topPerformingPlan: string;
+  planMetrics?: Array<{
+    plan: string;
+    newSubscriptions7Days: number;
+    newSubscriptions30Days: number;
+    expiringSoon: number;
+    renewalRate: number;
+  }>;
 }

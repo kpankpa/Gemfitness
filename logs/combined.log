@@ -1014,3 +1014,7 @@
 {"level":"info","message":"Generating overview report from Thu Jan 01 2026 12:00:00 GMT-1200 (GMT-12:00) to Tue Jan 13 2026 12:00:00 GMT-1200 (GMT-12:00)","service":"gemfitness","timestamp":"2026-01-13 15:23:17"}
 {"dateFilter":{"checkInTime":{"gte":"2026-01-14T00:00:00.000Z","lt":"2026-01-15T00:00:00.000Z"}},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2026-01-13 15:57:51"}
 {"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2026-01-13 15:57:51"}
+{"dateFilter":{"checkInTime":{"gte":"2026-01-14T00:00:00.000Z","lt":"2026-01-15T00:00:00.000Z"}},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2026-01-13 17:13:12"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2026-01-13 17:13:12"}
+{"level":"info","message":"Generating overview report from Thu Jan 01 2026 12:00:00 GMT-1200 (GMT-12:00) to Tue Jan 13 2026 12:00:00 GMT-1200 (GMT-12:00)","service":"gemfitness","timestamp":"2026-01-13 17:16:04"}
+{"level":"info","message":"Generating overview report from Thu Jan 01 2026 12:00:00 GMT-1200 (GMT-12:00) to Tue Jan 13 2026 12:00:00 GMT-1200 (GMT-12:00)","service":"gemfitness","timestamp":"2026-01-13 17:16:04"}

@@ -18,44 +18,7 @@ import {
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-
-interface PlanFeature {
-  id: string;
-  name: string;
-  description?: string;
-  categoryId: string;
-  isHighlight?: boolean;
-  valueProposition?: string;
-}
-
-interface FeatureCategory {
-  id: string;
-  name: string;
-  icon: string;
-  description: string;
-}
-
-interface Plan {
-  id: string;
-  name: string;
-  slug: string;
-  description: string;
-  price: number;
-  originalPrice?: number;
-  duration: number;
-  durationUnit: string;
-  isPopular: boolean;
-  isFeatured: boolean;
-  features: string[];
-  categorizedFeatures?: {
-    categoryId: string;
-    features: PlanFeature[];
-  }[];
-  valuePropositions: string[];
-  savings?: number;
-  comparisonText?: string;
-  memberCount?: number;
-}
+import type { Plan, FeatureCategory } from '@/types';
 
 interface PlanComparisonProps {
   plans: Plan[];

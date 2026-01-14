@@ -1,22 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-
-export interface Analytics {
-  totalMembers: number;
-  activeMembers: number;
-  expiringSoon: number;
-  todayCheckIns: number;
-  monthlyRevenue: number;
-  monthlyTransactions?: number;
-  recentPayments: Array<{
-    id: string;
-    member: string;
-    amount: number;
-    date: string;
-  }>;
-  attendanceRate: string;
-}
+import type { Analytics } from '@/types';
 
 interface UseAnalyticsReturn {
   analytics: Analytics;
