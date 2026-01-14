@@ -13,6 +13,7 @@ export default function VerifyEmailPage() {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
+  const [isSkipping, setIsSkipping] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -149,6 +150,43 @@ export default function VerifyEmailPage() {
       setError('Failed to resend verification code');
     } finally {
       setIsResending(false);
+    }
+  };
+
+  // Skip verification (dev mode only)
+  const handleSkipVerification = async () => {
+    if (!email) return;
+
+    const confirmed = window.confirm(
+      'Are you sure you want to skip email verification? This is only available in development mode.'
+    );
+    
+    if (!confirmed) return;
+
+    setIsSkipping(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/auth/skip-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSuccess(true);
+        setTimeout(() => {
+          router.push('/dashboard/member');
+        }, 2000);
+      } else {
+        setError(data.error || 'Failed to skip verification');
+      }
+    } catch {
+      setError('Failed to skip verification. Please try again.');
+    } finally {
+      setIsSkipping(false);
     }
   };
 
@@ -310,6 +348,38 @@ export default function VerifyEmailPage() {
             )}
           </button>
         </div>
+
+        {/* Skip Verification Button (Dev Mode Only) */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mt-6 text-center">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <div className="w-full h-px bg-gray-200"></div>
+              <span className="px-3 text-xs text-gray-400 bg-white">DEV MODE</span>
+              <div className="w-full h-px bg-gray-200"></div>
+            </div>
+            <button
+              onClick={handleSkipVerification}
+              disabled={isSkipping || isVerifying}
+              className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors border
+                ${isSkipping || isVerifying
+                  ? 'border-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'border-yellow-200 text-yellow-700 bg-yellow-50 hover:bg-yellow-100 hover:border-yellow-300'
+                }
+              `}
+            >
+              {isSkipping ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Skipping...
+                </>
+              ) : (
+                <>
+                  🚀 Skip Verification
+                </>
+              )}
+            </button>
+          </div>
+        )}
 
         {/* Help Text */}
         <div className="mt-8 p-4 bg-gray-50 rounded-xl">

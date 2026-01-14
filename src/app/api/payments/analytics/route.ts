@@ -70,7 +70,18 @@ export async function GET(request: NextRequest) {
         AND "paidAt" >= NOW() - INTERVAL '12 months'
       GROUP BY DATE_TRUNC('month', "paidAt")
       ORDER BY month DESC
-    `;
+    ` as Array<{
+      month: Date;
+      revenue: bigint;
+      transactions: bigint;
+    }>;
+
+    // Convert BigInt values to numbers for JSON serialization
+    const serializedRevenueTrends = revenueTrends.map(trend => ({
+      month: trend.month,
+      revenue: Number(trend.revenue),
+      transactions: Number(trend.transactions)
+    }));
 
     // Outstanding payments
     const outstandingPayments = await prisma.subscription.findMany({
@@ -93,15 +104,15 @@ export async function GET(request: NextRequest) {
       analytics: {
         paymentMethodBreakdown: paymentMethodBreakdown.map(method => ({
           method: method.paymentMethod,
-          revenue: method._sum.amount || 0,
+          revenue: Number(method._sum.amount || 0),
           transactions: method._count.id,
-          percentage: ((method._sum.amount || 0) / paymentMethodBreakdown.reduce((sum, m) => sum + (m._sum.amount || 0), 0)) * 100
+          percentage: ((Number(method._sum.amount) || 0) / paymentMethodBreakdown.reduce((sum, m) => sum + Number(m._sum.amount || 0), 0)) * 100
         })),
         monthlyRecurringRevenue: Math.round(mrr * 100) / 100,
         annualRecurringRevenue: Math.round(mrr * 12 * 100) / 100,
         paymentSuccessRate: Math.round(successRate * 100) / 100,
-        totalRevenue: paymentMethodBreakdown.reduce((sum, m) => sum + (m._sum.amount || 0), 0),
-        revenueTrends,
+        totalRevenue: paymentMethodBreakdown.reduce((sum, m) => sum + Number(m._sum.amount || 0), 0),
+        revenueTrends: serializedRevenueTrends,
         outstandingPayments: outstandingPayments.length,
         outstandingAmount: outstandingPayments.reduce((sum, sub) => {
           const planAmount = sub.plan === 'ONE_MONTH' ? 200 : 

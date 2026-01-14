@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
@@ -92,7 +92,33 @@ export default function HomePage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', message: '' });
   
-  const memberCount = 500; // Static member count
+  // Dynamic plans data
+  const [plans, setPlans] = useState<any[]>([]);
+  const [gymStats, setGymStats] = useState<any>(null);
+  const [_successStories, setSuccessStories] = useState<any[]>([]);
+  const [plansLoading, setPlansLoading] = useState(true);
+  
+  const memberCount = gymStats?.totalActiveMembers || 500; // Dynamic member count
+
+  useEffect(() => {
+    const fetchPlansData = async () => {
+      try {
+        const response = await fetch('/api/public/plans');
+        if (response.ok) {
+          const data = await response.json();
+          setPlans(data.plans || []);
+          setGymStats(data.gymStats || null);
+          setSuccessStories(data.successStories || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch plans:', error);
+      } finally {
+        setPlansLoading(false);
+      }
+    };
+
+    fetchPlansData();
+  }, []);
 
   const calculateBMI = () => {
     const weight = parseFloat(bmiWeight);
@@ -552,161 +578,243 @@ export default function HomePage() {
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 mb-8">
-            {[
-              {
-                name: "Monthly",
-                price: 200,
-                period: "per month",
-                features: [
-                  "Full gym access",
-                  "All equipment",
-                  "Group classes",
-                  "Locker facility",
-                  "Shower & changing rooms",
-                ],
-                popular: false,
-              },
-              {
-                name: "Quarterly",
-                price: 500,
-                period: "per 3 months",
-                savings: "Save GH₵100",
-                features: [
-                  "Everything in Monthly",
-                  "Priority booking",
-                  "1 free personal training session",
-                  "Nutrition consultation",
-                  "Progress tracking",
-                ],
-                popular: true,
-              },
-              {
-                name: "Annual",
-                price: 2200,
-                period: "per year",
-                savings: "Save GH₵200",
-                features: [
-                  "Everything in Quarterly",
-                  "Unlimited personal training",
-                  "Exclusive member events",
-                  "Bring-a-friend days",
-                  "Free merchandise",
-                ],
-                popular: false,
-              },
-            ].map((plan, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 50 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ 
-                  delay: i * 0.15,
-                  duration: 0.5,
-                  type: "spring",
-                  stiffness: 100
-                }}
-                whileHover={{ 
-                  y: -12,
-                  transition: { duration: 0.3 }
-                }}
-                className="relative"
-              >
-                {plan.popular && (
-                  <motion.div 
-                    className="absolute -top-5 left-1/2 -translate-x-1/2 z-20"
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    whileInView={{ scale: 1, opacity: 1 }}
-                    transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
-                  >
-                    <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-orange-500 text-white text-sm font-bold px-6 py-2 rounded-full flex items-center space-x-2 shadow-lg animate-pulse">
-                      <Sparkles className="w-4 h-4" />
-                      <span>Most Popular</span>
-                    </div>
-                  </motion.div>
-                )}
-
-                <Card className={`h-full relative overflow-hidden group transition-all duration-500 ${
-                  plan.popular 
-                    ? 'border-2 border-orange-500 shadow-2xl shadow-orange-500/30 scale-105' 
-                    : 'border-2 border-gray-200 hover:border-orange-400 hover:shadow-xl hover:shadow-orange-500/20'
-                }`}>
-                  {/* Gradient Background Effect */}
-                  <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 ${
-                    plan.popular 
-                      ? 'bg-gradient-to-br from-orange-50 via-white to-orange-50' 
-                      : 'bg-gradient-to-br from-orange-50/50 via-white to-white'
-                  }`} />
-
-                  {plan.popular && (
-                    <>
-                      {/* Corner Accent */}
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-500/10 to-transparent rounded-bl-full z-0" />
-                    </>
+            {plansLoading ? (
+              <div className="col-span-full text-center py-8">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
+                <p className="mt-2 text-gray-600">Loading plans...</p>
+              </div>
+            ) : plans.length > 0 ? (
+              plans.slice(0, 3).map((plan, i) => (
+                <motion.div
+                  key={plan.id}
+                  initial={{ opacity: 0, y: 50 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ 
+                    delay: i * 0.15,
+                    duration: 0.5,
+                    type: "spring",
+                    stiffness: 100
+                  }}
+                  whileHover={{ 
+                    y: -12,
+                    transition: { duration: 0.3 }
+                  }}
+                  className="relative"
+                >
+                  {plan.isPopular && (
+                    <motion.div 
+                      className="absolute -top-5 left-1/2 -translate-x-1/2 z-20"
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      whileInView={{ scale: 1, opacity: 1 }}
+                      transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
+                    >
+                      <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-orange-500 text-white text-sm font-bold px-6 py-2 rounded-full flex items-center space-x-2 shadow-lg animate-pulse">
+                        <Sparkles className="w-4 h-4" />
+                        <span>Most Popular</span>
+                      </div>
+                    </motion.div>
                   )}
 
-                  <CardHeader className="relative z-10">
-                    <CardTitle className="text-2xl text-gray-900">{plan.name}</CardTitle>
-                    <CardDescription>
-                      <motion.div 
-                        className="mt-4"
-                        initial={{ scale: 0.9 }}
-                        whileInView={{ scale: 1 }}
-                        transition={{ delay: 0.2 }}
-                      >
-                        <span className="text-4xl font-bold bg-gradient-to-r from-orange-500 to-orange-600 bg-clip-text text-transparent">
-                          {formatCurrency(plan.price)}
-                        </span>
-                        <span className="text-gray-600"> {plan.period}</span>
-                      </motion.div>
-                      {plan.savings && (
-                        <div className="mt-2 text-orange-600 font-semibold">{plan.savings}</div>
+                  <Card className={`h-full relative overflow-hidden group transition-all duration-500 ${
+                    plan.isPopular
+                      ? 'border-2 border-orange-500 shadow-2xl shadow-orange-500/30 scale-105' 
+                      : 'border-2 border-gray-200 hover:border-orange-400 hover:shadow-xl hover:shadow-orange-500/20'
+                  }`}>
+                    {/* Gradient Background Effect */}
+                    <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 ${
+                      plan.isPopular
+                        ? 'bg-gradient-to-br from-orange-50 via-white to-orange-50' 
+                        : 'bg-gradient-to-br from-orange-50/50 via-white to-white'
+                    }`} />
+
+                    {plan.isPopular && (
+                      <>
+                        {/* Corner Accent */}
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-500/10 to-transparent rounded-bl-full z-0" />
+                      </>
+                    )}
+
+                    <CardHeader className="relative z-10">
+                      <CardTitle className="text-2xl text-gray-900">{plan.name}</CardTitle>
+                      <CardDescription>
+                        <div className="text-3xl font-bold text-orange-600 mb-2">
+                          GH₵{plan.price}
+                          <span className="text-lg text-gray-600">/{plan.duration} {plan.durationUnit}</span>
+                        </div>
+                        {plan.savings && plan.savings > 0 && (
+                          <span className="text-green-600 font-semibold text-sm">Save GH₵{plan.savings}</span>
+                        )}
+                        {plan.comparisonText && (
+                          <p className="text-green-600 font-semibold text-sm">{plan.comparisonText}</p>
+                        )}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="relative z-10 flex-1">
+                      <ul className="space-y-3">
+                        {plan.features.slice(0, 5).map((feature: string, index: number) => (
+                          <li key={index} className="flex items-start space-x-3 text-sm text-gray-700">
+                            <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                        {plan.features.length > 5 && (
+                          <li className="text-sm text-gray-500">+{plan.features.length - 5} more features</li>
+                        )}
+                      </ul>
+                      {plan.memberCount !== undefined && plan.memberCount > 0 && (
+                        <div className="mt-4 text-sm text-gray-600 flex items-center">
+                          <Users className="w-4 h-4 mr-1 text-orange-500" />
+                          {plan.memberCount} active members
+                        </div>
                       )}
-                    </CardDescription>
-                  </CardHeader>
-                  
-                  {/* Divider */}
-                  <div className="w-full h-px bg-gradient-to-r from-transparent via-orange-300 to-transparent relative z-10" />
-                  
-                  <CardContent className="relative z-10 pt-6">
-                    <ul className="space-y-3">
-                      {plan.features.map((feature, j) => (
-                        <motion.li 
-                          key={j} 
-                          className="flex items-start gap-2"
-                          initial={{ opacity: 0, x: -20 }}
-                          whileInView={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.3 + (j * 0.05) }}
-                        >
-                          <div className="w-5 h-5 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <CheckCircle className="h-3 w-3 text-orange-600" />
-                          </div>
-                          <span className="text-sm text-gray-700 font-medium">{feature}</span>
-                        </motion.li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                  <CardFooter className="relative z-10">
+                    </CardContent>
+                    <CardFooter className="relative z-10">
+                      <Link href={`/signup?plan=${plan.slug.toLowerCase()}`} className="w-full">
+                        <Button className={`w-full text-lg font-semibold py-3 transition-all duration-300 ${
+                          plan.isPopular
+                            ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-lg hover:shadow-xl' 
+                            : 'bg-gray-900 hover:bg-gray-800'
+                        }`}>
+                          {plan.isPopular ? 'Get Started' : 'Choose Plan'}
+                        </Button>
+                      </Link>
+                    </CardFooter>
+                  </Card>
+                </motion.div>
+              ))
+            ) : (
+              // Fallback to static data if API fails
+              [
+                {
+                  name: "Monthly",
+                  price: 200,
+                  period: "per month",
+                  features: [
+                    "Full gym access",
+                    "All equipment",
+                    "Group classes",
+                    "Locker facility",
+                    "Shower & changing rooms",
+                  ],
+                  popular: false,
+                },
+                {
+                  name: "Quarterly",
+                  price: 500,
+                  period: "per 3 months",
+                  savings: "Save GH₵100",
+                  features: [
+                    "Everything in Monthly",
+                    "Priority booking",
+                    "1 free personal training session",
+                    "Nutrition consultation",
+                    "Progress tracking",
+                  ],
+                  popular: true,
+                },
+                {
+                  name: "Annual",
+                  price: 2200,
+                  period: "per year",
+                  savings: "Save GH₵200",
+                  features: [
+                    "Everything in Quarterly",
+                    "Unlimited personal training",
+                    "Exclusive member events",
+                    "Bring-a-friend days",
+                    "Free merchandise",
+                  ],
+                  popular: false,
+                },
+              ].map((plan, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 50 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ 
+                    delay: i * 0.15,
+                    duration: 0.5,
+                    type: "spring",
+                    stiffness: 100
+                  }}
+                  whileHover={{ 
+                    y: -12,
+                    transition: { duration: 0.3 }
+                  }}
+                  className="relative"
+                >
+                  {plan.popular && (
                     <motion.div 
-                      className="w-full"
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
+                      className="absolute -top-5 left-1/2 -translate-x-1/2 z-20"
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      whileInView={{ scale: 1, opacity: 1 }}
+                      transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
                     >
-                      <Button 
-                        asChild 
-                        className={`w-full text-lg py-6 font-semibold shadow-lg transition-all duration-300 ${
-                          plan.popular
-                            ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 hover:shadow-orange-500/50 text-white'
-                            : 'bg-gradient-to-r from-gray-800 to-gray-900 hover:from-orange-500 hover:to-orange-600 text-white hover:shadow-orange-500/50'
-                        }`}
-                      >
-                        <Link href={`/signup?plan=${plan.name.toLowerCase()}`}>Choose {plan.name}</Link>
-                      </Button>
+                      <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-orange-500 text-white text-sm font-bold px-6 py-2 rounded-full flex items-center space-x-2 shadow-lg animate-pulse">
+                        <Sparkles className="w-4 h-4" />
+                        <span>Most Popular</span>
+                      </div>
                     </motion.div>
-                  </CardFooter>
-                </Card>
-              </motion.div>
-            ))}
+                  )}
+
+                  <Card className={`h-full relative overflow-hidden group transition-all duration-500 ${
+                    plan.popular 
+                      ? 'border-2 border-orange-500 shadow-2xl shadow-orange-500/30 scale-105' 
+                      : 'border-2 border-gray-200 hover:border-orange-400 hover:shadow-xl hover:shadow-orange-500/20'
+                  }`}>
+                    {/* Gradient Background Effect */}
+                    <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 ${
+                      plan.popular 
+                        ? 'bg-gradient-to-br from-orange-50 via-white to-orange-50' 
+                        : 'bg-gradient-to-br from-orange-50/50 via-white to-white'
+                    }`} />
+
+                    {plan.popular && (
+                      <>
+                        {/* Corner Accent */}
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-500/10 to-transparent rounded-bl-full z-0" />
+                      </>
+                    )}
+
+                    <CardHeader className="relative z-10">
+                      <CardTitle className="text-2xl text-gray-900">{plan.name}</CardTitle>
+                      <CardDescription>
+                        <div className="text-3xl font-bold text-orange-600 mb-2">
+                          GH₵{plan.price}
+                          <span className="text-lg text-gray-600">/{plan.period}</span>
+                        </div>
+                        {plan.savings && (
+                          <span className="text-green-600 font-semibold text-sm">{plan.savings}</span>
+                        )}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="relative z-10 flex-1">
+                      <ul className="space-y-3">
+                        {plan.features.map((feature: string, index: number) => (
+                          <li key={index} className="flex items-start space-x-3 text-sm text-gray-700">
+                            <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                    <CardFooter className="relative z-10">
+                      <Link href={`/signup?plan=${plan.name.toLowerCase()}`} className="w-full">
+                        <Button className={`w-full text-lg font-semibold py-3 transition-all duration-300 ${
+                          plan.popular
+                            ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-lg hover:shadow-xl' 
+                            : 'bg-gray-900 hover:bg-gray-800'
+                        }`}>
+                          {plan.popular ? 'Get Started' : 'Choose Plan'}
+                        </Button>
+                      </Link>
+                    </CardFooter>
+                  </Card>
+                </motion.div>
+              ))
+            )}
           </div>
 
           <div className="text-center bg-primary/10 border border-primary/20 rounded-lg p-6">

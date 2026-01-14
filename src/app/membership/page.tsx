@@ -1,92 +1,59 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Check,
-  X,
   Star,
   Users,
   Clock,
-  Dumbbell,
   Heart,
   Zap,
   Gift,
-  Sparkles,
   Calendar,
-  Crown,
   TrendingUp,
-  Shield,
+  Shield
 } from 'lucide-react';
 import Link from 'next/link';
 import PageHero from '@/components/PageHero';
+import PlanComparison from '@/components/PlanComparison';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
-const membershipPlans = [
-  {
-    name: 'Monthly',
-    price: 'GH₵200',
-    period: 'month',
-    description: 'Perfect for getting started on your fitness journey',
-    features: [
-      { name: 'Full gym access', included: true },
-      { name: 'All equipment', included: true },
-      { name: 'Group classes', included: true },
-      { name: 'Locker room & showers', included: true },
-      { name: 'Free fitness assessment', included: true },
-      { name: 'Priority booking', included: false },
-      { name: 'Personal training sessions', included: false },
-      { name: '24/7 access', included: false },
-      { name: 'Nutrition consultation', included: false },
-      { name: 'Free merchandise', included: false },
-    ],
-    color: 'from-gray-500 to-gray-600',
-    icon: Dumbbell,
-    popular: false,
-  },
-  {
-    name: 'Quarterly',
-    price: 'GH₵500',
-    period: '3 months',
-    description: 'Our most popular plan - Save GH₵100!',
-    features: [
-      { name: 'Everything in Monthly', included: true },
-      { name: 'Priority booking', included: true },
-      { name: '1 free personal training session', included: true },
-      { name: 'Nutrition consultation', included: true },
-      { name: 'Progress tracking', included: true },
-      { name: 'Towel service', included: true },
-      { name: 'Member events access', included: true },
-      { name: 'Free guest passes (2/quarter)', included: true },
-      { name: 'Mobile app access', included: true },
-      { name: '10% merchandise discount', included: true },
-    ],
-    color: 'from-orange-500 to-orange-600',
-    icon: Star,
-    popular: true,
-  },
-  {
-    name: 'Annual',
-    price: 'GH₵2,200',
-    period: 'year',
-    description: 'Ultimate value - Save GH₵200!',
-    features: [
-      { name: 'Everything in Quarterly', included: true },
-      { name: 'Unlimited personal training', included: true },
-      { name: 'Monthly nutrition plan & tracking', included: true },
-      { name: 'Exclusive member events', included: true },
-      { name: 'Bring-a-friend days', included: true },
-      { name: 'Free merchandise', included: true },
-      { name: 'Priority equipment access', included: true },
-      { name: 'Complimentary sports massage (quarterly)', included: true },
-      { name: 'VIP support', included: true },
-      { name: 'Free guest passes (unlimited)', included: true },
-    ],
-    color: 'from-purple-500 to-pink-500',
-    icon: Crown,
-    popular: false,
-  },
-];
+// Dynamic data interfaces
+interface Plan {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  price: number;
+  originalPrice?: number;
+  duration: number;
+  durationUnit: string;
+  isPopular: boolean;
+  isFeatured: boolean;
+  features: string[];
+  valuePropositions: string[];
+  savings?: number;
+  comparisonText?: string;
+  memberCount?: number;
+}
+
+interface GymStats {
+  totalActiveMembers: number;
+  monthlyCheckIns: number;
+  planVariety: number;
+  establishedYear: number;
+  totalClasses: number;
+  certifiedTrainers: number;
+}
+
+interface SuccessStory {
+  name: string;
+  achievement: string;
+  plan: string;
+  quote: string;
+}
 
 const memberPerks = [
   {
@@ -157,7 +124,39 @@ const faqs = [
   },
 ];
 
+interface FeaturedBenefit {
+  icon: string;
+  title: string;
+  description: string;
+}
+
 export default function MembershipPage() {
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [_gymStats, setGymStats] = useState<GymStats | null>(null);
+  const [_successStories, setSuccessStories] = useState<SuccessStory[]>([]);
+  const [_featuredBenefits, setFeaturedBenefits] = useState<FeaturedBenefit[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPlansData = async () => {
+      try {
+        const response = await fetch('/api/public/plans');
+        if (response.ok) {
+          const data = await response.json();
+          setPlans(data.plans || []);
+          setGymStats(data.gymStats || null);
+          setSuccessStories(data.successStories || []);
+          setFeaturedBenefits(data.featuredBenefits || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch plans:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPlansData();
+  }, []);
   return (
     <div className="min-h-screen bg-white">
       <PageHero
@@ -208,151 +207,22 @@ export default function MembershipPage() {
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {membershipPlans.map((plan, index) => (
-              <motion.div
-                key={plan.name}
-                initial={{ opacity: 0, y: 50 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ 
-                  delay: index * 0.15,
-                  duration: 0.5,
-                  type: "spring",
-                  stiffness: 100
-                }}
-                whileHover={{ 
-                  y: -12,
-                  transition: { duration: 0.3 }
-                }}
-                className={`relative ${plan.popular ? 'lg:-mt-8' : ''}`}
-              >
-                {plan.popular && (
-                  <>
-                    {/* Animated Badge - Floating Above Card */}
-                    <motion.div 
-                      className="absolute -top-5 left-1/2 -translate-x-1/2 z-20"
-                      initial={{ scale: 0.8, opacity: 0 }}
-                      whileInView={{ scale: 1, opacity: 1 }}
-                      transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
-                    >
-                      <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-orange-500 text-white text-sm font-bold px-6 py-2 rounded-full flex items-center space-x-2 shadow-lg animate-pulse">
-                        <Sparkles className="w-4 h-4" />
-                        <span>Most Popular</span>
-                      </div>
-                    </motion.div>
-                  </>
-                )}
-
-                <Card
-                  className={`relative bg-white border-2 transition-all duration-500 h-full group overflow-hidden ${
-                    plan.popular 
-                      ? 'border-orange-500 shadow-2xl shadow-orange-500/30 lg:scale-105' 
-                      : 'border-gray-200 hover:border-orange-400 hover:shadow-xl hover:shadow-orange-500/20'
-                  }`}
-                >
-                  {/* Gradient Background Effect */}
-                  <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 ${
-                    plan.popular 
-                      ? 'bg-gradient-to-br from-orange-50 via-white to-orange-50' 
-                      : 'bg-gradient-to-br from-orange-50/50 via-white to-white'
-                  }`} />
-
-                  {plan.popular && (
-                    <>
-                      {/* Corner Accent */}
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-500/10 to-transparent rounded-bl-full" />
-                    </>
-                  )}
-
-                  <div className="p-8 relative z-10">
-                    {/* Header */}
-                    <div className="text-center mb-6">
-                      <motion.div 
-                        className={`w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br ${plan.color} flex items-center justify-center shadow-lg transform transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3`}
-                        whileHover={{ rotate: 360 }}
-                        transition={{ duration: 0.6 }}
-                      >
-                        <plan.icon className="w-10 h-10 text-white" />
-                      </motion.div>
-                      <h3 className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</h3>
-                      <p className="text-gray-600 text-sm mb-4">{plan.description}</p>
-                      <div className="mb-2 relative">
-                        <motion.div
-                          initial={{ scale: 0.9 }}
-                          whileInView={{ scale: 1 }}
-                          transition={{ delay: 0.2 }}
-                        >
-                          <span className="text-5xl font-bold bg-gradient-to-r from-orange-500 to-orange-600 bg-clip-text text-transparent">
-                            {plan.price}
-                          </span>
-                          <span className="text-gray-600 text-lg">/{plan.period}</span>
-                        </motion.div>
-                      </div>
-                    </div>
-
-                    {/* Divider */}
-                    <div className="w-full h-px bg-gradient-to-r from-transparent via-orange-300 to-transparent mb-6" />
-
-                    {/* Features */}
-                    <ul className="space-y-3 mb-8">
-                      {plan.features.map((feature, i) => (
-                        <motion.li 
-                          key={feature.name} 
-                          className="flex items-start space-x-3"
-                          initial={{ opacity: 0, x: -20 }}
-                          whileInView={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.3 + (i * 0.05) }}
-                        >
-                          {feature.included ? (
-                            <div className="w-5 h-5 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                              <Check className="w-3 h-3 text-orange-600" />
-                            </div>
-                          ) : (
-                            <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                              <X className="w-3 h-3 text-gray-400" />
-                            </div>
-                          )}
-                          <span className={`text-sm ${feature.included ? 'text-gray-700 font-medium' : 'text-gray-500'}`}>
-                            {feature.name}
-                          </span>
-                        </motion.li>
-                      ))}
-                    </ul>
-
-                    {/* CTA */}
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <Link href={`/signup?plan=${plan.name.toLowerCase()}`}>
-                        <Button
-                          className={`w-full text-lg py-6 font-semibold shadow-lg transition-all duration-300 ${
-                            plan.popular
-                              ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 hover:shadow-orange-500/50'
-                              : 'bg-gradient-to-r from-gray-800 to-gray-900 hover:from-orange-500 hover:to-orange-600 text-white hover:shadow-orange-500/50'
-                          }`}
-                        >
-                          Join Now
-                        </Button>
-                      </Link>
-                    </motion.div>
-                  </div>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mt-12"
-          >
-            <p className="text-gray-600 mb-4">
-              Need a custom plan? <Link href="/contact" className="text-orange-500 hover:underline">Contact us</Link> for corporate or group memberships.
-            </p>
-          </motion.div>
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+              <p className="mt-4 text-gray-600">Loading membership plans...</p>
+            </div>
+          ) : plans.length > 0 ? (
+            <PlanComparison 
+              plans={plans}
+              showAllFeatures={false}
+              highlightPopular={true}
+            />
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-gray-600">No membership plans available at the moment.</p>
+            </div>
+          )}
         </div>
       </section>
 

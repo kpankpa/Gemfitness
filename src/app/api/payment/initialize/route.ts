@@ -74,11 +74,11 @@ export async function POST(request: NextRequest) {
 
         // If successful, break out of retry loop
         break;
-      } catch (error: any) {
+      } catch (error: unknown) {
         attempts++;
         
         // If it's a duplicate reference error and we have attempts left, retry
-        if (error.message?.includes('Duplicate Transaction Reference') && attempts < maxAttempts) {
+        if (error instanceof Error && error.message?.includes('Duplicate Transaction Reference') && attempts < maxAttempts) {
           logger.warn(`⚠️ Duplicate reference detected, retrying (${attempts}/${maxAttempts}):`, {
             originalReference: reference,
             attempt: attempts
