@@ -1,18 +1,33 @@
-import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendOTPEmail } from '@/lib/services/email/resend';
 import { hashPassword } from '@/lib/auth/passwords';
 import { getPlanPricing, determinePlanFromAmount, calculateEndDate } from '@/lib/pricing';
 import { logger } from '@/lib/logger';
 
+interface PaymentData {
+  reference: string;
+  amount: number;
+  customer: { 
+    email: string;
+    phone?: string;
+    first_name?: string;
+    last_name?: string;
+  };
+  metadata: Record<string, string>;
+  authorization?: Record<string, unknown>;
+  paid_at?: string;
+  id?: string | number;
+}
+
 export async function POST(request: NextRequest) {
-  let paymentData: any = null;
+  let paymentData: PaymentData | null = null;
   let reference: string = '';
   
   try {
-    // ✅ VALIDATION: Parse and validate request body
-    let requestBody;
+    // VALIDATION: Parse and validate request body
+    let requestBody: Record<string, unknown>;
     try {
       requestBody = await request.json();
     } catch (parseError) {
@@ -23,8 +38,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    paymentData = requestBody.paymentData;
-    reference = requestBody.reference;
+    paymentData = requestBody.paymentData as PaymentData;
+    reference = requestBody.reference as string;
 
     // ✅ VALIDATION: Ensure required fields are present
     if (!paymentData) {
@@ -86,7 +101,11 @@ export async function POST(request: NextRequest) {
     let existingUser;
     try {
       const phoneToCheck = metadata.phone || customer.phone;
-      const whereCondition: any = { email: customer.email };
+      interface WhereCondition {
+        email?: string;
+        OR?: Array<{ email?: string; phone?: string }>;
+      }
+      const whereCondition: WhereCondition = { email: customer.email };
       
       // Only check phone if it's a valid phone number (not 'N/A' or empty)
       if (phoneToCheck && phoneToCheck !== 'N/A' && phoneToCheck.trim() !== '') {
@@ -302,14 +321,13 @@ export async function POST(request: NextRequest) {
           transactionType: 'registration',
           relatedEntityId: newUser.id,
           relatedEntityType: 'user',
-          paymentGatewayId: paymentData.id?.toString(),
+          paymentGatewayId: paymentData.id?.toString() || '',
           paidAt: new Date(),
           metadata: {
-            paystackData: paymentData,
             createdVia: 'manual-fallback',
             planId: planId,
             planName: planName
-          }
+          },
         }
       });
     } catch (txError) {
