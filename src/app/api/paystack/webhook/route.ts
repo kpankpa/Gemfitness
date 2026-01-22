@@ -6,6 +6,7 @@ import { generateMemberQRCode } from '@/lib/qr/generator';
 import { sendWelcomeEmail, sendEventBookingConfirmation, sendClassBookingConfirmation } from '@/lib/services/email/mock';
 import { ReceiptEmailService } from '@/lib/services/payment/receipt-generator';
 import { generateOTP, sendOTPEmail, getOTPExpiry } from '@/lib/services/email/resend';
+import { getPlanPricing, calculateEndDate } from '@/lib/pricing';
 import logger from '@/lib/logger';
 
 /**
@@ -106,75 +107,100 @@ async function processWebhookEvent(event: Record<string, unknown>) {
  * This is the main event for one-time payments (registration)
  */
 async function handleChargeSuccess(data: Record<string, unknown>) {
-  const { reference, amount, customer, metadata, authorization } = data as {
-    reference: string;
-    amount: number;
-    customer: { email: string };
-    metadata?: Record<string, unknown>;
-    authorization?: Record<string, unknown>;
-    paid_at?: string;
-  };
+  try {
+    const { reference, amount, customer, metadata, authorization } = data as {
+      reference: string;
+      amount: number;
+      customer: { email: string };
+      metadata?: Record<string, unknown>;
+      authorization?: Record<string, unknown>;
+      paid_at?: string;
+    };
 
-  logger.info('✅ Processing charge.success:', { reference, amount });
+    // ✅ VALIDATION: Ensure required fields are present
+    if (!reference) {
+      throw new Error('Missing payment reference');
+    }
+    if (!amount || amount <= 0) {
+      throw new Error(`Invalid payment amount: ${amount}`);
+    }
+    if (!customer?.email) {
+      throw new Error('Missing customer email');
+    }
 
-  // Find pending transaction in database
-  const existingPayment = await prisma.payment.findFirst({
-    where: { reference },
-    include: { subscription: { include: { user: true } } },
-  });
+    logger.info('✅ Processing charge.success:', { reference, amount });
 
-  if (existingPayment && existingPayment.status === 'SUCCESS') {
-    logger.info('ℹ️ Payment already processed:', { reference });
-    return; // Idempotency - already processed
-  }
+    // ✅ IDEMPOTENCY: Find pending transaction in database
+    let existingPayment;
+    try {
+      existingPayment = await prisma.payment.findFirst({
+        where: { reference },
+        include: { subscription: { include: { user: true } } },
+      });
+    } catch (error) {
+      logger.error('❌ Error querying existing payment:', { reference, error });
+      throw new Error(`Database error checking payment status: ${error instanceof Error ? error.message : 'unknown error'}`);
+    }
 
-  // Extract metadata
-  const user_id = (metadata as Record<string, unknown>)?.user_id as string | undefined;
-  const registration_type = (metadata as Record<string, unknown>)?.registration_type as string | undefined;
-  const channel = (metadata as Record<string, unknown>)?.channel as string | undefined;
+    if (existingPayment && existingPayment.status === 'SUCCESS') {
+      logger.info('ℹ️ Payment already processed (idempotency):', { reference });
+      return; // Idempotency - already processed
+    }
 
-  // Case 1: Walk-in MoMo registration - complete from pending
-  if (channel === 'walk_in_registration') {
-    await handleWalkInRegistrationPayment(reference);
-    return;
-  }
+    // Extract metadata
+    const user_id = (metadata as Record<string, unknown>)?.user_id as string | undefined;
+    const registration_type = (metadata as Record<string, unknown>)?.registration_type as string | undefined;
+    const channel = (metadata as Record<string, unknown>)?.channel as string | undefined;
 
-  // Case 2: Event booking payment
-  if ((metadata as Record<string, unknown>)?.type === 'event_booking') {
-    await handleEventBookingPayment(reference);
-    return;
-  }
+    // Case 1: Walk-in MoMo registration - complete from pending
+    if (channel === 'walk_in_registration') {
+      await handleWalkInRegistrationPayment(reference);
+      return;
+    }
 
-  // Case 3: Class booking payment
-  if ((metadata as Record<string, unknown>)?.type === 'class_booking') {
-    await handleClassBookingPayment(reference);
-    return;
-  }
+    // Case 2: Event booking payment
+    if ((metadata as Record<string, unknown>)?.type === 'event_booking') {
+      await handleEventBookingPayment(reference);
+      return;
+    }
 
-  // Case 4: User already exists (renewal or top-up)
-  if (user_id && existingPayment) {
-    const paidAtValue = (data as Record<string, unknown>).paid_at;
-    await prisma.payment.update({
-      where: { id: existingPayment.id },
-      data: {
-        status: 'SUCCESS',
-        paymentDate: new Date((typeof paidAtValue === 'string' ? paidAtValue : new Date().toISOString())),
-      },
+    // Case 3: Class booking payment
+    if ((metadata as Record<string, unknown>)?.type === 'class_booking') {
+      await handleClassBookingPayment(reference);
+      return;
+    }
+
+    // Case 4: User already exists (renewal or top-up)
+    if (user_id && existingPayment) {
+      const paidAtValue = (data as Record<string, unknown>).paid_at;
+      await prisma.payment.update({
+        where: { id: existingPayment.id },
+        data: {
+          status: 'SUCCESS',
+          paymentDate: new Date((typeof paidAtValue === 'string' ? paidAtValue : new Date().toISOString())),
+        },
+      });
+      logger.info('✅ Payment updated for existing user:', { user_id, reference });
+      return;
+    }
+
+    // Case 3: New online registration - create user and subscription
+    if (!user_id && registration_type === 'new_signup') {
+      await createNewUserFromPayment({
+        reference,
+        amount: amount / 100, // Convert from kobo to cedis
+        customer,
+        metadata,
+        authorization,
+        paid_at: data.paid_at,
+      });
+    }
+  } catch (error) {
+    logger.error('❌ Error in handleChargeSuccess:', { 
+      reference: (data as Record<string, unknown>).reference,
+      error: error instanceof Error ? error.message : 'unknown error'
     });
-    logger.info('✅ Payment updated for existing user:', { user_id, reference });
-    return;
-  }
-
-  // Case 3: New online registration - create user and subscription
-  if (!user_id && registration_type === 'new_signup') {
-    await createNewUserFromPayment({
-      reference,
-      amount: amount / 100, // Convert from kobo to cedis
-      customer,
-      metadata,
-      authorization,
-      paid_at: data.paid_at,
-    });
+    throw error;
   }
 }
 
@@ -192,7 +218,35 @@ async function createNewUserFromPayment(paymentData: Record<string, unknown>) {
   };
 
   try {
-    // Map plan to database enum
+    // ✅ VALIDATION: Ensure all required metadata fields are present
+    const requiredMetadataFields = ['email', 'first_name', 'last_name', 'phone', 'date_of_birth', 'plan'];
+    const missingFields = requiredMetadataFields.filter(field => !metadata[field]);
+    
+    if (missingFields.length > 0) {
+      logger.error('❌ Missing required metadata fields:', {
+        reference,
+        missingFields,
+        availableFields: Object.keys(metadata),
+      });
+      throw new Error(`Missing metadata fields: ${missingFields.join(', ')}`);
+    }
+
+    // ✅ VALIDATION: Verify email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const userEmail = metadata.email || customer.email;
+    if (!emailRegex.test(userEmail)) {
+      logger.error('❌ Invalid email format:', { reference, email: userEmail });
+      throw new Error(`Invalid email format: ${userEmail}`);
+    }
+
+    // ✅ VALIDATION: Verify date of birth is valid
+    const dobDate = new Date(metadata.date_of_birth);
+    if (isNaN(dobDate.getTime())) {
+      logger.error('❌ Invalid date of birth:', { reference, dob: metadata.date_of_birth });
+      throw new Error(`Invalid date of birth: ${metadata.date_of_birth}`);
+    }
+
+    // ✅ VALIDATION: Ensure payment amount matches expected plan price
     const planMap: Record<string, 'ONE_MONTH' | 'THREE_MONTHS' | 'ONE_YEAR'> = {
       monthly: 'ONE_MONTH',
       quarterly: 'THREE_MONTHS',
@@ -200,34 +254,74 @@ async function createNewUserFromPayment(paymentData: Record<string, unknown>) {
     };
 
     const dbPlan = planMap[metadata.plan] || 'ONE_MONTH';
-
-    // Calculate subscription dates
-    const startDate = new Date();
-    const endDate = new Date();
-    let planAmount = 0;
-
-    switch (dbPlan) {
-      case 'ONE_MONTH':
-        endDate.setMonth(endDate.getMonth() + 1);
-        planAmount = 200;
-        break;
-      case 'THREE_MONTHS':
-        endDate.setMonth(endDate.getMonth() + 3);
-        planAmount = 500;
-        break;
-      case 'ONE_YEAR':
-        endDate.setFullYear(endDate.getFullYear() + 1);
-        planAmount = 2200;
-        break;
+    const expectedPlanPricing = getPlanPricing(dbPlan);
+    
+    // Amount comes in kobo from Paystack, convert to cedis
+    const amountInCedis = amount;
+    if (Math.abs(amountInCedis - expectedPlanPricing.price) > 0.01) {
+      logger.error('⚠️ Payment amount mismatch:', {
+        reference,
+        expectedAmount: expectedPlanPricing.price,
+        receivedAmount: amountInCedis,
+        plan: metadata.plan,
+      });
+      // Log warning but continue - amount might be different due to fees or discounts
+      // This is a soft validation, don't throw
     }
 
-    // Hash password (from metadata if provided, or generate random)
-    const hashedPassword = metadata.password 
-      ? await hashPassword(metadata.password)
-      : await hashPassword(Math.random().toString(36).slice(-8));
+    // ✅ IDEMPOTENCY CHECK: Prevent duplicate user creation from webhook replay
+    const existingUser = await prisma.user.findUnique({
+      where: { email: userEmail },
+    });
 
-    // Create user and subscription in transaction
-    const result = await prisma.$transaction(async (tx) => {
+    if (existingUser) {
+      logger.info('ℹ️ User already exists, skipping creation:', {
+        email: existingUser.email,
+        reference,
+      });
+      return; // Prevent duplicate user creation
+    }
+
+    // ✅ CHECK IF PAYMENT ALREADY PROCESSED: Prevent duplicate transactions
+    let existingPaymentTx;
+    try {
+      existingPaymentTx = await prisma.paymentTransaction.findUnique({
+        where: { reference },
+      });
+    } catch (error) {
+      logger.error('❌ Error checking payment transaction:', { reference, error });
+      throw new Error(`Database error: ${error instanceof Error ? error.message : 'unknown error'}`);
+    }
+
+    if (existingPaymentTx) {
+      logger.info('ℹ️ Payment already processed (idempotency):', { reference });
+      return; // Prevent duplicate processing
+    }
+
+    // ✅ PRICING FIX: Use centralized pricing instead of hardcoded values
+    const planPricing = getPlanPricing(dbPlan);
+    const planAmount = planPricing.price;
+    const startDate = new Date();
+    const endDate = calculateEndDate(planPricing.durationDays);
+
+    // ✅ SECURITY FIX: Generate secure random password (metadata no longer contains password)
+    // Password will be set by user during email verification
+    const tempPassword = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+      .map(b => (b % 36).toString(36))
+      .join('')
+      .slice(0, 12);
+    let hashedPassword;
+    try {
+      hashedPassword = await hashPassword(tempPassword);
+    } catch (error) {
+      logger.error('❌ Error hashing password:', { reference, error });
+      throw new Error(`Password hashing failed: ${error instanceof Error ? error.message : 'unknown error'}`);
+    }
+
+    // ✅ TRANSACTION: Create user and subscription in database transaction
+    let result;
+    try {
+      result = await prisma.$transaction(async (tx) => {
       // Create user
       const user = await tx.user.create({
         data: {
@@ -310,7 +404,14 @@ async function createNewUserFromPayment(paymentData: Record<string, unknown>) {
       });
 
       return { user, subscription, paymentTransaction, qrCode: `GYM|${qrCodeResult.token}` };
-    });
+      });
+    } catch (transactionError) {
+      logger.error('❌ Transaction failed:', { 
+        reference, 
+        error: transactionError instanceof Error ? transactionError.message : 'unknown error' 
+      });
+      throw new Error(`Database transaction failed: ${transactionError instanceof Error ? transactionError.message : 'unknown error'}`);
+    }
 
     logger.info('✅ User created from webhook:', {
       userId: result.user.id,

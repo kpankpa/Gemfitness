@@ -211,8 +211,9 @@ export default function SignupPage() {
             emergencyPhone: formData.emergencyPhone,
             fitnessGoals: formData.fitnessGoals,
             medicalConditions: formData.medicalConditions,
-            password: formData.password,
-            registration_type: 'new_member',
+            // ✅ SECURITY: Password NOT included in metadata - stored securely on client
+            // Password will be set AFTER email verification
+            registration_type: 'new_signup',
             // PAR-Q Basic Screening
             parq_basic: {
               hasHeartCondition: formData.hasHeartCondition,
