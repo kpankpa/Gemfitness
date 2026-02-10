@@ -98,6 +98,35 @@ export default function VerifyEmailPage() {
       const data = await response.json();
 
       if (response.ok && data.verified) {
+        // ✅ SECURITY: After OTP verified, set the user's real password
+        // Password was stored in sessionStorage during signup (never sent to payment provider)
+        const pendingPassword = sessionStorage.getItem('pendingPassword');
+        const pendingEmail = sessionStorage.getItem('pendingEmail');
+        
+        if (pendingPassword && pendingEmail === email) {
+          try {
+            const passwordResponse = await fetch('/api/auth/set-password', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                email: email,
+                password: pendingPassword 
+              }),
+            });
+            
+            if (passwordResponse.ok) {
+              // Clear sessionStorage after password is set
+              sessionStorage.removeItem('pendingPassword');
+              sessionStorage.removeItem('pendingEmail');
+              console.log('✅ Password set successfully');
+            } else {
+              console.warn('⚠️ Password setting failed, user may need to reset');
+            }
+          } catch (pwError) {
+            console.error('Password setting error:', pwError);
+          }
+        }
+        
         setSuccess(true);
         // Redirect to login after 2 seconds
         setTimeout(() => {
@@ -167,15 +196,25 @@ export default function VerifyEmailPage() {
     setError('');
 
     try {
+      // Get the actual password from sessionStorage (entered during signup)
+      const pendingPassword = sessionStorage.getItem('pendingPassword');
+      
       const response = await fetch('/api/auth/skip-verification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ 
+          email,
+          password: pendingPassword // Send actual signup password
+        }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
+        // Clear sessionStorage after successful verification skip
+        sessionStorage.removeItem('pendingPassword');
+        sessionStorage.removeItem('pendingEmail');
+        
         setSuccess(true);
         setTimeout(() => {
           router.push('/dashboard/member');

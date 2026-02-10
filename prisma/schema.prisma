@@ -11,57 +11,60 @@ datasource db {
 
 // User model - Members and Staff
 model User {
-  id                 String         @id @default(cuid())
-  email              String         @unique
-  phone              String         @unique
-  firstName          String
-  lastName           String
-  dateOfBirth        DateTime
-  address            String?
-  emergencyContact   String
-  emergencyPhone     String
-  fitnessGoals       String?
-  medicalConditions  String?
-  password           String
-  role               UserRole       @default(MEMBER)
-  qrCode             String?        @unique // Unique QR code for member check-in
-  registrationPaid   Boolean        @default(false) // One-time registration fee (GH₵ 250)
-  registrationType   RegistrationType @default(SELF) // SELF, WALK_IN, or ADMIN
-  paymentReference   String?        // Reference for registration payment
-  profileImage       String?        // Profile image URL
+  id                         String           @id @default(cuid())
+  email                      String           @unique
+  phone                      String           @unique
+  firstName                  String
+  lastName                   String
+  dateOfBirth                DateTime
+  address                    String?
+  emergencyContact           String
+  emergencyPhone             String
+  fitnessGoals               String?
+  medicalConditions          String?
+  password                   String
+  role                       UserRole         @default(MEMBER)
+  qrCode                     String?          @unique // Unique QR code for member check-in
+  registrationPaid           Boolean          @default(false) // One-time registration fee (GH₵ 250)
+  registrationType           RegistrationType @default(SELF) // SELF, WALK_IN, or ADMIN
+  paymentReference           String? // Reference for registration payment
+  profileImage               String? // Profile image URL
   profileImageGracePeriodEnd DateTime? // 7 days from registration to upload profile picture
-  
+
   // Email Verification (OTP)
-  emailVerified      Boolean        @default(false)
-  otpCode            String?        // 6-digit OTP code
-  otpExpiry          DateTime?      // OTP expiration time
-  otpAttempts        Int            @default(0) // Failed attempts counter
-  otpLastSent        DateTime?      // Rate limiting for resend
-  
+  emailVerified Boolean   @default(false)
+  otpCode       String? // 6-digit OTP code
+  otpExpiry     DateTime? // OTP expiration time
+  otpAttempts   Int       @default(0) // Failed attempts counter
+  otpLastSent   DateTime? // Rate limiting for resend
+
+  // Secure Password Flow
+  passwordSet Boolean @default(false) // True after user sets password via OTP verification
+
   // PAR-Q (Physical Activity Readiness Questionnaire) Fields
-  parqCompleted      Boolean        @default(false)
-  parqCompletedAt    DateTime?
-  parqRiskLevel      String?        // low, medium, high
-  
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-  
+  parqCompleted   Boolean   @default(false)
+  parqCompletedAt DateTime?
+  parqRiskLevel   String? // low, medium, high
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Relations
-  subscriptions Subscription[]
-  checkIns      CheckIn[]
-  notifications Notification[]
-  classBookings ClassBooking[]
-  eventBookings EventBooking[]
-  waitlistEntries Waitlist[]
-  classReviews  ClassReview[]
+  subscriptions           Subscription[]
+  checkIns                CheckIn[]
+  notifications           Notification[]
+  classBookings           ClassBooking[]
+  eventBookings           EventBooking[]
+  waitlistEntries         Waitlist[]
+  classReviews            ClassReview[]
   notificationPreferences NotificationPreference?
-  eventTickets  EventTicket[]
-  eventCheckIns EventCheckIn[]
-  staffEventCheckIns EventCheckIn[] @relation("StaffCheckIns")
-  staffClassCancellations ClassCancellation[] @relation("StaffCancellations")
-  paymentTransactions PaymentTransaction[] @relation("UserTransactions")
-  auditLogs     AuditLog[]
-  parqResponses ParQResponse[]
+  eventTickets            EventTicket[]
+  eventCheckIns           EventCheckIn[]
+  staffEventCheckIns      EventCheckIn[]          @relation("StaffCheckIns")
+  staffClassCancellations ClassCancellation[]     @relation("StaffCancellations")
+  paymentTransactions     PaymentTransaction[]    @relation("UserTransactions")
+  auditLogs               AuditLog[]
+  parqResponses           ParQResponse[]
 
   @@index([email])
   @@index([phone])
@@ -77,27 +80,27 @@ enum UserRole {
 }
 
 enum RegistrationType {
-  SELF           // Self-registration
-  WALK_IN        // Walk-in at gym
-  ADMIN          // Registered by admin
+  SELF // Self-registration
+  WALK_IN // Walk-in at gym
+  ADMIN // Registered by admin
 }
 
 // Subscription model - Membership plans
 model Subscription {
-  id            String             @id @default(cuid())
-  userId        String
-  plan          MembershipPlan
-  status        SubscriptionStatus @default(ACTIVE)
-  startDate     DateTime           @default(now())
-  endDate       DateTime
-  amount        Float
-  registrationType RegistrationType @default(SELF)
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  
+  id               String             @id @default(cuid())
+  userId           String
+  plan             MembershipPlan
+  status           SubscriptionStatus @default(ACTIVE)
+  startDate        DateTime           @default(now())
+  endDate          DateTime
+  amount           Float
+  registrationType RegistrationType   @default(SELF)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
   // Relations
-  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  payments      Payment[]
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments Payment[]
 
   @@index([userId])
   @@index([status])
@@ -106,9 +109,9 @@ model Subscription {
 }
 
 enum MembershipPlan {
-  ONE_MONTH      // GH₵ 200
-  THREE_MONTHS   // GH₵ 500
-  ONE_YEAR       // GH₵ 2200
+  ONE_MONTH // GH₵ 200
+  THREE_MONTHS // GH₵ 500
+  ONE_YEAR // GH₵ 2200
 }
 
 enum SubscriptionStatus {
@@ -119,14 +122,14 @@ enum SubscriptionStatus {
 
 // CheckIn model - Track member attendance
 model CheckIn {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   userId       String
-  checkInTime  DateTime @default(now())
+  checkInTime  DateTime  @default(now())
   checkOutTime DateTime?
-  checkedBy    String?  // Staff member who processed check-in
-  method       String   @default("qr") // "qr" or "manual"
-  notes        String?  // Additional notes
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkedBy    String? // Staff member who processed check-in
+  method       String    @default("qr") // "qr" or "manual"
+  notes        String? // Additional notes
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([checkInTime])
@@ -135,19 +138,19 @@ model CheckIn {
 
 // Payment model - Transaction records
 model Payment {
-  id               String         @id @default(cuid())
+  id               String        @id @default(cuid())
   subscriptionId   String
   amount           Float
-  paymentMethod    String         @default("CASH") // CASH, MOMO, or CARD
+  paymentMethod    String        @default("CASH") // CASH, MOMO, or CARD
   paymentDate      DateTime
-  reference        String         @unique // Paystack/MoMo/Cash reference
-  status           PaymentStatus  @default(PENDING)
-  paystackResponse Json?          // Store full webhook data
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  
+  reference        String        @unique // Paystack/MoMo/Cash reference
+  status           PaymentStatus @default(PENDING)
+  paystackResponse Json? // Store full webhook data
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
   // Relations
-  subscription     Subscription   @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
   @@index([subscriptionId])
   @@index([reference])
@@ -172,9 +175,9 @@ model Notification {
   sentAt    DateTime?
   status    String           @default("pending") // "pending", "sent", "failed"
   createdAt DateTime         @default(now())
-  
+
   // Relations
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([type])
@@ -185,44 +188,44 @@ model Notification {
 enum NotificationType {
   WELCOME
   PAYMENT_SUCCESS
-  EXPIRY_WARNING    // 3 days before expiry
+  EXPIRY_WARNING // 3 days before expiry
   SUBSCRIPTION_EXPIRED
   SUBSCRIPTION_RENEWED
-  CLASS_REMINDER    // 24h before class
-  CLASS_CANCELLED   // Class cancellation notification
-  EVENT_REMINDER    // 24h before event
-  EVENT_CANCELLED   // Event cancellation notification
+  CLASS_REMINDER // 24h before class
+  CLASS_CANCELLED // Class cancellation notification
+  EVENT_REMINDER // 24h before event
+  EVENT_CANCELLED // Event cancellation notification
   WAITLIST_SPOT_AVAILABLE
 }
 
 // Class model - Gym classes/sessions
 model Class {
-  id                  String         @id @default(cuid())
-  name                String
-  description         String?
-  type                String         // "Cardio", "HIIT", "Weight Training", "Dance", etc.
-  instructor          String
-  duration            Int            // Duration in minutes
-  maxCapacity         Int            @default(20)
-  currentBookings     Int            @default(0)  // Current number of bookings
-  schedule            String         // "Mon, Wed, Fri - 6:30 AM"
-  color               String?        // Gradient color for UI
-  isFree              Boolean        @default(true) // True if included in membership
-  price               Float?         // Price per class if not free
-  status              ClassStatus    @default(ACTIVE)
-  cancellationReason  String?        // Reason if cancelled
-  cancelledAt         DateTime?      // When cancelled
-  cancelledBy         String?        // Staff who cancelled
-  createdBy           String         // Manager who created the class
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
-  
+  id                 String      @id @default(cuid())
+  name               String
+  description        String?
+  type               String // "Cardio", "HIIT", "Weight Training", "Dance", etc.
+  instructor         String
+  duration           Int // Duration in minutes
+  maxCapacity        Int         @default(20)
+  currentBookings    Int         @default(0) // Current number of bookings
+  schedule           String // "Mon, Wed, Fri - 6:30 AM"
+  color              String? // Gradient color for UI
+  isFree             Boolean     @default(true) // True if included in membership
+  price              Float? // Price per class if not free
+  status             ClassStatus @default(ACTIVE)
+  cancellationReason String? // Reason if cancelled
+  cancelledAt        DateTime? // When cancelled
+  cancelledBy        String? // Staff who cancelled
+  createdBy          String // Manager who created the class
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
   // Relations
-  bookings      ClassBooking[]
-  waitlist      Waitlist[]
-  reviews       ClassReview[]
-  templates     ClassTemplate[]
-  cancellation  ClassCancellation?
+  bookings     ClassBooking[]
+  waitlist     Waitlist[]
+  reviews      ClassReview[]
+  templates    ClassTemplate[]
+  cancellation ClassCancellation?
 
   @@index([status])
   @@index([type])
@@ -237,19 +240,19 @@ enum ClassStatus {
 
 // ClassBooking model - Member class bookings
 model ClassBooking {
-  id                 String    @id @default(cuid())
-  userId             String
-  classId            String
-  bookedFor          DateTime  // When the class is scheduled
-  status             String    @default("confirmed") // "confirmed", "cancelled", "attended"
-  paymentStatus      String?   // "PENDING", "COMPLETED", "FAILED" (null for free classes)
-  paymentRef         String?   // Payment reference for paid classes
-  amountPaid         Float?    // Amount paid for this booking
-  createdAt          DateTime  @default(now())
-  
+  id            String   @id @default(cuid())
+  userId        String
+  classId       String
+  bookedFor     DateTime // When the class is scheduled
+  status        String   @default("confirmed") // "confirmed", "cancelled", "attended"
+  paymentStatus String? // "PENDING", "COMPLETED", "FAILED" (null for free classes)
+  paymentRef    String? // Payment reference for paid classes
+  amountPaid    Float? // Amount paid for this booking
+  createdAt     DateTime @default(now())
+
   // Relations
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([classId])
@@ -266,25 +269,25 @@ model Event {
   eventDate             DateTime
   endDate               DateTime?
   location              String?        @default("GemFitness Tema")
-  image                 String?        // Event banner/poster URL
-  maxAttendees          Int?           // Null = unlimited
+  image                 String? // Event banner/poster URL
+  maxAttendees          Int? // Null = unlimited
   isFree                Boolean        @default(true)
-  price                 Float?         // Event ticket price if not free
+  price                 Float? // Event ticket price if not free
   status                EventStatus    @default(UPCOMING)
   category              EventCategory? // Event category/type
-  tags                  String[]       // Event tags for filtering
-  registrationDeadline  DateTime?      // When registration closes
+  tags                  String[] // Event tags for filtering
+  registrationDeadline  DateTime? // When registration closes
   registrationClosed    Boolean        @default(false)
   autoCloseRegistration Boolean        @default(true)
-  createdBy             String         // Staff member who created event
+  createdBy             String // Staff member who created event
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
-  
+
   // Relations
-  bookings      EventBooking[]
-  tickets       EventTicket[]
-  checkIns      EventCheckIn[]
-  deadlines     EventRegistrationDeadline?
+  bookings  EventBooking[]
+  tickets   EventTicket[]
+  checkIns  EventCheckIn[]
+  deadlines EventRegistrationDeadline?
 
   @@index([status])
   @@index([eventDate])
@@ -301,37 +304,37 @@ enum EventStatus {
 }
 
 enum EventCategory {
-  WORKSHOP           // Educational sessions (nutrition, form, etc.)
-  COMPETITION        // Fitness challenges, contests
-  SOCIAL             // Community events, socials, meetups
-  TRAINING           // Special training sessions, bootcamps
-  WELLNESS           // Yoga, meditation, wellness
-  CHARITY            // Fundraising, community service
-  CELEBRATION        // Anniversaries, holidays, parties
-  SEMINAR            // Guest speakers, presentations
-  OTHER              // Uncategorized events
+  WORKSHOP // Educational sessions (nutrition, form, etc.)
+  COMPETITION // Fitness challenges, contests
+  SOCIAL // Community events, socials, meetups
+  TRAINING // Special training sessions, bootcamps
+  WELLNESS // Yoga, meditation, wellness
+  CHARITY // Fundraising, community service
+  CELEBRATION // Anniversaries, holidays, parties
+  SEMINAR // Guest speakers, presentations
+  OTHER // Uncategorized events
 }
 
 // EventBooking model - Member event registrations
 model EventBooking {
-  id                 String    @id @default(cuid())
-  userId             String
-  eventId            String
-  status             String    @default("registered") // "registered", "confirmed", "cancelled", "attended"
-  paymentStatus      String?   // "PENDING", "COMPLETED", "FAILED"
-  paymentRef         String?   // Payment reference
-  ticketId           String?   @unique // Generated ticket ID
-  ticketQRData       String?   // QR code data JSON
-  ticketGeneratedAt  DateTime?
-  checkedIn          Boolean   @default(false)
-  checkedInAt        DateTime?
-  checkedInBy        String?   // Staff who checked in
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  
+  id                String    @id @default(cuid())
+  userId            String
+  eventId           String
+  status            String    @default("registered") // "registered", "confirmed", "cancelled", "attended"
+  paymentStatus     String? // "PENDING", "COMPLETED", "FAILED"
+  paymentRef        String? // Payment reference
+  ticketId          String?   @unique // Generated ticket ID
+  ticketQRData      String? // QR code data JSON
+  ticketGeneratedAt DateTime?
+  checkedIn         Boolean   @default(false)
+  checkedInAt       DateTime?
+  checkedInBy       String? // Staff who checked in
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
   // Relations
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([eventId])
@@ -348,11 +351,11 @@ model PendingEventBooking {
   eventId          String
   paymentReference String   @unique
   amount           Float
-  paymentMethod    String   // "CARD", "MOMO", "CASH"
-  metadata         Json?    // Store additional data (user info, event info)
+  paymentMethod    String // "CARD", "MOMO", "CASH"
+  metadata         Json? // Store additional data (user info, event info)
   createdAt        DateTime @default(now())
   expiresAt        DateTime // Payment must complete within 30 minutes
-  
+
   @@index([userId])
   @@index([eventId])
   @@index([paymentReference])
@@ -368,11 +371,11 @@ model PendingClassBooking {
   bookedFor        DateTime // When the class is scheduled
   paymentReference String   @unique
   amount           Float
-  paymentMethod    String   // "CARD", "MOMO", "CASH"
-  metadata         Json?    // Store additional data (user info, class info)
+  paymentMethod    String // "CARD", "MOMO", "CASH"
+  metadata         Json? // Store additional data (user info, class info)
   createdAt        DateTime @default(now())
   expiresAt        DateTime // Payment must complete within 30 minutes
-  
+
   @@index([userId])
   @@index([classId])
   @@index([paymentReference])
@@ -382,25 +385,25 @@ model PendingClassBooking {
 
 // Plan model - Membership plan templates
 model Plan {
-  id              String             @id @default(cuid())
-  name            String             @unique // "Monthly", "Quarterly", "Annual", custom names
-  slug            String             @unique // "ONE_MONTH", "THREE_MONTHS", "ONE_YEAR"
-  description     String?
-  price           Float              // Price in GH₵
-  duration        Int                // Duration in days
-  durationUnit    String             @default("days") // "days", "months", "years"
-  currency        String             @default("GHS")
-  features        String[]           // Array of feature descriptions
-  status          PlanStatus         @default(ACTIVE)
-  isPopular       Boolean            @default(false)
-  isFeatured      Boolean            @default(false)
-  displayOrder    Int                @default(0)
-  createdBy       String             // Admin who created the plan
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  
+  id           String     @id @default(cuid())
+  name         String     @unique // "Monthly", "Quarterly", "Annual", custom names
+  slug         String     @unique // "ONE_MONTH", "THREE_MONTHS", "ONE_YEAR"
+  description  String?
+  price        Float // Price in GH₵
+  duration     Int // Duration in days
+  durationUnit String     @default("days") // "days", "months", "years"
+  currency     String     @default("GHS")
+  features     String[] // Array of feature descriptions
+  status       PlanStatus @default(ACTIVE)
+  isPopular    Boolean    @default(false)
+  isFeatured   Boolean    @default(false)
+  displayOrder Int        @default(0)
+  createdBy    String // Admin who created the plan
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
   // Relations
-  changeHistory   PlanChangeHistory[]
+  changeHistory PlanChangeHistory[]
 
   @@index([status])
   @@index([slug])
@@ -415,17 +418,17 @@ enum PlanStatus {
 
 // PlanChangeHistory model - Track plan modifications
 model PlanChangeHistory {
-  id              String   @id @default(cuid())
-  planId          String
-  changedBy       String   // Admin who made the change
-  changeType      String   // "CREATED", "UPDATED", "PRICE_CHANGED", "STATUS_CHANGED"
-  oldValue        String?  // JSON string of old values
-  newValue        String?  // JSON string of new values
-  description     String?  // Human-readable change description
-  createdAt       DateTime @default(now())
-  
+  id          String   @id @default(cuid())
+  planId      String
+  changedBy   String // Admin who made the change
+  changeType  String // "CREATED", "UPDATED", "PRICE_CHANGED", "STATUS_CHANGED"
+  oldValue    String? // JSON string of old values
+  newValue    String? // JSON string of new values
+  description String? // Human-readable change description
+  createdAt   DateTime @default(now())
+
   // Relations
-  plan            Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
 
   @@index([planId])
   @@index([changedBy])
@@ -436,10 +439,10 @@ model PlanChangeHistory {
 model RegistrationFee {
   id          String   @id @default(cuid())
   type        String   @unique // "SINGLE", "COUPLE", "FAMILY"
-  name        String   // Display name: "Single", "Couple", "Family"
-  price       Float    // Price in GH₵
-  description String?  // Description text
-  maxMembers  Int?     // NULL for single, 2 for couple, 5 for family
+  name        String // Display name: "Single", "Couple", "Family"
+  price       Float // Price in GH₵
+  description String? // Description text
+  maxMembers  Int? // NULL for single, 2 for couple, 5 for family
   status      String   @default("ACTIVE") // "ACTIVE" or "INACTIVE"
   currency    String   @default("GHS")
   createdAt   DateTime @default(now())
@@ -452,19 +455,19 @@ model RegistrationFee {
 
 // Waitlist model - Class waitlist management
 model Waitlist {
-  id          String   @id @default(cuid())
-  userId      String
-  classId     String
-  position    Int      // Position in waitlist (1 = first in line)
-  status      String   @default("waiting") // "waiting", "notified", "enrolled", "expired"
-  notifiedAt  DateTime? // When user was notified about available spot
-  expiresAt   DateTime? // Notification expires after 24h
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id         String    @id @default(cuid())
+  userId     String
+  classId    String
+  position   Int // Position in waitlist (1 = first in line)
+  status     String    @default("waiting") // "waiting", "notified", "enrolled", "expired"
+  notifiedAt DateTime? // When user was notified about available spot
+  expiresAt  DateTime? // Notification expires after 24h
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
   // Relations
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
 
   @@unique([userId, classId]) // User can only be on waitlist once per class
   @@index([classId])
@@ -476,21 +479,21 @@ model Waitlist {
 // ClassTemplate model - Save class configurations
 model ClassTemplate {
   id          String   @id @default(cuid())
-  name        String   // Template name (e.g., "Morning HIIT Setup")
+  name        String // Template name (e.g., "Morning HIIT Setup")
   description String?
-  classId     String?  // Reference to original class (optional)
+  classId     String? // Reference to original class (optional)
   type        String
   instructor  String
   duration    Int
   maxCapacity Int
   schedule    String
   color       String?
-  createdBy   String   // Manager who created template
+  createdBy   String // Manager who created template
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Relations
-  class       Class?   @relation(fields: [classId], references: [id], onDelete: SetNull)
+  class Class? @relation(fields: [classId], references: [id], onDelete: SetNull)
 
   @@index([createdBy])
   @@index([type])
@@ -502,16 +505,16 @@ model ClassReview {
   id          String   @id @default(cuid())
   userId      String
   classId     String
-  rating      Int      // 1-5 stars
-  comment     String?  // Optional review text
+  rating      Int // 1-5 stars
+  comment     String? // Optional review text
   isAnonymous Boolean  @default(false)
   status      String   @default("published") // "published", "hidden", "flagged"
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Relations
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
 
   @@unique([userId, classId]) // One review per user per class
   @@index([classId])
@@ -534,30 +537,30 @@ model NotificationPreference {
   reminderHours         Int      @default(24) // Hours before class/event to send reminder
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
-  
+
   // Relations
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notification_preferences")
 }
 
 // EventTicket model - QR tickets for paid events
 model EventTicket {
-  id            String    @id @default(cuid())
-  eventId       String
-  userId        String
-  ticketNumber  String    @unique
-  qrCode        String    @unique
-  securityHash  String
-  checkedIn     Boolean   @default(false)
-  checkInTime   DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
+  id           String    @id @default(cuid())
+  eventId      String
+  userId       String
+  ticketNumber String    @unique
+  qrCode       String    @unique
+  securityHash String
+  checkedIn    Boolean   @default(false)
+  checkInTime  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
   // Relations
-  event         Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  checkIns      EventCheckIn[]
+  event    Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkIns EventCheckIn[]
 
   @@index([eventId])
   @@index([userId])
@@ -574,15 +577,15 @@ model EventCheckIn {
   userId      String
   staffId     String
   checkInTime DateTime @default(now())
-  method      String   // 'qr' or 'manual'
+  method      String // 'qr' or 'manual'
   notes       String?
   createdAt   DateTime @default(now())
-  
+
   // Relations
-  event       Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  ticket      EventTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  staff       User       @relation("StaffCheckIns", fields: [staffId], references: [id], onDelete: Cascade)
+  event  Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  ticket EventTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  staff  User        @relation("StaffCheckIns", fields: [staffId], references: [id], onDelete: Cascade)
 
   @@unique([ticketId]) // One check-in per ticket
   @@index([eventId])
@@ -602,9 +605,9 @@ model EventRegistrationDeadline {
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  
+
   // Relations
-  event         Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([deadline])
   @@index([isActive])
@@ -613,18 +616,18 @@ model EventRegistrationDeadline {
 
 // ClassCancellation model - Track cancelled classes
 model ClassCancellation {
-  id                  String   @id @default(cuid())
-  classId             String   @unique
-  reason              String
-  alternativeClasses  String[] // Array of class IDs
-  membersNotified     Boolean  @default(false)
-  cancelledBy         String
-  cancelledAt         DateTime @default(now())
-  createdAt           DateTime @default(now())
-  
+  id                 String   @id @default(cuid())
+  classId            String   @unique
+  reason             String
+  alternativeClasses String[] // Array of class IDs
+  membersNotified    Boolean  @default(false)
+  cancelledBy        String
+  cancelledAt        DateTime @default(now())
+  createdAt          DateTime @default(now())
+
   // Relations
-  class               Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
-  staff               User     @relation("StaffCancellations", fields: [cancelledBy], references: [id], onDelete: Cascade)
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  staff User  @relation("StaffCancellations", fields: [cancelledBy], references: [id], onDelete: Cascade)
 
   @@index([cancelledAt])
   @@index([cancelledBy])
@@ -633,24 +636,24 @@ model ClassCancellation {
 
 // PaymentTransaction model - Track all payment transactions
 model PaymentTransaction {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   userId            String?
-  reference         String   @unique
+  reference         String    @unique
   amount            Float
-  currency          String   @default("GHS")
-  status            String   // 'pending', 'success', 'failed'
-  paymentMethod     String   // 'paystack', 'cash', 'transfer'
-  transactionType   String   // 'registration', 'subscription', 'event', 'class'
-  relatedEntityId   String?  // ID of event, class, or subscription
-  relatedEntityType String?  // 'event', 'class', 'subscription'
-  paymentGatewayId  String?  // Gateway transaction ID
-  metadata          Json?    // Additional payment data
+  currency          String    @default("GHS")
+  status            String // 'pending', 'success', 'failed'
+  paymentMethod     String // 'paystack', 'cash', 'transfer'
+  transactionType   String // 'registration', 'subscription', 'event', 'class'
+  relatedEntityId   String? // ID of event, class, or subscription
+  relatedEntityType String? // 'event', 'class', 'subscription'
+  paymentGatewayId  String? // Gateway transaction ID
+  metadata          Json? // Additional payment data
   paidAt            DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
   // Relations
-  user              User?    @relation("UserTransactions", fields: [userId], references: [id], onDelete: SetNull)
+  user User? @relation("UserTransactions", fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([reference])
@@ -662,17 +665,17 @@ model PaymentTransaction {
 
 // PAR-Q Response model - Track health screening responses
 model ParQResponse {
-  id                   String   @id @default(cuid())
-  userId               String
-  responses            String   // JSON string of all question responses
-  otherReasonDetails   String?  // Details for "other reason" question
-  riskLevel            String   // 'low', 'medium', 'high'
-  completedAt          DateTime
-  createdAt            DateTime @default(now())
-  
+  id                 String   @id @default(cuid())
+  userId             String
+  responses          String // JSON string of all question responses
+  otherReasonDetails String? // Details for "other reason" question
+  riskLevel          String // 'low', 'medium', 'high'
+  completedAt        DateTime
+  createdAt          DateTime @default(now())
+
   // Relations
-  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@index([riskLevel])
   @@map("parq_responses")
@@ -680,45 +683,45 @@ model ParQResponse {
 
 // Pending Registration model - Store registration data while payment is pending
 model PendingRegistration {
-  id                   String   @id @default(cuid())
-  email                String   @unique
-  phone                String   
-  firstName            String
-  lastName             String
-  dateOfBirth          DateTime
-  address              String?
-  emergencyContact     String
-  emergencyPhone       String
-  fitnessGoals         String?
-  medicalConditions    String?
-  
+  id                String   @id @default(cuid())
+  email             String   @unique
+  phone             String
+  firstName         String
+  lastName          String
+  dateOfBirth       DateTime
+  address           String?
+  emergencyContact  String
+  emergencyPhone    String
+  fitnessGoals      String?
+  medicalConditions String?
+
   // PAR-Q data
-  hasHeartCondition    Boolean  @default(false)
-  hasChestPain         Boolean  @default(false)
-  hasDizziness         Boolean  @default(false)
-  hasJointProblems     Boolean  @default(false)
-  takesMedication      Boolean  @default(false)
-  hasOtherConditions   Boolean  @default(false)
+  hasHeartCondition      Boolean @default(false)
+  hasChestPain           Boolean @default(false)
+  hasDizziness           Boolean @default(false)
+  hasJointProblems       Boolean @default(false)
+  takesMedication        Boolean @default(false)
+  hasOtherConditions     Boolean @default(false)
   otherConditionsDetails String?
-  
+
   // Membership and payment
-  plan                 MembershipPlan
-  registrationType     RegistrationType @default(WALK_IN)
-  paymentMethod        String           // CASH, MOMO, CARD
-  paymentReference     String   @unique
-  amountPaid           Float
-  momoReference        String?
-  
+  plan             MembershipPlan
+  registrationType RegistrationType @default(WALK_IN)
+  paymentMethod    String // CASH, MOMO, CARD
+  paymentReference String           @unique
+  amountPaid       Float
+  momoReference    String?
+
   // Auto-generated password
-  password             String
-  
+  password String
+
   // Status
-  paymentStatus        String   @default("pending") // pending, success, failed
-  expiresAt            DateTime // Auto-delete after 24 hours if not completed
-  
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-  
+  paymentStatus String   @default("pending") // pending, success, failed
+  expiresAt     DateTime // Auto-delete after 24 hours if not completed
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([email])
   @@index([paymentReference])
   @@index([paymentStatus])
@@ -728,23 +731,23 @@ model PendingRegistration {
 
 // Audit Log model - Track all system activities
 model AuditLog {
-  id          String   @id @default(cuid())
-  action      String   // login, logout, member_created, member_updated, member_deleted, subscription_created, etc.
-  entityType  String   // User, Subscription, Payment, CheckIn, Class, Event, etc.
-  entityId    String?  // ID of the affected entity
-  userId      String   // ID of the user who performed the action
-  userName    String   // Name of the user who performed the action
-  userEmail   String   // Email of the user who performed the action
-  changes     Json?    // JSON object containing the changes made (before/after values)
-  ipAddress   String?  // IP address from where the action was performed
-  userAgent   String?  // User agent string
-  sessionId   String?  // Session ID for tracking user sessions
-  metadata    Json?    // Additional metadata about the action
-  timestamp   DateTime @default(now())
-  
+  id         String   @id @default(cuid())
+  action     String // login, logout, member_created, member_updated, member_deleted, subscription_created, etc.
+  entityType String // User, Subscription, Payment, CheckIn, Class, Event, etc.
+  entityId   String? // ID of the affected entity
+  userId     String // ID of the user who performed the action
+  userName   String // Name of the user who performed the action
+  userEmail  String // Email of the user who performed the action
+  changes    Json? // JSON object containing the changes made (before/after values)
+  ipAddress  String? // IP address from where the action was performed
+  userAgent  String? // User agent string
+  sessionId  String? // Session ID for tracking user sessions
+  metadata   Json? // Additional metadata about the action
+  timestamp  DateTime @default(now())
+
   // Relations
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([action])
   @@index([entityType])
   @@index([entityId])
@@ -753,4 +756,46 @@ model AuditLog {
   @@index([action, entityType])
   @@index([timestamp, action])
   @@map("audit_logs")
+}
+
+// Trainer model - Manage trainers/instructors
+model Trainer {
+  id               String   @id @default(cuid())
+  name             String   @unique // Trainer's display name
+  email            String?  @unique // Contact email
+  phone            String?  // Contact phone
+  specializations  String[] // Array of specializations: ["HIIT", "Yoga", "Strength"]
+  bio              String?  // Short biography
+  image            String?  // Profile image URL
+  certifications   String[] // Professional certifications
+  status           String   @default("ACTIVE") // ACTIVE, INACTIVE, ON_LEAVE
+  hireDate         DateTime @default(now())
+  maxWeeklyHours   Int      @default(40) // Maximum hours per week
+  preferredDays    String[] // Preferred working days: ["Monday", "Wednesday", "Friday"]
+  preferredTimes   String[] // Preferred time slots: ["Morning", "Afternoon", "Evening"]
+  unavailableDates String[] // Dates when trainer is unavailable (ISO format)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([name])
+  @@index([status])
+  @@map("trainers")
+}
+
+// TrainerAvailability model - Detailed availability schedule
+model TrainerAvailability {
+  id          String   @id @default(cuid())
+  trainerName String   // Links to Trainer by name (for flexibility)
+  dayOfWeek   String   // "Monday", "Tuesday", etc.
+  startTime   String   // "09:00"
+  endTime     String   // "17:00"
+  isAvailable Boolean  @default(true)
+  notes       String?  // Special notes for this time slot
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([trainerName, dayOfWeek, startTime])
+  @@index([trainerName])
+  @@index([dayOfWeek])
+  @@map("trainer_availability")
 }

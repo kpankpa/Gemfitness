@@ -5,6 +5,8 @@
  * Used for walk-in registrations and payment receipts
  */
 
+import QRCode from 'qrcode';
+
 interface ReceiptData {
   receiptNumber: string;
   memberName: string;
@@ -29,12 +31,19 @@ interface ReceiptData {
   parqRiskLevel?: string;
 }
 
-export function printRegistrationReceipt(data: ReceiptData) {
+export async function printRegistrationReceipt(data: ReceiptData) {
   const receiptWindow = window.open('', '', 'width=300,height=600');
   
   if (!receiptWindow) {
     alert('Please allow pop-ups to print receipt');
     return;
+  }
+
+  let qrDataUrl = '';
+  try {
+    qrDataUrl = await QRCode.toDataURL(data.qrCode, { margin: 1, width: 160 });
+  } catch (error) {
+    console.warn('Failed to generate QR image for receipt:', error);
   }
 
   const receiptHTML = `
@@ -276,7 +285,7 @@ export function printRegistrationReceipt(data: ReceiptData) {
       <div class="section-title">Payment Details</div>
       <div class="row total-row">
         <div class="row-label">TOTAL PAID:</div>
-        <div class="row-value amount">GH₵ ${(data.amountPaid || data.registrationFee).toFixed(2)}</div>
+        <div class="row-value amount">GH₵ ${Number(data.amountPaid ?? data.registrationFee ?? 0).toFixed(2)}</div>
       </div>
       <div class="row">
         <div class="row-label">Method:</div>
@@ -312,6 +321,7 @@ export function printRegistrationReceipt(data: ReceiptData) {
       <!-- QR Code Section -->
       <div class="qr-section">
         <div style="font-size: 9px; margin-bottom: 4px;">MEMBER QR CODE</div>
+        ${qrDataUrl ? `<img src="${qrDataUrl}" alt="Member QR" style="width: 120px; height: 120px;" />` : ''}
         <div class="qr-code">${data.qrCode}</div>
         <div style="font-size: 8px; margin-top: 4px;">Scan for check-in</div>
       </div>
@@ -329,23 +339,39 @@ export function printRegistrationReceipt(data: ReceiptData) {
       </div>
       
       <div style="height: 20mm;"></div>
+      <script>
+        window.onload = function () {
+          const imgs = Array.from(document.images);
+          let loaded = 0;
+          const done = () => {
+            setTimeout(() => {
+              window.print();
+              window.onafterprint = () => window.close();
+            }, 300);
+          };
+          if (imgs.length === 0) {
+            done();
+            return;
+          }
+          imgs.forEach((img) => {
+            if (img.complete) {
+              loaded += 1;
+              if (loaded === imgs.length) done();
+            } else {
+              img.onload = img.onerror = () => {
+                loaded += 1;
+                if (loaded === imgs.length) done();
+              };
+            }
+          });
+        };
+      </script>
     </body>
     </html>
   `;
 
   receiptWindow.document.write(receiptHTML);
   receiptWindow.document.close();
-  
-  // Wait for logo to load, then print
-  receiptWindow.onload = () => {
-    setTimeout(() => {
-      receiptWindow.print();
-      // Auto-close after printing (optional)
-      receiptWindow.onafterprint = () => {
-        receiptWindow.close();
-      };
-    }, 500);
-  };
 }
 
 // Generate receipt number

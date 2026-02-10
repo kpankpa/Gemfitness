@@ -231,7 +231,7 @@ export default function EnhancedPlansManagement({ onClose: _onClose }: EnhancedP
 
       {/* Analytics View */}
       {viewMode === 'analytics' && analytics && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <Card className="border-2 border-green-100">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -301,7 +301,7 @@ export default function EnhancedPlansManagement({ onClose: _onClose }: EnhancedP
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {ENHANCED_PLAN_TEMPLATES.map((template) => (
                 <Card key={template.id} className="border-2 border-gray-200 hover:border-orange-300 transition-colors">
                   <CardContent className="p-4">
@@ -354,7 +354,7 @@ export default function EnhancedPlansManagement({ onClose: _onClose }: EnhancedP
             </Button>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {plans.map((plan) => (
               <Card key={plan.id} className={`transition-all hover:shadow-lg ${
                 plan.isPopular ? 'border-orange-300 bg-orange-50/30' : 'border-gray-200'

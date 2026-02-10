@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { hashPassword } from '@/lib/auth/passwords';
 
 export async function POST(request: NextRequest) {
   // Only allow in development mode
@@ -12,7 +13,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { email } = await request.json();
+    const { email, password } = await request.json();
 
     if (!email) {
       return NextResponse.json(
@@ -40,16 +41,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Skip verification - mark email as verified and clear OTP
+    // Skip verification - mark email as verified, set password, and clear OTP
+    // Use the actual password from signup if provided, otherwise fallback to dev password
+    const actualPassword = password && typeof password === 'string' && password.length >= 8 
+      ? password 
+      : 'Dev123456!';
+    const hashedPassword = await hashPassword(actualPassword);
+    const usingActualPassword = actualPassword !== 'Dev123456!';
+    
     await prisma.user.update({
       where: { id: user.id },
       data: {
         emailVerified: true,
+        password: hashedPassword,
+        passwordSet: true,
         otpCode: null,
         otpExpiry: null,
         otpAttempts: 0
       }
     });
+
+    console.log('\n' + '='.repeat(60));
+    console.log('🔓 EMAIL VERIFICATION SKIPPED (DEV MODE)');
+    console.log('='.repeat(60));
+    console.log(`Email: ${user.email}`);
+    console.log(`Password: ${usingActualPassword ? '[YOUR SIGNUP PASSWORD]' : actualPassword}`);
+    console.log(`Password Source: ${usingActualPassword ? 'Actual signup password' : 'Dev fallback'}`);
+    console.log('='.repeat(60) + '\n');
 
     logger.info('🔓 Email verification skipped (DEV MODE):', {
       email: user.email,

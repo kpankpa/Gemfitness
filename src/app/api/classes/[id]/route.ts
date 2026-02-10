@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { $Enums } from '@prisma/client';
 import { verifySessionForApi } from '@/lib/auth/dal';
 import { prisma } from '@/lib/prisma';
+import { detectSchedulingConflicts } from '@/lib/services/scheduling/conflict-detector';
 
 export const dynamic = 'force-dynamic';
 
@@ -104,6 +105,29 @@ export async function PUT(
 
     if (!existingClass) {
       return NextResponse.json({ error: 'Class not found' }, { status: 404 });
+    }
+
+    // Check for scheduling conflicts if instructor or schedule is being updated
+    const newInstructor = instructor || existingClass.instructor;
+    const newSchedule = schedule || existingClass.schedule;
+    
+    if (instructor || schedule) {
+      const conflictCheck = await detectSchedulingConflicts(
+        newInstructor,
+        newSchedule,
+        id // Exclude current class from conflict check
+      );
+      
+      if (conflictCheck.hasConflict) {
+        return NextResponse.json(
+          { 
+            error: 'Scheduling conflict detected',
+            details: conflictCheck.message,
+            conflictingClasses: conflictCheck.conflictingClasses
+          },
+          { status: 409 } // 409 Conflict
+        );
+      }
     }
 
     const updatedClass = await prisma.class.update({

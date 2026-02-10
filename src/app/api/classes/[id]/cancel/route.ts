@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifySessionForApi } from '@/lib/auth/dal';
+import { cancelClass } from '@/lib/services/scheduling/cancellation-service';
+import logger from '@/lib/logger';
 
 // POST /api/classes/[id]/cancel - Cancel a class and notify members
 export async function POST(
@@ -13,9 +15,17 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Only managers and admins can cancel classes
+    if (!session.role || !['MANAGER', 'ADMIN'].includes(session.role)) {
+      return NextResponse.json(
+        { error: 'Forbidden - Manager or Admin role required' },
+        { status: 403 }
+      );
+    }
+
     const { id: classId } = await params;
     const body = await request.json();
-    const { reason, notifyMembers = true } = body;
+    const { reason, alternativeClassIds = [], notifyMembers = true } = body;
 
     if (!reason?.trim()) {
       return NextResponse.json(
@@ -25,94 +35,67 @@ export async function POST(
     }
 
     // Check if class exists and is not already cancelled
-    const classToCancel = await prisma.class.findUnique({
+    const classToCheck = await prisma.class.findUnique({
       where: { id: classId },
-      include: {
-        bookings: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                email: true,
-                firstName: true,
-                lastName: true,
-              }
-            }
-          }
-        }
-      }
     });
 
-    if (!classToCancel) {
+    if (!classToCheck) {
       return NextResponse.json(
         { error: 'Class not found' },
         { status: 404 }
       );
     }
 
-    if (classToCancel.status === 'CANCELLED') {
+    if (classToCheck.status === 'CANCELLED') {
       return NextResponse.json(
         { error: 'Class is already cancelled' },
         { status: 400 }
       );
     }
 
-    // Update class status to cancelled
-    await prisma.class.update({
-      where: { id: classId },
-      data: {
-        status: 'CANCELLED',
-        cancellationReason: reason,
-        cancelledAt: new Date(),
-        cancelledBy: session.userId,
-      }
+    // Use the cancellation service
+    logger.info('Cancelling class:', {
+      classId,
+      className: classToCheck.name,
+      reason,
     });
 
-    let notifiedMembers = 0;
+    const result = await cancelClass({
+      classId,
+      reason,
+      alternativeClassIds,
+      cancelledBy: session.userId,
+      notifyMembers,
+    });
 
-    // Send notifications to enrolled members
-    if (notifyMembers && classToCancel.bookings.length > 0) {
-      const memberEmails = classToCancel.bookings.map(booking => booking.user.email);
-      
-      try {
-        // Create notification records
-        await prisma.notification.createMany({
-          data: classToCancel.bookings.map(booking => ({
-            userId: booking.user.id,
-            type: 'CLASS_CANCELLED',
-            subject: `Class Cancelled: ${classToCancel.name}`,
-            message: `Unfortunately, the ${classToCancel.name} class scheduled for ${classToCancel.schedule} has been cancelled. Reason: ${reason}`,
-            status: 'pending',
-          }))
-        });
-
-        // Send email notifications (you can implement email service here)
-        // For now, we'll just count the notifications created
-        notifiedMembers = classToCancel.bookings.length;
-
-        console.log(`Class cancellation notifications sent to: ${memberEmails.join(', ')}`);
-      } catch (notificationError) {
-        console.error('Error sending notifications:', notificationError);
-        // Don't fail the cancellation if notifications fail
-      }
-    }
+    logger.info('Class cancelled successfully:', {
+      classId,
+      className: result.className,
+      membersNotified: result.membersNotified,
+    });
 
     return NextResponse.json({
       success: true,
       message: 'Class cancelled successfully',
-      notifiedMembers,
       class: {
-        id: classToCancel.id,
-        name: classToCancel.name,
+        id: result.classId,
+        name: result.className,
         status: 'CANCELLED',
-        cancelledAt: new Date(),
-      }
+        cancelledAt: result.cancelledAt,
+      },
+      notifications: {
+        sent: result.membersNotified,
+      },
+      alternativeClasses: result.alternativeClassesOffered,
     });
 
   } catch (error) {
-    console.error('Error cancelling class:', error);
+    logger.error('Error cancelling class:', error);
     return NextResponse.json(
-      { error: 'Failed to cancel class' },
+      {
+        error: 'Failed to cancel class',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
       { status: 500 }
     );
   }

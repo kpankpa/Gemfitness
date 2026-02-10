@@ -75,9 +75,9 @@ export default function AdminSidebar({
             <Image
               src="/gemfitness.svg"
               alt="GemFitness"
-              width={32}
-              height={32}
-              className="w-8 h-8"
+                width={64}
+                height={64}
+                className="w-16 h-16 drop-shadow-md"
             />
             <div>
               <h1 className="text-lg font-bold text-gray-900">GemFitness</h1>
@@ -118,9 +118,9 @@ export default function AdminSidebar({
                 <Image
                   src="/gemfitness.svg"
                   alt="GemFitness"
-                  width={40}
-                  height={40}
-                  className="w-10 h-10 flex-shrink-0"
+                    width={72}
+                    height={72}
+                    className="w-18 h-18 flex-shrink-0 drop-shadow-md"
                 />
                 {!isCollapsed && (
                   <div className="min-w-0">

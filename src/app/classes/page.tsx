@@ -8,17 +8,14 @@ import PageHero from '@/components/PageHero';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
-interface Class {
+// Minimal public data for landing page
+interface PublicClass {
   id: string;
   name: string;
   description?: string;
   type: string;
-  instructor: string;
-  duration: number;
-  maxCapacity: number;
-  enrolled: number;
   schedule: string;
-  status: string;
+  duration: number;
 }
 
 const weeklySchedule = [
@@ -143,7 +140,7 @@ const pricingOptions = [
 ];
 
 export default function ClassesPage() {
-  const [classes, setClasses] = useState<Class[]>([]);
+  const [classes, setClasses] = useState<PublicClass[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -153,7 +150,8 @@ export default function ClassesPage() {
 
   const fetchClasses = async () => {
     try {
-      const response = await fetch('/api/classes?status=ACTIVE');
+      // Use public endpoint - no auth required
+      const response = await fetch('/api/public/classes?limit=12');
       const data = await response.json();
       if (data.success) {
         setClasses(data.classes);
@@ -251,20 +249,21 @@ export default function ClassesPage() {
                             <span className="text-sm text-gray-700">Type: {classItem.type}</span>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <CheckCircle2 className="w-4 h-4 text-orange-500" />
-                            <span className="text-sm text-gray-700">Max capacity: {classItem.maxCapacity}</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <CheckCircle2 className="w-4 h-4 text-orange-500" />
+                            <Clock className="w-4 h-4 text-orange-500" />
                             <span className="text-sm text-gray-700">Duration: {classItem.duration} minutes</span>
+                          </div>
+                          <div className="flex items-start space-x-2">
+                            <Clock className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
+                            <span className="text-sm text-gray-700">{classItem.schedule}</span>
                           </div>
                         </div>
 
                         <div className="pt-4 border-t border-gray-200">
-                          <div className="flex items-start space-x-2 text-sm text-gray-600">
-                            <Clock className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
-                            <span>{classItem.schedule}</span>
-                          </div>
+                          <Link href="/signup">
+                            <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center gap-2">
+                              Join Now <ArrowRight className="w-4 h-4" />
+                            </Button>
+                          </Link>
                         </div>
                       </div>
                     </Card>

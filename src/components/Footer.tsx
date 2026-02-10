@@ -12,13 +12,14 @@ export default function Footer() {
           {/* Brand */}
           <div>
             <div className="flex items-center mb-4">
-              <div className="w-12 h-12 flex-shrink-0">
+              <div className="w-16 h-16 flex-shrink-0">
                 <Image
                   src="/gemfitness.svg"
                   alt="GemFitness Logo"
-                  width={48}
-                  height={48}
-                  className="object-contain"
+                  width={64}
+                  height={64}
+                  className="object-contain drop-shadow-lg"
+                  priority
                 />
               </div>
             </div>

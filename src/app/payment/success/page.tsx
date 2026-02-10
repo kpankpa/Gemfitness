@@ -3,11 +3,10 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { CheckCircle, Home, User, CreditCard, Loader2 } from 'lucide-react';
+import { CheckCircle, Home, CreditCard, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import QRCodeDisplay from '@/components/QRCodeDisplay';
 
 interface PaymentData {
   success: boolean;
@@ -24,20 +23,6 @@ interface PaymentData {
   authorization_code?: string;
 }
 
-interface UserData {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  qrToken: string;
-  subscription: {
-    plan: string;
-    startDate: string;
-    endDate: string;
-    status: string;
-  };
-}
-
 function PaymentSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -45,8 +30,9 @@ function PaymentSuccessContent() {
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [userCreationError, setUserCreationError] = useState('');
+  const [retrying, setRetrying] = useState(false);
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
-  const [userData, setUserData] = useState<UserData | null>(null);
 
   useEffect(() => {
     if (!reference) {
@@ -74,77 +60,65 @@ function PaymentSuccessContent() {
 
         setPaymentData(verifyData);
 
-        // For new signups, prioritize creating user from payment data over existing sessions
-        // This prevents admin sessions from interfering with new user registration
-        if (verifyData.customer?.email) {
-          console.log('Processing new user signup from payment data...');
-          
-          try {
-            const createUserResponse = await fetch('/api/auth/create-user-from-payment', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                paymentData: verifyData,
-                reference: reference,
-              }),
-            });
-
-            const createUserData = await createUserResponse.json();
-            
-            if (createUserResponse.ok && createUserData.success) {
-              console.log('User created successfully, redirecting to verification');
-              // Always use the payment customer email, not any existing session
-              router.push(`/verify-email?email=${encodeURIComponent(verifyData.customer.email)}`);
-              return;
-            } else {
-              console.error('Failed to create user:', createUserData.message);
-              // If user already exists, still redirect to verify with payment email
-              if (createUserData.error === 'DUPLICATE_USER') {
-                router.push(`/verify-email?email=${encodeURIComponent(verifyData.customer.email)}`);
-                return;
-              }
-            }
-          } catch (error) {
-            console.error('Error creating user:', error);
-          }
-        }
-
-        // Fallback: Try to fetch existing user session (for cases where user already exists)
-        let userSession = null;
-        try {
-          const userResponse = await fetch('/api/auth/session');
-          const sessionData = await userResponse.json();
-          if (userResponse.ok && sessionData.user) {
-            userSession = sessionData.user;
-          }
-        } catch {
-          console.log('No session found');
-        }
-
-        // Only use existing session if it matches the payment email
-        if (userSession && userSession.email === verifyData.customer?.email) {
-          setUserData(userSession);
-          
-          // Check if email verification is needed
-          if (!userSession.emailVerified) {
-            router.push(`/verify-email?email=${encodeURIComponent(userSession.email)}`);
-            return;
-          }
-        } else if (verifyData.customer?.email) {
-          // If session doesn't match payment email, use payment email for verification
-          router.push(`/verify-email?email=${encodeURIComponent(verifyData.customer.email)}`);
-          return;
-        }
-
-        setLoading(false);
+        // Create user account from payment data
+        await createUserFromPayment(verifyData, reference);
       } catch (err) {
         console.error('Payment verification error:', err);
         setError('Failed to verify payment. Please contact support.');
         setLoading(false);
       }
     };
+
+    const createUserFromPayment = async (verifyData: any, ref: string) => {
+      try {
+        console.log('Creating user account from payment data...');
+        
+        const createUserResponse = await fetch('/api/auth/create-user-from-payment', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            paymentData: verifyData,
+            reference: ref,
+          }),
+        });
+
+        const createUserData = await createUserResponse.json();
+        
+        if (createUserResponse.ok && createUserData.success) {
+          console.log('User created successfully, redirecting to verification');
+          router.push(`/verify-email?email=${encodeURIComponent(verifyData.customer.email)}`);
+          return;
+        } else {
+          // Handle errors properly - show to user, don't redirect
+          console.error('Failed to create user:', createUserData.message);
+          
+          // Special case: user already exists (duplicate)
+          if (createUserData.error === 'DUPLICATE_USER') {
+            console.log('User already exists, redirecting to verification');
+            router.push(`/verify-email?email=${encodeURIComponent(verifyData.customer.email)}`);
+            return;
+          }
+          
+          // For other errors, show error message to user
+          setUserCreationError(
+            createUserData.message || 
+            'Failed to create your account. Your payment was successful, but we encountered an issue setting up your membership.'
+          );
+          setLoading(false);
+          return;
+        }
+      } catch (error) {
+        console.error('Error creating user:', error);
+        setUserCreationError(
+          'A network error occurred while creating your account. Your payment was successful.'
+        );
+        setLoading(false);
+        return;
+      }
+    };
+        // Fallback: Try to fetch existing user session (for cases where user already exists)
 
     verifyPayment();
   }, [reference, router]);
@@ -159,15 +133,6 @@ function PaymentSuccessContent() {
 
   const formatAmount = (amount: number) => {
     return `GH₵${(amount / 100).toFixed(2)}`;
-  };
-
-  const getPlanName = (plan: string) => {
-    const planMap: Record<string, string> = {
-      ONE_MONTH: 'Monthly',
-      THREE_MONTHS: 'Quarterly',
-      ONE_YEAR: 'Annual',
-    };
-    return planMap[plan] || plan;
   };
 
   if (loading) {
@@ -189,6 +154,137 @@ function PaymentSuccessContent() {
   }
 
   if (error) {
+      // Handle user creation errors (payment succeeded but account creation failed)
+      if (userCreationError) {
+        const handleRetry = async () => {
+          if (!paymentData || !reference) return;
+      
+          setRetrying(true);
+          setUserCreationError('');
+      
+          try {
+            const createUserResponse = await fetch('/api/auth/create-user-from-payment', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                paymentData: paymentData,
+                reference: reference,
+              }),
+            });
+
+            const createUserData = await createUserResponse.json();
+        
+            if (createUserResponse.ok && createUserData.success) {
+              router.push(`/verify-email?email=${encodeURIComponent(paymentData.customer.email)}`);
+            } else if (createUserData.error === 'DUPLICATE_USER') {
+              router.push(`/verify-email?email=${encodeURIComponent(paymentData.customer.email)}`);
+            } else {
+              setUserCreationError(
+                createUserData.message || 
+                'Retry failed. Please contact support with your payment reference.'
+              );
+            }
+          } catch {
+            setUserCreationError('Network error during retry. Please contact support.');
+          } finally {
+            setRetrying(false);
+          }
+        };
+
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center px-4">
+            <Card className="w-full max-w-2xl border-orange-200">
+              <CardHeader>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                    <CheckCircle className="w-7 h-7 text-green-600" />
+                  </div>
+                  <div className="flex-1">
+                    <CardTitle className="text-green-600">Payment Successful</CardTitle>
+                    <CardDescription className="text-gray-600">
+                      {paymentData && formatAmount(paymentData.amount)} charged successfully
+                    </CardDescription>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                  <AlertCircle className="w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-semibold text-orange-900 mb-1">Account Setup Issue</p>
+                    <p className="text-sm text-orange-800">{userCreationError}</p>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                  <p className="text-sm font-semibold text-gray-700">Payment Reference:</p>
+                  <p className="font-mono font-bold text-lg text-gray-900">{reference}</p>
+                  <p className="text-xs text-gray-600 mt-2">
+                    Save this reference number. Your payment was successful, but we need to complete your account setup.
+                  </p>
+                </div>
+            
+                {paymentData && (
+                  <div className="border-t pt-4">
+                    <p className="text-sm text-gray-600 mb-2">Payment Details:</p>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-gray-600">Amount:</span>
+                        <span className="ml-2 font-semibold text-gray-900">{formatAmount(paymentData.amount)}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Date:</span>
+                        <span className="ml-2 font-semibold text-gray-900">{formatDate(paymentData.paid_at)}</span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-gray-600">Email:</span>
+                        <span className="ml-2 font-semibold text-gray-900">{paymentData.customer.email}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                  <Button
+                    onClick={handleRetry}
+                    disabled={retrying}
+                    className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50"
+                  >
+                    {retrying ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Retrying...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Retry Account Setup
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      const body = encodeURIComponent(
+                        `Hi GemFitness Support,\n\nMy payment was successful but I encountered an issue during account setup.\n\nPayment Reference: ${reference}\nEmail: ${paymentData?.customer.email || ''}\n\nPlease help me complete my membership setup.\n\nThank you.`
+                      );
+                      window.open(`https://wa.me/233249003832?text=${body}`, '_blank');
+                    }}
+                    variant="outline"
+                    className="flex-1 border-2 border-orange-500 text-orange-600 hover:bg-orange-50"
+                  >
+                    Contact Support
+                  </Button>
+                </div>
+            
+                <p className="text-xs text-center text-gray-500 pt-2">
+                  Don&apos;t worry! Your payment is secure and we&apos;ll help you complete your membership.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      }
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-red-50 flex items-center justify-center px-4">
         <Card className="w-full max-w-md border-red-200">
@@ -288,68 +384,11 @@ function PaymentSuccessContent() {
           </Card>
         </motion.div>
 
-        {/* Membership Details */}
-        {userData && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-          >
-            <Card className="mb-6 border-2 border-orange-200">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="w-5 h-5 text-orange-600" />
-                  Membership Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600">Member Name</p>
-                    <p className="font-semibold text-gray-900">
-                      {userData.firstName} {userData.lastName}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Membership Plan</p>
-                    <p className="font-semibold text-gray-900">
-                      {getPlanName(userData.subscription.plan)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Start Date</p>
-                    <p className="font-semibold text-gray-900">
-                      {formatDate(userData.subscription.startDate)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Expiry Date</p>
-                    <p className="font-semibold text-gray-900">
-                      {formatDate(userData.subscription.endDate)}
-                    </p>
-                  </div>
-                </div>
-
-                {/* QR Code */}
-                <div className="pt-4 border-t">
-                  <p className="text-sm text-gray-600 mb-3">Your Member QR Code</p>
-                  <div className="flex justify-center">
-                    <QRCodeDisplay data={userData.qrToken} size={200} />
-                  </div>
-                  <p className="text-xs text-gray-500 text-center mt-3">
-                    Show this QR code at the gym entrance to check in
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-
         {/* Next Steps */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
+          transition={{ delay: 0.4 }}
         >
           <Card>
             <CardHeader>
@@ -395,16 +434,8 @@ function PaymentSuccessContent() {
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-3 pt-4">
                 <Button
-                  onClick={() => router.push('/dashboard/member')}
-                  className="flex-1 bg-orange-500 hover:bg-orange-600"
-                >
-                  <User className="w-4 h-4 mr-2" />
-                  Go to Dashboard
-                </Button>
-                <Button
                   onClick={() => router.push('/')}
-                  variant="outline"
-                  className="flex-1"
+                  className="flex-1 bg-orange-500 hover:bg-orange-600"
                 >
                   <Home className="w-4 h-4 mr-2" />
                   Back to Home

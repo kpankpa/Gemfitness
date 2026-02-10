@@ -121,7 +121,7 @@ export default function EventDetailsModal({
             </div>
 
             {/* Event Details Grid */}
-            <div className="grid md:grid-cols-2 gap-6 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
               {/* Date & Time */}
               <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-lg">
                 <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">

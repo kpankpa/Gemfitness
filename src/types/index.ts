@@ -4,7 +4,7 @@ export interface User {
   id: string;
   firstName: string;
   lastName: string;
-  name?: string; // Computed field
+  name?: string; 
   email: string;
   phone: string;
   role: 'MEMBER' | 'RECEPTIONIST' | 'MANAGER' | 'ADMIN';
@@ -269,7 +269,7 @@ export interface PaystackVerificationResponse {
       email: string;
       customer_code: string;
     };
-    metadata: any;
+    metadata: Record<string, unknown>;
   };
 }
 

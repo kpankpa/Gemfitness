@@ -26,6 +26,9 @@ const publicRoutes = [
   '/trainers',
   '/membership',
   '/success',
+  '/payment/success',
+  '/payment/failed',
+  '/verify-email',
 ];
 
 // API routes that don't require authentication
@@ -37,8 +40,9 @@ const publicApiRoutes = [
   '/api/auth/create-user-from-payment',
   '/api/payment/initialize',
   '/api/payment/verify',
-  '/api/classes',
-  '/api/events',
+  '/api/public/classes', // Public class listing for landing page
+  '/api/public/events',  // Public event listing for landing page
+  '/api/public/plans',   // Public membership plans
 ];
 
 export async function middleware(request: NextRequest) {
@@ -55,28 +59,29 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Allow public API routes (signup/login)
+  // CRITICAL: Check public API routes FIRST before session check
+  // This allows unauthenticated access to public endpoints
   if (publicApiRoutes.some((route) => path.startsWith(route))) {
     console.log('✅ Public API route, allowing:', path);
     return NextResponse.next();
   }
 
-  // Get session from cookies
+  // Get session from cookies (only needed for protected routes below)
   const session = request.cookies.get('session')?.value;
   console.log('🔍 Middleware: Session cookie exists?', !!session);
   
   const sessionData = await decrypt(session);
   console.log('🔍 Middleware: Session decrypted?', !!sessionData, 'Role:', sessionData?.role);
 
-  // For API routes, check session and allow if valid
+  // For remaining API routes, check session and allow if valid
   if (path.startsWith('/api/')) {
-    console.log('🔍 Middleware: API request to', path, 'Method:', request.method);
+    console.log('🔍 Middleware: Protected API request to', path, 'Method:', request.method);
     if (!sessionData) {
       console.log('❌ Middleware: BLOCKING - No valid session for API path:', path);
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     console.log('✅ Middleware: ALLOWING API request to', path, 'Role:', sessionData.role);
-    return NextResponse.next(); // Allow all authenticated API calls
+    return NextResponse.next(); // Allow authenticated API calls
   }
 
   // Redirect to login if no session (for page routes)

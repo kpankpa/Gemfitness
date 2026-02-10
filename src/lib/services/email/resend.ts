@@ -1,13 +1,21 @@
 /**
  * Email Service using Resend
  * Handles OTP verification emails and other transactional emails
+ * 
+ * DEVELOPMENT MODE:
+ * - Set SEND_EMAILS=false in .env to use dev mode
+ * - OTPs will be logged to console and stored in database
+ * - Use /api/dev/get-otp endpoint to retrieve OTP for testing
  */
 
 import { Resend } from 'resend';
 import logger from '@/lib/logger';
 
+// Development mode flag
+const DEV_MODE = process.env.SEND_EMAILS !== 'true';
+const TEST_MODE_WARNING = DEV_MODE ? '🔧 DEV MODE ENABLED - Emails will be logged to console only' : '✅ PRODUCTION MODE - Emails will be sent via Resend';
+
 // Email configuration
-// Use environment variable or fall back to verified email for testing
 const FROM_EMAIL = process.env.EMAIL_FROM || 
   (process.env.NODE_ENV === 'production' 
     ? 'GemFitness <onboarding@resend.dev>'  // This should be changed to verified domain in production
@@ -20,17 +28,24 @@ logger.info('📧 Email service configuration:', {
   hasResendApiKey: !!process.env.RESEND_API_KEY,
   apiKeyLength: process.env.RESEND_API_KEY?.length || 0,
   fromEmail: FROM_EMAIL,
-  appName: APP_NAME
+  appName: APP_NAME,
+  devMode: DEV_MODE,
+  modeStatus: TEST_MODE_WARNING,
 });
 
-// Initialize Resend with error handling
+// Initialize Resend with error handling (only if not in dev mode)
 let resend: Resend;
 try {
-  if (!process.env.RESEND_API_KEY) {
-    throw new Error('RESEND_API_KEY environment variable is not set');
+  if (!DEV_MODE) {
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY environment variable is not set');
+    }
+    resend = new Resend(process.env.RESEND_API_KEY);
+    logger.info('✅ Resend client initialized successfully');
+  } else {
+    logger.info('🔧 Running in DEV MODE - Resend client initialization skipped');
+    resend = null as any; // Type assertion for dev mode
   }
-  resend = new Resend(process.env.RESEND_API_KEY);
-  logger.info('✅ Resend client initialized successfully');
 } catch (error) {
   logger.error('❌ Failed to initialize Resend client:', error);
   throw error;
@@ -54,6 +69,7 @@ interface EmailResult {
   success: boolean;
   messageId?: string;
   error?: string;
+  devMode?: boolean;
 }
 
 /**
@@ -72,10 +88,39 @@ export async function sendOTPEmail({ to, firstName, otpCode }: SendOTPEmailParam
       to,
       firstName,
       otpCode,
+      devMode: DEV_MODE,
       apiKeyPresent: !!process.env.RESEND_API_KEY,
       fromEmail: FROM_EMAIL,
     });
 
+    // ✅ DEV MODE: Log to console instead of sending email
+    if (DEV_MODE) {
+      logger.info('🔧 [DEV MODE] OTP Email would be sent:', {
+        to,
+        firstName,
+        otpCode,
+        subject: `${otpCode} is your ${APP_NAME} verification code`,
+        expiresIn: '15 minutes',
+      });
+      
+      // Store in console for easy reference
+      console.log('\n' + '='.repeat(60));
+      console.log('🔐 OTP EMAIL (DEV MODE)');
+      console.log('='.repeat(60));
+      console.log(`To: ${to}`);
+      console.log(`Name: ${firstName}`);
+      console.log(`\n📝 OTP CODE: ${otpCode}`);
+      console.log(`⏱️  Expires in: 15 minutes`);
+      console.log('='.repeat(60) + '\n');
+      
+      return {
+        success: true,
+        messageId: `dev-${Date.now()}`,
+        devMode: true,
+      };
+    }
+
+    // ✅ PRODUCTION MODE: Send via Resend
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: [to],
@@ -189,6 +234,33 @@ export async function sendVerifiedWelcomeEmail({ to, firstName, lastName, plan, 
       'DAILY': 'Day Pass',
     };
 
+    // ✅ DEV MODE: Log to console instead of sending email
+    if (DEV_MODE) {
+      logger.info('🔧 [DEV MODE] Welcome email would be sent:', {
+        to,
+        firstName,
+        lastName,
+        plan,
+        membershipId,
+      });
+      
+      console.log('\n' + '='.repeat(60));
+      console.log('🎉 WELCOME EMAIL (DEV MODE)');
+      console.log('='.repeat(60));
+      console.log(`To: ${to}`);
+      console.log(`Name: ${firstName} ${lastName}`);
+      console.log(`Plan: ${planNames[plan] || plan}`);
+      console.log(`Member ID: ${membershipId}`);
+      console.log('='.repeat(60) + '\n');
+      
+      return {
+        success: true,
+        messageId: `dev-welcome-${Date.now()}`,
+        devMode: true,
+      };
+    }
+
+    // ✅ PRODUCTION MODE: Send via Resend
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: [to],

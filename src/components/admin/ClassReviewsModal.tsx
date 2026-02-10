@@ -123,7 +123,7 @@ export default function ClassReviewsModal({
 
           {/* Stats */}
           <div className="p-6 bg-gray-50 border-b">
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {/* Average Rating */}
               <div className="text-center bg-white rounded-lg p-6 shadow-sm">
                 <p className="text-6xl font-bold text-gray-900">

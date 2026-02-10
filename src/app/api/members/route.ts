@@ -175,6 +175,30 @@ export async function POST(request: NextRequest) {
       address, fitnessGoals, medicalConditions
     } = parsed.data;
 
+    // VALIDATE PLAN FIRST - before creating any records
+    const planPrices: Record<string, number> = {
+      'ONE_MONTH': 200,
+      'THREE_MONTHS': 500,
+      'ONE_YEAR': 1800
+    };
+
+    const planDurations: Record<string, number> = {
+      'ONE_MONTH': 30,
+      'THREE_MONTHS': 90,
+      'ONE_YEAR': 365
+    };
+
+    const planKey = plan as keyof typeof planPrices;
+    const planAmount = planPrices[planKey];
+    const duration = planDurations[planKey];
+
+    if (!planAmount || !duration) {
+      return NextResponse.json(
+        { error: 'Invalid membership plan', validPlans: Object.keys(planPrices) },
+        { status: 400 }
+      );
+    }
+
     // Hash password
     const hashedPassword = await hash(password, 12);
 
@@ -247,28 +271,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    const planPrices = {
-      'THREE_MONTHS': 500,
-      'ONE_YEAR': 1800
-    };
-
-    const planDurations = {
-      'ONE_MONTH': 30,
-      'THREE_MONTHS': 90,
-      'ONE_YEAR': 365
-    };
-
-    const planKey = plan as keyof typeof planPrices;
-    const amount = planPrices[planKey];
-    const duration = planDurations[planKey];
-
-    if (!amount || !duration) {
-      return NextResponse.json(
-        { error: 'Invalid membership plan' },
-        { status: 400 }
-      );
-    }
-
+    // Plan already validated at the top - use planAmount and duration
     const startDate = new Date();
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + duration);
@@ -278,7 +281,7 @@ export async function POST(request: NextRequest) {
       data: {
         userId: user.id,
         plan: planKey as $Enums.MembershipPlan,
-        amount,
+        amount: planAmount,
         startDate,
         endDate,
         status: 'ACTIVE',

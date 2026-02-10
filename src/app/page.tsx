@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import Image from 'next/image';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   Dumbbell,
   Users,
@@ -12,24 +13,39 @@ import {
   Star,
   CheckCircle,
   Clock,
-  MapPin,
-  Phone,
-  Mail,
   Play,
   ChevronDown,
   MessageCircle,
-  Heart,
   ArrowRight,
   Plus,
   Minus,
-  Send,
   User,
-  Activity,
   Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { staggerContainer, fadeUp, ctaMicro } from '@/lib/animations';
 import { formatCurrency } from '@/lib/utils';
+
+// Type definitions
+interface GymPlan {
+  id: string;
+  name: string;
+  price: number;
+  duration: number;
+  durationUnit: string;
+  slug: string;
+  isPopular?: boolean;
+  savings?: number;
+  comparisonText?: string;
+  features: string[];
+  memberCount?: number;
+}
+
+interface GymStats {
+  totalActiveMembers?: number;
+  [key: string]: unknown;
+}
 
 // Sample data
 const trainingVideos = [
@@ -48,9 +64,10 @@ const trainers = [
   { name: 'Akua Owusu', specialty: 'Yoga & Wellness', experience: '6 years', motto: 'Mind, Body, Spirit', image: '/images/trainer4.jpg' },
 ];
 
+
 const testimonials = [
   {
-    name: 'Nana Yaw',
+    name: 'Anonymous',
     role: 'Business Owner',
     image: '/images/member1.jpg',
     quote: 'GemFitness changed my life! Lost 15kg in 4 months. The trainers are incredible and the community is so supportive.',
@@ -90,15 +107,16 @@ export default function HomePage() {
   const [bmiResult, setBmiResult] = useState<number | null>(null);
   const [bmiCategory, setBmiCategory] = useState('');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [formData, setFormData] = useState({ name: '', email: '', phone: '', message: '' });
   
   // Dynamic plans data
-  const [plans, setPlans] = useState<any[]>([]);
-  const [gymStats, setGymStats] = useState<any>(null);
-  const [_successStories, setSuccessStories] = useState<any[]>([]);
+  const [plans, setPlans] = useState<GymPlan[]>([]);
+  const [gymStats, setGymStats] = useState<GymStats | null>(null);
+  const [_successStories, setSuccessStories] = useState<Record<string, unknown>[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
   
   const memberCount = gymStats?.totalActiveMembers || 500; // Dynamic member count
+
+  const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
     const fetchPlansData = async () => {
@@ -134,129 +152,222 @@ export default function HomePage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Handle form submission
-    alert('Thank you! We will contact you soon.');
-    setFormData({ name: '', email: '', phone: '', message: '' });
-  };
-
   return (
     <div className="min-h-screen bg-white">
+      {/* Floating top-right CTA removed to avoid nav overlap on smaller screens */}
       {/* Hero Section with Modern Light Design */}
-      <section className="relative min-h-[calc(100vh-5rem)] sm:min-h-[90vh] flex items-center overflow-hidden bg-gradient-to-br from-orange-50 via-white to-orange-50">
-        {/* Animated Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#FF6B00_1px,transparent_1px),linear-gradient(to_bottom,#FF6B00_1px,transparent_1px)] bg-[size:4rem_4rem]" />
+      <section className="relative min-h-[calc(100vh-5rem)] sm:min-h-[90vh] flex items-center overflow-hidden">
+        {/* Background Image */}
+        <div className="absolute inset-0">
+          <Image
+            src="/images/strength.png"
+            alt="Training at GemFitness"
+            fill
+            sizes="100vw"
+            className="object-cover"
+            priority
+          />
+          <div className="absolute inset-0 bg-black/45" />
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20">
-          <div className="grid lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-12 items-center">
+        {/* Content Overlay */}
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20 w-full">
+          <div className="max-w-3xl">
             <motion.div
-              initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8 }}
+              {...(!shouldReduceMotion ? { variants: staggerContainer, initial: 'hidden', animate: 'show' } : {})}
             >
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="inline-flex items-center gap-2 bg-orange-100 text-orange-700 px-4 py-2 rounded-full mb-6 font-semibold"
+                {...(!shouldReduceMotion ? { variants: fadeUp } : {})}
+                className="inline-flex items-center gap-2 bg-white/20 backdrop-blur text-white px-4 py-2 rounded-full mb-6 font-semibold border border-white/30"
               >
                 <Trophy className="h-5 w-5" />
                 <span>We&apos;re What We Eat!</span>
               </motion.div>
-              
-              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-4 sm:mb-6 leading-tight text-gray-900">
-                Transform Your <span className="text-orange-500">Body & Mind</span>
-              </h1>
-              
-              <p className="text-base sm:text-lg md:text-xl text-gray-600 mb-6 sm:mb-8 leading-relaxed max-w-2xl">
-                Join <strong className="text-orange-500 font-bold">{memberCount}+ members</strong> at Tema&apos;s premier fitness destination. 
-                Professional trainers, modern equipment, and a supportive community await.
+
+              <motion.h1 {...(!shouldReduceMotion ? { variants: fadeUp } : {})} className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-4 sm:mb-6 leading-tight text-white">
+                Transform Your <span className="text-orange-400">Body & Mind</span> in Tema
+              </motion.h1>
+
+              <motion.p {...(!shouldReduceMotion ? { variants: fadeUp } : {})} className="text-base sm:text-lg md:text-xl text-white/90 mb-6 sm:mb-8 leading-relaxed max-w-2xl">
+                Join <strong className="text-orange-300 font-bold">{memberCount}+ members</strong> for expert coaching, modern equipment, and a supportive community built for real results.
+              </motion.p>
+
+              <motion.div {...(!shouldReduceMotion ? { variants: fadeUp } : {})} className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-8 sm:mb-10">
+                <motion.div {...(!shouldReduceMotion ? { whileHover: ctaMicro.hover, whileTap: ctaMicro.tap } : {})} className="w-full sm:w-auto">
+                  <Button
+                    asChild
+                    size="lg"
+                    className="text-base sm:text-lg group bg-orange-500 hover:bg-orange-600 text-white font-semibold h-12 sm:h-14 px-6 sm:px-8 w-full sm:w-auto touch-manipulation shadow-2xl focus:outline-none focus:ring-4 focus:ring-orange-300"
+                  >
+                    <Link href="/signup?plan=quarterly">
+                      Join Now
+                      <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                    </Link>
+                  </Button>
+                </motion.div>
+                <motion.div {...(!shouldReduceMotion ? { whileHover: { scale: 1.02 } } : {})} className="w-full sm:w-auto">
+                  <Button asChild size="lg" variant="outline" className="text-base sm:text-lg border-2 border-white text-white hover:bg-white/20 font-semibold h-12 sm:h-14 px-6 sm:px-8 w-full sm:w-auto touch-manipulation">
+                    <Link href="#pricing">
+                      View Memberships
+                    </Link>
+                  </Button>
+                </motion.div>
+              </motion.div>
+
+              <p className="text-sm sm:text-base text-white/80 mb-6">
+                Memberships from <span className="text-orange-300 font-bold ">GH₵200/month</span> • One-time registration fee {formatCurrency(250)}
               </p>
-              
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-8 sm:mb-10">
-                <Button asChild size="lg" className="text-base sm:text-lg group bg-orange-500 hover:bg-orange-600 text-white font-semibold h-12 sm:h-14 px-6 sm:px-8 w-full sm:w-auto touch-manipulation">
-                  <Link href="/signup?plan=quarterly">
-                    Join Now
-                    <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                  </Link>
-                </Button>
-                <Button asChild size="lg" variant="outline" className="text-base sm:text-lg border-2 border-gray-300 text-gray-700 hover:border-orange-500 hover:text-orange-500 font-semibold h-12 sm:h-14 px-6 sm:px-8 w-full sm:w-auto touch-manipulation">
-                  <Link href="#videos">
-                    <Play className="mr-2 h-5 w-5" />
-                    Watch Classes
-                  </Link>
-                </Button>
-              </div>
 
               {/* Live Stats */}
               <div className="grid grid-cols-3 gap-3 sm:gap-6 max-w-md">
-                <div className="text-center">
-                  <div className="text-2xl sm:text-3xl font-bold text-orange-500 mb-1">{memberCount}+</div>
-                  <div className="text-xs sm:text-sm text-gray-600 font-medium">Active Members</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl sm:text-3xl font-bold text-orange-500 mb-1">16</div>
-                  <div className="text-xs sm:text-sm text-gray-600 font-medium">Hours Daily</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl sm:text-3xl font-bold text-orange-500 mb-1">5★</div>
-                  <div className="text-xs sm:text-sm text-gray-600 font-medium">Rated</div>
-                </div>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2, duration: 0.5, repeat: Infinity, repeatDelay: 3.5 }}
+                  whileHover={{ scale: 1.05, y: -4, transition: { duration: 0.2 } }}
+                  className="text-center bg-white/10 backdrop-blur border border-white/20 rounded-lg p-3 hover:border-white/40 hover:bg-white/20 transition-all cursor-pointer"
+                >
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.4, duration: 0.6, repeat: Infinity, repeatDelay: 3.5 }}
+                    className="text-2xl sm:text-3xl font-bold text-orange-300 mb-1"
+                  >
+                    {memberCount}+
+                  </motion.div>
+                  <div className="text-xs sm:text-sm text-white/90 font-medium">Active Members</div>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3, duration: 0.5, repeat: Infinity, repeatDelay: 3.5 }}
+                  whileHover={{ scale: 1.05, y: -4, transition: { duration: 0.2 } }}
+                  className="text-center bg-white/10 backdrop-blur border border-white/20 rounded-lg p-3 hover:border-white/40 hover:bg-white/20 transition-all cursor-pointer"
+                >
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5, duration: 0.6, repeat: Infinity, repeatDelay: 3.5 }}
+                    className="text-2xl sm:text-3xl font-bold text-orange-300 mb-1"
+                  >
+                    16
+                  </motion.div>
+                  <div className="text-xs sm:text-sm text-white/90 font-medium">Hours Daily</div>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4, duration: 0.5, repeat: Infinity, repeatDelay: 3.5 }}
+                  whileHover={{ scale: 1.05, y: -4, transition: { duration: 0.2 } }}
+                  className="text-center bg-white/10 backdrop-blur border border-white/20 rounded-lg p-3 hover:border-white/40 hover:bg-white/20 transition-all cursor-pointer"
+                >
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.6, duration: 0.6, repeat: Infinity, repeatDelay: 3.5 }}
+                    className="text-2xl sm:text-3xl font-bold text-orange-300 mb-1"
+                  >
+                    5★
+                  </motion.div>
+                  <div className="text-xs sm:text-sm text-white/90 font-medium">Rated</div>
+                </motion.div>
               </div>
-            </motion.div>
-
-            {/* Hero Image Placeholder with Animated Elements */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.8, delay: 0.3 }}
-              className="relative hidden lg:block"
-            >
-              <div className="aspect-square rounded-3xl bg-gradient-to-br from-orange-100 to-orange-200 border-2 border-orange-300" />
-              
-              {/* Floating Stats Cards */}
-              <motion.div
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute top-10 right-10 bg-white p-4 rounded-xl shadow-lg border border-gray-200"
-              >
-                <div className="flex items-center gap-3">
-                  <Activity className="h-8 w-8 text-orange-500" />
-                  <div>
-                    <div className="text-2xl font-bold text-gray-900">1,250</div>
-                    <div className="text-xs text-gray-600 font-medium">Calories Burned</div>
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.div
-                animate={{ y: [0, 10, 0] }}
-                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-                className="absolute bottom-10 left-10 bg-white p-4 rounded-xl shadow-lg border border-gray-200"
-              >
-                <div className="flex items-center gap-3">
-                  <Heart className="h-8 w-8 text-red-500" />
-                  <div>
-                    <div className="text-2xl font-bold text-gray-900">145 BPM</div>
-                    <div className="text-xs text-gray-600 font-medium">Heart Rate</div>
-                  </div>
-                </div>
-              </motion.div>
             </motion.div>
           </div>
         </div>
 
         {/* Scroll Indicator */}
         <motion.div
-          animate={{ y: [0, 10, 0] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
+          {...(!shouldReduceMotion ? { animate: { y: [0, 10, 0] }, transition: { duration: 1.5, repeat: Infinity } } : {})}
           className="absolute bottom-10 left-1/2 -translate-x-1/2"
         >
-          <ChevronDown className="h-8 w-8 text-gray-400" />
+          <ChevronDown className="h-8 w-8 text-white/70" />
         </motion.div>
+      </section>
+
+      {/* Trust Strip */}
+      <section className="py-6 sm:py-8 bg-white border-b border-orange-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="flex items-center gap-3 rounded-xl bg-orange-50/70 border border-orange-100 p-4">
+              <Users className="h-6 w-6 text-orange-500" />
+              <div>
+                <div className="text-lg font-bold text-gray-900">{memberCount}+ Members</div>
+                <div className="text-xs text-gray-600">Active community</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-xl bg-orange-50/70 border border-orange-100 p-4">
+              <Clock className="h-6 w-6 text-orange-500" />
+              <div>
+                <div className="text-lg font-bold text-gray-900">16 Hours Daily</div>
+                <div className="text-xs text-gray-600">Flexible schedule</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-xl bg-orange-50/70 border border-orange-100 p-4">
+              <Star className="h-6 w-6 text-orange-500" />
+              <div>
+                <div className="text-lg font-bold text-gray-900">5★ Rated</div>
+                <div className="text-xs text-gray-600">Member reviews</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-xl bg-orange-50/70 border border-orange-100 p-4">
+              <Trophy className="h-6 w-6 text-orange-500" />
+              <div>
+                <div className="text-lg font-bold text-gray-900">Certified Coaches</div>
+                <div className="text-xs text-gray-600">Results-focused</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Success Stories / Testimonials - Moved up for early social proof */}
+      <section id="testimonials" className="py-16 sm:py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12 sm:mb-16">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-heading font-bold mb-3 sm:mb-4">
+              Real Members, <span className="text-gradient">Real Results</span>
+            </h2>
+            <p className="text-sm sm:text-base md:text-lg text-neutral-600 max-w-2xl mx-auto">
+              Join hundreds of members transforming their lives at GemFitness.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
+            {testimonials.map((testimonial, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.1 }}
+                viewport={{ once: true }}
+                whileHover={{ y: -4, transition: { duration: 0.2 } }}
+              >
+                <Card className="h-full border-2 border-gray-100 hover:border-orange-200 hover:shadow-lg transition-all duration-300">
+                  <CardHeader>
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="h-14 w-14 rounded-full bg-gradient-to-br from-orange-100 to-orange-200 flex items-center justify-center">
+                        <User className="h-7 w-7 text-orange-600" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-base sm:text-lg">{testimonial.name}</CardTitle>
+                        <CardDescription className="text-sm">{testimonial.role}</CardDescription>
+                      </div>
+                    </div>
+                    <div className="flex gap-1 mb-3">
+                      {[...Array(testimonial.rating)].map((_, i) => (
+                        <Star key={i} className="h-4 w-4 fill-orange-500 text-orange-500" />
+                      ))}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm sm:text-base text-neutral-700 italic leading-relaxed">&ldquo;{testimonial.quote}&rdquo;</p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* WhatsApp Floating Button */}
@@ -282,12 +393,12 @@ export default function HomePage() {
             >
               Explore Our <span className="text-orange-500">Training Programs</span>
             </motion.h2>
-            <p className="text-sm sm:text-base md:text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed px-4">
+            <p className="text-sm sm:text-base md:text-lg text-gray-700 max-w-2xl mx-auto leading-relaxed px-4">
               From high-intensity workouts to mindful yoga, find the perfect class for your fitness journey.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {trainingVideos.slice(0, 3).map((video, i) => (
               <motion.div
                 key={video.id}
@@ -295,21 +406,30 @@ export default function HomePage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.1 }}
                 viewport={{ once: true }}
+                {...(!shouldReduceMotion ? { whileHover: { y: -8, scale: 1.02, transition: { type: 'spring', stiffness: 300, damping: 18 } } } : {})}
               >
-                <Card className="group hover:shadow-xl transition-all duration-300 overflow-hidden">
-                  <div className="relative aspect-video bg-gradient-to-br from-primary/20 to-orange-500/20">
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="bg-white/90 p-4 rounded-full group-hover:scale-110 transition-transform">
-                        <Play className="h-8 w-8 text-primary" />
+                <Card className="group hover:shadow-2xl transition-all duration-300 overflow-hidden border-2 border-gray-100 hover:border-orange-300">
+                      <div className="relative aspect-video bg-gradient-to-br from-primary/20 to-orange-500/20 overflow-hidden">
+                        <Image
+                          src={video.thumbnail}
+                          alt={`${video.title} thumbnail`}
+                          fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                          className="object-cover"
+                          priority={false}
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="bg-white/90 p-4 rounded-full group-hover:scale-110 transition-transform">
+                            <Play className="h-8 w-8 text-primary" />
+                          </div>
+                        </div>
+                        <div className="absolute top-3 right-3 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                          {video.duration}
+                        </div>
+                        <div className="absolute top-3 left-3 bg-primary text-white text-xs px-2 py-1 rounded font-semibold">
+                          {video.intensity}
+                        </div>
                       </div>
-                    </div>
-                    <div className="absolute top-3 right-3 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                      {video.duration}
-                    </div>
-                    <div className="absolute top-3 left-3 bg-primary text-white text-xs px-2 py-1 rounded font-semibold">
-                      {video.intensity}
-                    </div>
-                  </div>
                   <CardHeader>
                     <CardTitle className="text-xl">{video.title}</CardTitle>
                     <CardDescription>{video.category}</CardDescription>
@@ -339,12 +459,12 @@ export default function HomePage() {
             >
               Meet Your <span className="text-orange-500">Expert Trainers</span>
             </motion.h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-lg text-gray-700 max-w-2xl mx-auto leading-relaxed">
               Certified professionals dedicated to helping you achieve your fitness goals.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {trainers.map((trainer, i) => (
               <motion.div
                 key={i}
@@ -352,22 +472,27 @@ export default function HomePage() {
                 whileInView={{ opacity: 1, scale: 1 }}
                 transition={{ delay: i * 0.1 }}
                 viewport={{ once: true }}
+                {...(!shouldReduceMotion ? { whileHover: { y: -8, scale: 1.01, transition: { type: 'spring', stiffness: 280, damping: 18 } } } : {})}
               >
-                <Card className="text-center hover:shadow-lg transition-shadow border-2 border-gray-100 hover:border-orange-200">
+                <Card className="text-center hover:shadow-2xl transition-all duration-300 border-2 border-gray-100 hover:border-orange-300">
                   <div className="aspect-square bg-gradient-to-br from-orange-50 to-orange-100 relative overflow-hidden">
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <User className="h-24 w-24 text-orange-300" />
-                    </div>
+                    <Image
+                      src={trainer.image}
+                      alt={trainer.name}
+                      width={600}
+                      height={600}
+                      className="object-cover w-full h-full"
+                    />
                   </div>
                   <CardHeader>
                     <CardTitle className="text-xl text-gray-900">{trainer.name}</CardTitle>
                     <CardDescription>
                       <div className="text-orange-500 font-semibold mb-1">{trainer.specialty}</div>
-                      <div className="text-sm text-gray-600">{trainer.experience} experience</div>
+                      <div className="text-sm text-gray-700">{trainer.experience} experience</div>
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <p className="italic text-gray-600">&ldquo;{trainer.motto}&rdquo;</p>
+                    <p className="italic text-gray-700">&ldquo;{trainer.motto}&rdquo;</p>
                   </CardContent>
                   <CardFooter>
                     <Button asChild variant="outline" className="w-full border-2 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white font-semibold">
@@ -393,7 +518,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
               {
                 icon: Dumbbell,
@@ -448,55 +573,7 @@ export default function HomePage() {
                     <CardTitle className="text-xl font-bold text-gray-900 group-hover:text-orange-600 transition-colors">{feature.title}</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-gray-600 leading-relaxed">{feature.description}</p>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Success Stories / Testimonials */}
-      <section id="testimonials" className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl sm:text-5xl font-heading font-bold mb-4">
-              Real Members, <span className="text-gradient">Real Results</span>
-            </h2>
-            <p className="text-lg text-neutral-600 max-w-2xl mx-auto">
-              Hear from our community about their transformation journey at GemFitness.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.1 }}
-                viewport={{ once: true }}
-              >
-                <Card className="h-full">
-                  <CardHeader>
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="h-16 w-16 rounded-full bg-gradient-to-br from-primary/20 to-orange-500/20 flex items-center justify-center">
-                        <User className="h-8 w-8 text-primary" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-lg">{testimonial.name}</CardTitle>
-                        <CardDescription>{testimonial.role}</CardDescription>
-                      </div>
-                    </div>
-                    <div className="flex gap-1 mb-2">
-                      {[...Array(testimonial.rating)].map((_, i) => (
-                        <Star key={i} className="h-4 w-4 fill-primary text-primary" />
-                      ))}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-neutral-700 italic">&ldquo;{testimonial.quote}&rdquo;</p>
+                    <p className="text-gray-700 leading-relaxed">{feature.description}</p>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -581,7 +658,7 @@ export default function HomePage() {
             {plansLoading ? (
               <div className="col-span-full text-center py-8">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
-                <p className="mt-2 text-gray-600">Loading plans...</p>
+                <p className="mt-2 text-gray-700">Loading plans...</p>
               </div>
             ) : plans.length > 0 ? (
               plans.slice(0, 3).map((plan, i) => (
@@ -640,7 +717,7 @@ export default function HomePage() {
                       <CardDescription>
                         <div className="text-3xl font-bold text-orange-600 mb-2">
                           GH₵{plan.price}
-                          <span className="text-lg text-gray-600">/{plan.duration} {plan.durationUnit}</span>
+                          <span className="text-lg text-gray-700">/{plan.duration} {plan.durationUnit}</span>
                         </div>
                         {plan.savings && plan.savings > 0 && (
                           <span className="text-green-600 font-semibold text-sm">Save GH₵{plan.savings}</span>
@@ -663,7 +740,7 @@ export default function HomePage() {
                         )}
                       </ul>
                       {plan.memberCount !== undefined && plan.memberCount > 0 && (
-                        <div className="mt-4 text-sm text-gray-600 flex items-center">
+                        <div className="mt-4 text-sm text-gray-700 flex items-center">
                           <Users className="w-4 h-4 mr-1 text-orange-500" />
                           {plan.memberCount} active members
                         </div>
@@ -783,7 +860,7 @@ export default function HomePage() {
                       <CardDescription>
                         <div className="text-3xl font-bold text-orange-600 mb-2">
                           GH₵{plan.price}
-                          <span className="text-lg text-gray-600">/{plan.period}</span>
+                          <span className="text-lg text-gray-700">/{plan.period}</span>
                         </div>
                         {plan.savings && (
                           <span className="text-green-600 font-semibold text-sm">{plan.savings}</span>
@@ -904,125 +981,6 @@ export default function HomePage() {
               <Link href="#contact">Contact Us</Link>
             </Button>
           </motion.div>
-        </div>
-      </section>
-
-      {/* Contact Form Section */}
-      <section id="contact" className="py-20 bg-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-12">
-            <div>
-              <h2 className="text-4xl font-heading font-bold mb-6">
-                Get in <span className="text-gradient">Touch</span>
-              </h2>
-              <p className="text-lg text-neutral-600 mb-8">
-                Have questions? We&apos;re here to help. Send us a message or visit us in person.
-              </p>
-
-              <div className="space-y-6">
-                <div className="flex items-start gap-4">
-                  <div className="bg-primary/10 p-3 rounded-lg">
-                    <MapPin className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold mb-1">Location</h3>
-                    <p className="text-neutral-600">Tema, Gbestile, Ghana</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4">
-                  <div className="bg-primary/10 p-3 rounded-lg">
-                    <Phone className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold mb-1">Phone</h3>
-                    <a href="tel:+233249003832" className="text-primary hover:underline">
-                      +233 24 900 3832
-                    </a>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4">
-                  <div className="bg-primary/10 p-3 rounded-lg">
-                    <Mail className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold mb-1">Email</h3>
-                    <a href="mailto:info@gemfitness.com" className="text-primary hover:underline">
-                      info@gemfitness.com
-                    </a>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4">
-                  <div className="bg-primary/10 p-3 rounded-lg">
-                    <Clock className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold mb-1">Hours</h3>
-                    <p className="text-neutral-600">Mon-Fri: 5:00 AM - 10:00 PM</p>
-                    <p className="text-neutral-600">Sat: 6:00 AM - 9:00 PM</p>
-                    <p className="text-neutral-600">Sun: 7:00 AM - 8:00 PM</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Send us a Message</CardTitle>
-                <CardDescription>We&apos;ll get back to you within 24 hours</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                      placeholder="Your name"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Email</label>
-                    <input
-                      type="email"
-                      required
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                      placeholder="your@email.com"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Phone</label>
-                    <input
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                      placeholder="+233 XX XXX XXXX"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Message</label>
-                    <textarea
-                      required
-                      rows={4}
-                      value={formData.message}
-                      onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                      className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                      placeholder="Tell us about your fitness goals..."
-                    />
-                  </div>
-                  <Button type="submit" className="w-full" variant="glow">
-                    <Send className="mr-2 h-5 w-5" />
-                    Send Message
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
         </div>
       </section>
 

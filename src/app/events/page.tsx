@@ -2,27 +2,23 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, MapPin, Users, Clock, DollarSign, CheckCircle2, CalendarDays, Sparkles } from 'lucide-react';
+import Link from 'next/link';
+import { Calendar, MapPin, CheckCircle2, CalendarDays, Sparkles, Users } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import PageHero from '@/components/PageHero';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
-interface Event {
+// Minimal public data for landing page
+interface PublicEvent {
   id: string;
-  name: string;
+  title: string;
   description: string;
-  type: string;
   date: string;
-  startTime: string;
-  endTime: string;
-  location: string;
-  maxParticipants: number;
-  isPaid: boolean;
-  price: number | null;
-  status: string;
-  registeredCount?: number;
+  location: string | null;
+  category: string | null;
+  image: string | null;
 }
 
 const pricingOptions = [
@@ -35,7 +31,7 @@ const pricingOptions = [
 ];
 
 export default function EventsPage() {
-  const [events, setEvents] = useState<Event[]>([]);
+  const [events, setEvents] = useState<PublicEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,7 +43,8 @@ export default function EventsPage() {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await fetch('/api/events');
+      // Use public endpoint - no auth required
+      const response = await fetch('/api/public/events?limit=3');
       const data = await response.json();
 
       if (data.success) {
@@ -63,8 +60,8 @@ export default function EventsPage() {
     }
   };
 
-  const getEventTypeIcon = (type: string) => {
-    switch (type.toLowerCase()) {
+  const getEventTypeIcon = (category: string | null) => {
+    switch (category?.toLowerCase()) {
       case 'workshop':
         return Sparkles;
       case 'competition':
@@ -82,14 +79,6 @@ export default function EventsPage() {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
-    });
-  };
-
-  const formatTime = (timeString: string) => {
-    return new Date(`2000-01-01T${timeString}`).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
     });
   };
 
@@ -135,8 +124,7 @@ export default function EventsPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {events.map((event, index) => {
-                const EventIcon = getEventTypeIcon(event.type);
-                const spotsLeft = event.maxParticipants - (event.registeredCount || 0);
+                const EventIcon = getEventTypeIcon(event.category);
 
                 return (
                   <motion.div
@@ -152,15 +140,15 @@ export default function EventsPage() {
                           <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center group-hover:scale-110 transition-transform">
                             <EventIcon className="w-8 h-8 text-white" />
                           </div>
-                          {event.status === 'ACTIVE' && spotsLeft > 0 && spotsLeft <= 10 && (
-                            <span className="px-3 py-1 bg-orange-100 text-orange-700 text-xs font-semibold rounded-full">
-                              {spotsLeft} spots left
+                          {event.category && (
+                            <span className="px-3 py-1 bg-orange-100 text-orange-700 text-xs font-semibold rounded-full capitalize">
+                              {event.category.toLowerCase().replace('_', ' ')}
                             </span>
                           )}
                         </div>
 
                         <h3 className="text-2xl font-bold text-gray-900 mb-3 group-hover:text-orange-500 transition-colors">
-                          {event.name}
+                          {event.title}
                         </h3>
 
                         <p className="text-gray-600 mb-4 leading-relaxed line-clamp-2">
@@ -173,48 +161,20 @@ export default function EventsPage() {
                             <span className="text-sm text-gray-700">{formatDate(event.date)}</span>
                           </div>
 
-                          <div className="flex items-center space-x-3">
-                            <Clock className="w-4 h-4 text-orange-500" />
-                            <span className="text-sm text-gray-700">
-                              {formatTime(event.startTime)} - {formatTime(event.endTime)}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center space-x-3">
-                            <MapPin className="w-4 h-4 text-orange-500" />
-                            <span className="text-sm text-gray-700">{event.location}</span>
-                          </div>
-
-                          <div className="flex items-center space-x-3">
-                            <Users className="w-4 h-4 text-orange-500" />
-                            <span className="text-sm text-gray-700">
-                              {event.registeredCount || 0} / {event.maxParticipants} registered
-                            </span>
-                          </div>
-
-                          {event.isPaid && (
+                          {event.location && (
                             <div className="flex items-center space-x-3">
-                              <DollarSign className="w-4 h-4 text-orange-500" />
-                              <span className="text-sm font-semibold text-gray-900">
-                                GH₵{event.price?.toLocaleString()}
-                              </span>
+                              <MapPin className="w-4 h-4 text-orange-500" />
+                              <span className="text-sm text-gray-700">{event.location}</span>
                             </div>
                           )}
                         </div>
 
                         <div className="pt-4 border-t border-gray-200">
-                          <Button
-                            className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-                            disabled={event.status !== 'ACTIVE' || spotsLeft === 0}
-                          >
-                            {event.status !== 'ACTIVE' 
-                              ? 'Event Ended'
-                              : spotsLeft === 0 
-                                ? 'Fully Booked' 
-                                : event.isPaid 
-                                  ? 'Register Now' 
-                                  : 'Join for Free'}
-                          </Button>
+                          <Link href="/signup">
+                            <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white">
+                              Sign Up to Register
+                            </Button>
+                          </Link>
                         </div>
                       </div>
                     </Card>

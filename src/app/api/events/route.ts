@@ -3,6 +3,8 @@ import { $Enums } from '@prisma/client';
 import { verifySessionForApi } from '@/lib/auth/dal';
 import { prisma } from '@/lib/prisma';
 import { getEventStatus } from '@/lib/utils';
+import { sendEventPromotionalEmail } from '@/lib/services/email/event-emails';
+import logger from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -146,9 +148,27 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    // Send promotional email asynchronously (don't wait for completion)
+    sendEventPromotionalEmail({
+      eventId: newEvent.id,
+      targetAudience: 'all',
+    })
+      .then((result) => {
+        logger.info('Promotional email sent for new event:', {
+          eventId: newEvent.id,
+          recipients: result.recipientCount,
+        });
+      })
+      .catch((error) => {
+        logger.error('Failed to send promotional email:', {
+          eventId: newEvent.id,
+          error,
+        });
+      });
+
     return NextResponse.json({
       success: true,
-      message: 'Event created successfully',
+      message: 'Event created successfully. Promotional emails are being sent.',
       event: {
         id: newEvent.id,
         title: newEvent.title,

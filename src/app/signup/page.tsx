@@ -191,6 +191,11 @@ export default function SignupPage() {
         return;
       }
 
+      // ✅ SECURITY: Store password in sessionStorage (NEVER send to third-party payment providers)
+      // Password will be sent to backend after OTP verification
+      sessionStorage.setItem('pendingPassword', formData.password);
+      sessionStorage.setItem('pendingEmail', formData.email);
+
       // Initialize payment with Paystack
       const paymentResponse = await fetch('/api/payment/initialize', {
         method: 'POST',
@@ -211,8 +216,7 @@ export default function SignupPage() {
             emergencyPhone: formData.emergencyPhone,
             fitnessGoals: formData.fitnessGoals,
             medicalConditions: formData.medicalConditions,
-            // ✅ SECURITY: Password NOT included in metadata - stored securely on client
-            // Password will be set AFTER email verification
+            // ❌ Password REMOVED - never send passwords to third-party services
             registration_type: 'new_signup',
             // PAR-Q Basic Screening
             parq_basic: {
@@ -281,7 +285,7 @@ export default function SignupPage() {
           </p>
         </motion.div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Form Section */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}

@@ -87,6 +87,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if password has been properly set (security: prevents login with placeholder password)
+    if (user.role === 'MEMBER' && user.passwordSet === false) {
+      logger.warn('Login attempt with unset password', { 
+        userId: user.id,
+        email: user.email,
+      });
+
+      return NextResponse.json(
+        { 
+          error: 'Please complete email verification to set your password',
+          needsVerification: true,
+          email: user.email,
+          redirectUrl: `/verify-email?email=${encodeURIComponent(user.email)}`,
+        },
+        { status: 403 }
+      );
+    }
+
     // Create session
     const sessionToken = await createSession(user.id, user.email, user.role);
     

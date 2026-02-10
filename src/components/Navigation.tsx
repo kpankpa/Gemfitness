@@ -51,13 +51,16 @@ export default function Navigation() {
         <div className="flex items-center justify-between h-16 sm:h-20">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
-            <Image
-              src="/gemfitness.svg"
-              alt="GemFitness Logo"
-              width={48}
-              height={48}
-              className="w-12 h-12 object-contain"
-            />
+            <span className="p-1.5 rounded-full bg-white">
+              <Image
+                src="/gemfitness.svg"
+                alt="GemFitness Logo"
+                width={64}
+                height={64}
+                className="w-16 h-16 object-contain transition-transform duration-300 group-hover:scale-110"
+                priority
+              />
+            </span>
           </Link>
 
           {/* Desktop Navigation */}

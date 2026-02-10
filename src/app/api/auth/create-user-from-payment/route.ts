@@ -202,12 +202,33 @@ export async function POST(request: NextRequest) {
     const emergencyContact = metadata.emergencyContact || 'N/A';
     const emergencyPhone = metadata.emergencyPhone || 'N/A';
     
-    // ✅ SECURITY FIX: Generate secure random password (metadata no longer contains password)
-    const tempPassword = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+    // ✅ SECURITY: Password is NOT in payment metadata (security best practice)
+    // Password is stored client-side in sessionStorage and sent after OTP verification
+    // Create user with placeholder password - will be set via /api/auth/set-password after OTP
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    
+    // Generate a secure random placeholder - user cannot login until they verify OTP
+    // and their real password is set via the set-password endpoint
+    const placeholderPassword = Array.from(crypto.getRandomValues(new Uint8Array(32)))
       .map(b => (b % 36).toString(36))
-      .join('')
-      .slice(0, 12);
-    const password = await hashPassword(tempPassword);
+      .join('');
+    
+    logger.info('✅ Creating user with placeholder password (real password set after OTP):', { 
+      email: customer.email 
+    });
+    
+    // Log info in dev mode
+    if (isDevelopment) {
+      console.log('\n' + '='.repeat(60));
+      console.log('🔐 SECURE PASSWORD FLOW (DEV MODE)');
+      console.log('='.repeat(60));
+      console.log(`Email: ${customer.email}`);
+      console.log('Password: NOT sent to payment provider');
+      console.log('Status: User will set password via OTP verification');
+      console.log('='.repeat(60) + '\n');
+    }
+    
+    const password = await hashPassword(placeholderPassword);
     const address = metadata.address || null;
     const fitnessGoals = metadata.fitnessGoals || null;
     const medicalConditions = metadata.medicalConditions || null;

@@ -66,8 +66,11 @@ export const metadata: Metadata = {
     follow: true,
   },
   icons: {
-    icon: "/gemfitness.svg",
-    apple: "/gemfitness.svg",
+    icon: [
+      { url: "/gemfitness.svg", sizes: "32x32", type: "image/svg+xml" },
+      { url: "/gemfitness.svg", sizes: "48x48", type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/gemfitness.svg", sizes: "180x180", type: "image/svg+xml" }],
     shortcut: "/gemfitness.svg",
   },
 };

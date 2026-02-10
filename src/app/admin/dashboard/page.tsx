@@ -39,6 +39,7 @@ import {
   Scan,
   Trophy,
   X,
+  XCircle,
   Upload,
   Shield,
   Settings,
@@ -361,6 +362,11 @@ export default function AdminDashboard() {
 
   const { push: pushToast } = useToast();
 
+  // Helper function for toast notifications
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    pushToast(message, type);
+  };
+
   const memberCreateSchema = z.object({
     firstName: z.string().min(2, 'First name is required'),
     lastName: z.string().min(2, 'Last name is required'),
@@ -473,6 +479,14 @@ export default function AdminDashboard() {
   const [showEventAttendeeModal, setShowEventAttendeeModal] = useState(false);
   const [isCancellingClass, setIsCancellingClass] = useState(false);
   const [showCancellationModal, setShowCancellationModal] = useState(false);
+  const [selectedAlternativeClasses, setSelectedAlternativeClasses] = useState<string[]>([]);
+  const [showEventCancelModal, setShowEventCancelModal] = useState(false);
+  const [showEventPromoModal, setShowEventPromoModal] = useState(false);
+  const [promoTargetAudience, setPromoTargetAudience] = useState<'all' | 'members' | 'new'>('all');
+  const [promoCustomMessage, setPromoCustomMessage] = useState('');
+  const [isSendingPromo, setIsSendingPromo] = useState(false);
+  const [isCancellingEvent, setIsCancellingEvent] = useState(false);
+  const [eventCancellationReason, setEventCancellationReason] = useState('');
   const [cancellationReason, setCancellationReason] = useState('');
   const [showEventCheckinModal, setShowEventCheckinModal] = useState(false);
   const [showEventQRScanner, setShowEventQRScanner] = useState(false);
@@ -1500,7 +1514,7 @@ export default function AdminDashboard() {
   };
 
   // Handle print receipt and close registration modal
-  const handlePrintReceipt = () => {
+  const handlePrintReceipt = async () => {
     if (!registeredMemberData) return;
 
     const planDetails = {
@@ -1523,7 +1537,7 @@ export default function AdminDashboard() {
     const nextMonth = new Date();
     nextMonth.setMonth(nextMonth.getMonth() + 1);
 
-    printRegistrationReceipt({
+    await printRegistrationReceipt({
       receiptNumber: generateReceiptNumber(),
       memberName: `${registeredMemberData.firstName} ${registeredMemberData.lastName}`,
       memberId: registeredMemberData.id,
@@ -1710,6 +1724,7 @@ export default function AdminDashboard() {
         },
         body: JSON.stringify({
           reason: cancellationReason,
+          alternativeClassIds: selectedAlternativeClasses,
           notifyMembers: true
         }),
       });
@@ -1721,15 +1736,97 @@ export default function AdminDashboard() {
         setShowCancellationModal(false);
         setSelectedClassForModal(null);
         setCancellationReason('');
-        alert(`✅ Class cancelled successfully! ${data.notifiedMembers} members notified.`);
+        setSelectedAlternativeClasses([]);
+        showToast(`Class cancelled successfully! ${data.notifications?.sent || 0} members notified.`, 'success');
       } else {
-        alert(`❌ ${data.error || 'Failed to cancel class'}`);
+        showToast(data.error || 'Failed to cancel class', 'error');
       }
     } catch (error) {
       console.error('Error cancelling class:', error);
-      alert('❌ Error cancelling class');
+      showToast('Error cancelling class', 'error');
     } finally {
       setIsCancellingClass(false);
+    }
+  };
+
+  // Handle Event Cancellation with Refunds
+  const handleCancelEvent = async () => {
+    if (!selectedEventForModal || !eventCancellationReason.trim()) {
+      showToast('Please provide a cancellation reason', 'error');
+      return;
+    }
+
+    setIsCancellingEvent(true);
+    try {
+      const response = await fetch(`/api/events/${selectedEventForModal.id}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reason: eventCancellationReason,
+          sendNotifications: true
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchEvents();
+        setShowEventCancelModal(false);
+        setSelectedEventForModal(null);
+        setEventCancellationReason('');
+        
+        let message = `Event cancelled successfully!`;
+        if (data.notifications?.sent) {
+          message += ` ${data.notifications.sent} attendees notified.`;
+        }
+        if (data.refunds?.processed) {
+          message += ` ${data.refunds.processed} refunds processed (GH₵ ${data.refunds.totalAmount}).`;
+        }
+        showToast(message, 'success');
+      } else {
+        showToast(data.error || 'Failed to cancel event', 'error');
+      }
+    } catch (error) {
+      console.error('Error cancelling event:', error);
+      showToast('Error cancelling event', 'error');
+    } finally {
+      setIsCancellingEvent(false);
+    }
+  };
+
+  // Handle Send Event Promotional Email
+  const handleSendEventPromo = async () => {
+    if (!selectedEventForModal) return;
+
+    setIsSendingPromo(true);
+    try {
+      const response = await fetch(`/api/events/${selectedEventForModal.id}/promote`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          targetAudience: promoTargetAudience,
+          customMessage: promoCustomMessage || undefined
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setShowEventPromoModal(false);
+        setPromoCustomMessage('');
+        showToast(`Promotional emails sent to ${data.stats.recipientCount} recipients!`, 'success');
+      } else {
+        showToast(data.error || 'Failed to send promotional emails', 'error');
+      }
+    } catch (error) {
+      console.error('Error sending promotional emails:', error);
+      showToast('Error sending promotional emails', 'error');
+    } finally {
+      setIsSendingPromo(false);
     }
   };
 
@@ -3087,12 +3184,12 @@ export default function AdminDashboard() {
                                       size="sm"
                                       onClick={() => {
                                         setSelectedEventForModal(event);
-                                        setShowBulkEmailModal(true);
+                                        setShowEventPromoModal(true);
                                       }}
-                                      className="bg-orange-500 hover:bg-orange-600"
+                                      className="bg-purple-500 hover:bg-purple-600"
                                     >
-                                      <Send className="h-4 w-4 mr-1" />
-                                      Email
+                                      <Mail className="h-4 w-4 mr-1" />
+                                      Promote
                                     </Button>
                                     <DropdownMenu>
                                       <DropdownMenuTrigger asChild>
@@ -3151,7 +3248,26 @@ export default function AdminDashboard() {
                                               <Edit className="h-4 w-4 mr-2" />
                                               Edit Event
                                             </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                              onClick={() => {
+                                                setSelectedEventForModal(event);
+                                                setShowBulkEmailModal(true);
+                                              }}
+                                            >
+                                              <Send className="h-4 w-4 mr-2" />
+                                              Bulk Email
+                                            </DropdownMenuItem>
                                             <DropdownMenuSeparator />
+                                            <DropdownMenuItem
+                                              onClick={() => {
+                                                setSelectedEventForModal(event);
+                                                setShowEventCancelModal(true);
+                                              }}
+                                              className="text-orange-600 focus:text-orange-600"
+                                            >
+                                              <XCircle className="h-4 w-4 mr-2" />
+                                              Cancel Event
+                                            </DropdownMenuItem>
                                             <DropdownMenuItem
                                               onClick={() => handleDeleteEvent(event.id)}
                                               className="text-red-600 focus:text-red-600"
@@ -7418,7 +7534,7 @@ export default function AdminDashboard() {
         />
       )}
 
-      {/* Class Cancellation Modal */}
+      {/* Enhanced Class Cancellation Modal with Alternative Classes */}
       {showCancellationModal && selectedClassForModal && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
@@ -7427,10 +7543,11 @@ export default function AdminDashboard() {
               setShowCancellationModal(false);
               setSelectedClassForModal(null);
               setCancellationReason('');
+              setSelectedAlternativeClasses([]);
             }
           }}
         >
-          <div className="bg-white rounded-lg max-w-md w-full shadow-2xl">
+          <div className="bg-white rounded-lg max-w-lg w-full shadow-2xl">
             <div className="p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-orange-100 rounded-full">
@@ -7442,23 +7559,80 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="mb-4">
-                <p className="text-sm text-gray-700 mb-3">
-                  This will cancel the class and automatically notify all enrolled members ({selectedClassForModal.enrolled} members).
-                </p>
+              <div className="space-y-4 mb-6">
+                <div>
+                  <p className="text-sm text-gray-700 mb-3">
+                    This will cancel the class and automatically notify all enrolled members ({selectedClassForModal.enrolled} members).
+                  </p>
+                </div>
                 
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cancellation Reason *
-                </label>
-                <textarea
-                  value={cancellationReason}
-                  onChange={(e) => setCancellationReason(e.target.value)}
-                  placeholder="e.g., Instructor unavailable, equipment issues, low enrollment..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
-                  rows={3}
-                  required
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cancellation Reason *
+                  </label>
+                  <textarea
+                    value={cancellationReason}
+                    onChange={(e) => setCancellationReason(e.target.value)}
+                    placeholder="e.g., Instructor unavailable, equipment issues, low enrollment..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                    rows={3}
+                    required
                 />
               </div>
+
+              {/* Alternative Classes Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Suggest Alternative Classes (Optional)
+                </label>
+                <p className="text-xs text-gray-500 mb-2">
+                  Select classes to suggest to enrolled members in the cancellation email
+                </p>
+                <div className="border border-gray-300 rounded-lg max-h-48 overflow-y-auto">
+                  {classes
+                    .filter(c => 
+                      c.id !== selectedClassForModal.id && 
+                      c.status === 'Active' &&
+                      new Date(c.schedule) > new Date()
+                    )
+                    .map(cls => (
+                      <label 
+                        key={cls.id}
+                        className="flex items-center p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-200 last:border-b-0"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedAlternativeClasses.includes(cls.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedAlternativeClasses(prev => [...prev, cls.id]);
+                            } else {
+                              setSelectedAlternativeClasses(prev => prev.filter(id => id !== cls.id));
+                            }
+                          }}
+                          className="mr-3 h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                        />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900">{cls.name}</p>
+                          <p className="text-xs text-gray-600">{cls.instructor} • {new Date(cls.schedule).toLocaleString()}</p>
+                        </div>
+                      </label>
+                    ))}
+                  {classes.filter(c => 
+                    c.id !== selectedClassForModal.id && 
+                    c.status === 'Active' &&
+                    new Date(c.schedule) > new Date()
+                  ).length === 0 && (
+                    <p className="p-3 text-sm text-gray-500 text-center">No alternative classes available</p>
+                  )}
+                </div>
+                {selectedAlternativeClasses.length > 0 && (
+                  <p className="text-xs text-green-600 mt-2">
+                    ✓ {selectedAlternativeClasses.length} alternative class{selectedAlternativeClasses.length > 1 ? 'es' : ''} selected
+                  </p>
+                )}
+              </div>
+            </div>
 
               <div className="flex gap-3">
                 <Button
@@ -7468,6 +7642,7 @@ export default function AdminDashboard() {
                     setShowCancellationModal(false);
                     setSelectedClassForModal(null);
                     setCancellationReason('');
+                    setSelectedAlternativeClasses([]);
                   }}
                   className="flex-1"
                   disabled={isCancellingClass}
@@ -7481,6 +7656,229 @@ export default function AdminDashboard() {
                   className="flex-1 bg-orange-600 hover:bg-orange-700"
                 >
                   {isCancellingClass ? 'Cancelling...' : 'Cancel Class'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Event Cancellation Modal with Refunds */}
+      {showEventCancelModal && selectedEventForModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowEventCancelModal(false);
+              setSelectedEventForModal(null);
+              setEventCancellationReason('');
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg max-w-lg w-full shadow-2xl">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-red-100 rounded-full">
+                  <XCircle className="h-6 w-6 text-red-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Cancel Event</h2>
+                  <p className="text-sm text-gray-600">{selectedEventForModal.title}</p>
+                </div>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-yellow-800">
+                      <p className="font-medium mb-1">This action will:</p>
+                      <ul className="list-disc list-inside space-y-1">
+                        <li>Cancel the event and notify all {selectedEventForModal.registered} registered attendees</li>
+                        {!selectedEventForModal.isFree && selectedEventForModal.price && (
+                          <li>Process automatic refunds for all paid registrations (GH₵ {selectedEventForModal.price.toFixed(2)} each)</li>
+                        )}
+                        <li>Update event status to &quot;Cancelled&quot;</li>
+                        <li>Send cancellation emails with the reason provided</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cancellation Reason *
+                  </label>
+                  <textarea
+                    value={eventCancellationReason}
+                    onChange={(e) => setEventCancellationReason(e.target.value)}
+                    placeholder="e.g., Venue unavailable, speaker cancelled, low registration, weather conditions..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+                    rows={4}
+                    required
+                  />
+                </div>
+
+                {!selectedEventForModal.isFree && selectedEventForModal.price && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-800">
+                      <strong>Estimated Total Refunds:</strong> GH₵ {(selectedEventForModal.price * selectedEventForModal.registered).toFixed(2)}
+                    </p>
+                    <p className="text-xs text-blue-700 mt-1">
+                      Refunds will be processed automatically to attendees&apos; payment methods
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowEventCancelModal(false);
+                    setSelectedEventForModal(null);
+                    setEventCancellationReason('');
+                  }}
+                  className="flex-1"
+                  disabled={isCancellingEvent}
+                >
+                  Keep Event
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleCancelEvent}
+                  disabled={isCancellingEvent || !eventCancellationReason.trim()}
+                  className="flex-1 bg-red-600 hover:bg-red-700"
+                >
+                  {isCancellingEvent ? 'Cancelling...' : 'Cancel Event'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Event Promotional Email Modal */}
+      {showEventPromoModal && selectedEventForModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowEventPromoModal(false);
+              setSelectedEventForModal(null);
+              setPromoCustomMessage('');
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg max-w-lg w-full shadow-2xl">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-purple-100 rounded-full">
+                  <Mail className="h-6 w-6 text-purple-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Send Promotional Email</h2>
+                  <p className="text-sm text-gray-600">{selectedEventForModal.title}</p>
+                </div>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Target Audience *
+                  </label>
+                  <div className="space-y-2">
+                    <label className="flex items-center p-3 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="audience"
+                        value="all"
+                        checked={promoTargetAudience === 'all'}
+                        onChange={(e) => setPromoTargetAudience(e.target.value as 'all' | 'members' | 'new')}
+                        className="mr-3 text-purple-600 focus:ring-purple-500"
+                      />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">All Users</p>
+                        <p className="text-xs text-gray-600">Send to everyone in the database</p>
+                      </div>
+                    </label>
+                    <label className="flex items-center p-3 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="audience"
+                        value="members"
+                        checked={promoTargetAudience === 'members'}
+                        onChange={(e) => setPromoTargetAudience(e.target.value as 'all' | 'members' | 'new')}
+                        className="mr-3 text-purple-600 focus:ring-purple-500"
+                      />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">Active Members Only</p>
+                        <p className="text-xs text-gray-600">Target current active members</p>
+                      </div>
+                    </label>
+                    <label className="flex items-center p-3 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="audience"
+                        value="new"
+                        checked={promoTargetAudience === 'new'}
+                        onChange={(e) => setPromoTargetAudience(e.target.value as 'all' | 'members' | 'new')}
+                        className="mr-3 text-purple-600 focus:ring-purple-500"
+                      />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">New Users / Prospects</p>
+                        <p className="text-xs text-gray-600">Target users who joined in last 30 days</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Custom Message (Optional)
+                  </label>
+                  <textarea
+                    value={promoCustomMessage}
+                    onChange={(e) => setPromoCustomMessage(e.target.value)}
+                    placeholder="Add a personalized message to include in the promotional email..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                    rows={4}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    The email will include event details, date, location, and pricing automatically
+                  </p>
+                </div>
+
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <p className="text-sm text-purple-800 flex items-center gap-2">
+                    <Mail className="h-4 w-4" />
+                    Promotional email will be sent to selected audience with event information
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowEventPromoModal(false);
+                    setSelectedEventForModal(null);
+                    setPromoCustomMessage('');
+                  }}
+                  className="flex-1"
+                  disabled={isSendingPromo}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleSendEventPromo}
+                  disabled={isSendingPromo}
+                  className="flex-1 bg-purple-600 hover:bg-purple-700"
+                >
+                  {isSendingPromo ? 'Sending...' : 'Send Promotional Email'}
                 </Button>
               </div>
             </div>

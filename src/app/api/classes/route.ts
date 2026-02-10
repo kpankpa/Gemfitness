@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { $Enums } from '@prisma/client';
 import { verifySessionForApi } from '@/lib/auth/dal';
 import { prisma } from '@/lib/prisma';
+import { detectSchedulingConflicts } from '@/lib/services/scheduling/conflict-detector';
 
 export const dynamic = 'force-dynamic';
 
@@ -128,6 +129,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Missing required fields: name, type, instructor, duration, schedule' },
         { status: 400 }
+      );
+    }
+
+    // Check for scheduling conflicts
+    const conflictCheck = await detectSchedulingConflicts(instructor, schedule);
+    if (conflictCheck.hasConflict) {
+      return NextResponse.json(
+        { 
+          error: 'Scheduling conflict detected',
+          details: conflictCheck.message,
+          conflictingClasses: conflictCheck.conflictingClasses
+        },
+        { status: 409 } // 409 Conflict
       );
     }
 
