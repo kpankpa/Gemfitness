@@ -188,6 +188,7 @@ model SubscriptionChange {
 }
 
 enum MembershipPlan {
+  DAILY // Day pass (adjustable price, default GH₵ 30)
   ONE_MONTH // GH₵ 200
   THREE_MONTHS // GH₵ 500
   ONE_YEAR // GH₵ 2200

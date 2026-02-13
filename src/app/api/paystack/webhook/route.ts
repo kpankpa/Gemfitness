@@ -158,6 +158,13 @@ async function handleChargeSuccess(data: Record<string, unknown>) {
       return;
     }
 
+    // Case 1.5: Day pass MoMo payment
+    const transaction_type = (metadata as Record<string, unknown>)?.transaction_type as string | undefined;
+    if (transaction_type === 'day_pass') {
+      await handleDayPassMoMoPayment(reference, metadata as Record<string, unknown>);
+      return;
+    }
+
     // Case 2: Event booking payment
     if ((metadata as Record<string, unknown>)?.type === 'event_booking') {
       await handleEventBookingPayment(reference);
@@ -547,6 +554,87 @@ async function handleSubscriptionNotRenew(data: Record<string, unknown>) {
 }
 
 /**
+ * Handle day pass MoMo payment completion
+ * Creates subscription + check-in after MoMo payment confirms
+ */
+async function handleDayPassMoMoPayment(reference: string, metadata: Record<string, unknown>) {
+  try {
+    const userId = metadata.user_id as string;
+    if (!userId) {
+      logger.error('❌ Day pass MoMo: no user_id in metadata', { reference });
+      return;
+    }
+
+    // Find the pending payment transaction
+    const pendingTx = await prisma.paymentTransaction.findFirst({
+      where: { reference, transactionType: 'day_pass', status: 'pending' },
+    });
+
+    if (!pendingTx) {
+      logger.error('❌ Day pass MoMo: no pending transaction found', { reference });
+      return;
+    }
+
+    const txMeta = pendingTx.metadata as Record<string, unknown> | null;
+    const dayPassPrice = (txMeta?.dayPassPrice as number) ?? 30;
+
+    const now = new Date();
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    // Create DAILY subscription
+    const subscription = await prisma.subscription.create({
+      data: {
+        userId,
+        plan: 'DAILY',
+        amount: dayPassPrice,
+        startDate: now,
+        endDate: endOfDay,
+        status: 'ACTIVE',
+        registrationType: 'WALK_IN',
+        renewalStatus: 'NONE',
+      },
+    });
+
+    // Create payment record
+    await prisma.payment.create({
+      data: {
+        subscriptionId: subscription.id,
+        amount: dayPassPrice,
+        paymentMethod: 'MOMO',
+        paymentDate: now,
+        reference,
+        status: 'SUCCESS',
+      },
+    });
+
+    // Update pending transaction to success
+    await prisma.paymentTransaction.update({
+      where: { id: pendingTx.id },
+      data: {
+        status: 'success',
+        relatedEntityId: subscription.id,
+        relatedEntityType: 'subscription',
+        paidAt: now,
+      },
+    });
+
+    // Auto check-in
+    await prisma.checkIn.create({
+      data: {
+        userId,
+        checkInTime: now,
+        method: 'manual',
+        notes: 'Day pass (MoMo) - auto checked in',
+      },
+    });
+
+    logger.info('✅ Day pass MoMo payment completed', { reference, userId, subscriptionId: subscription.id });
+  } catch (error) {
+    logger.error('❌ Day pass MoMo payment error:', { reference, error });
+  }
+}
+
+/**
  * Handle walk-in MoMo registration payment
  * Complete user creation from pending registration
  */
@@ -644,12 +732,14 @@ async function handleWalkInRegistrationPayment(reference: string) {
 
     // Create subscription
     const planPrices: Record<string, number> = {
+      'DAILY': 30,
       'ONE_MONTH': 200,
       'THREE_MONTHS': 500,
       'ONE_YEAR': 2200
     };
 
     const planDurations: Record<string, number> = {
+      'DAILY': 1,
       'ONE_MONTH': 30,
       'THREE_MONTHS': 90,
       'ONE_YEAR': 365
@@ -659,13 +749,18 @@ async function handleWalkInRegistrationPayment(reference: string) {
     const duration = planDurations[pendingReg.plan];
 
     const startDate = new Date();
-    const endDate = new Date();
-    endDate.setDate(endDate.getDate() + duration);
+    let endDate: Date;
+    if (pendingReg.plan === 'DAILY') {
+      endDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 23, 59, 59, 999);
+    } else {
+      endDate = new Date();
+      endDate.setDate(endDate.getDate() + duration);
+    }
 
     const subscription = await prisma.subscription.create({
       data: {
         userId: user.id,
-        plan: pendingReg.plan as 'ONE_MONTH' | 'THREE_MONTHS' | 'ONE_YEAR',
+        plan: pendingReg.plan as 'DAILY' | 'ONE_MONTH' | 'THREE_MONTHS' | 'ONE_YEAR',
         amount,
         startDate,
         endDate,

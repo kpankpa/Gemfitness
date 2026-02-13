@@ -53,6 +53,15 @@ export async function processSubscriptionRenewal(subscriptionId: string): Promis
       };
     }
 
+    // Skip DAILY (day pass) plans — they don't auto-renew
+    if (subscription.plan === 'DAILY') {
+      return {
+        success: false,
+        subscriptionId,
+        message: 'Day passes do not auto-renew'
+      };
+    }
+
     // Skip paused and other non-renewable statuses
     if (subscription.status !== 'ACTIVE' && subscription.status !== 'EXPIRED') {
       return {
@@ -307,6 +316,7 @@ export async function getSubscriptionsDueForRenewal() {
       AND: [
         { status: { not: 'CANCELLED' } },
         { status: 'ACTIVE' },
+        { plan: { not: 'DAILY' } }, // Day passes don't auto-renew
         {
           OR: [
             // First renewal attempt

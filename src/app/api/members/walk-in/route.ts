@@ -49,7 +49,7 @@ const walkInRegistrationSchema = z.object({
   medicalConditions: z.string().optional(),
   
   // Membership
-  plan: z.enum(['ONE_MONTH', 'THREE_MONTHS', 'ONE_YEAR']),
+  plan: z.enum(['DAILY', 'ONE_MONTH', 'THREE_MONTHS', 'ONE_YEAR']),
   
   // Payment
   paymentMethod: z.enum(['CASH', 'MOMO']),
@@ -363,14 +363,15 @@ async function completeRegistration(pendingId: string) {
   });
 
   // Create subscription
-  const planPrices = {
-    'ONE_MONTH': 200,
-    'THREE_MONTHS': 500,
-    'ONE_YEAR': 2200
-  };
+    const planPrices: Record<string, number> = {
+      'DAILY': 30,
+      'ONE_MONTH': 200,
+      'THREE_MONTHS': 500,
+      'ONE_YEAR': 2200
+    };
 
-  const planDurations = {
-    'ONE_MONTH': 30,
+    const planDurations: Record<string, number> = {
+      'DAILY': 1,
     'THREE_MONTHS': 90,
     'ONE_YEAR': 365
   };
@@ -379,8 +380,14 @@ async function completeRegistration(pendingId: string) {
   const duration = planDurations[pending.plan as keyof typeof planDurations];
 
   const startDate = new Date();
-  const endDate = new Date();
-  endDate.setDate(endDate.getDate() + duration);
+  let endDate: Date;
+  if (pending.plan === 'DAILY') {
+    // Day pass expires at end of day (midnight)
+    endDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 23, 59, 59, 999);
+  } else {
+    endDate = new Date();
+    endDate.setDate(endDate.getDate() + duration);
+  }
 
   const subscription = await prisma.subscription.create({
     data: {

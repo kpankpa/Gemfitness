@@ -4,6 +4,11 @@
  */
 
 export const PLAN_PRICING = {
+  DAILY: {
+    price: 30, // GH₵ (default, can be overridden from DB)
+    durationDays: 1,
+    name: 'Day Pass',
+  },
   ONE_MONTH: {
     price: 200, // GH₵
     durationDays: 30,
@@ -39,8 +44,10 @@ export function determinePlanFromAmount(amountInCedis: number): MembershipPlan {
     return 'ONE_YEAR';
   } else if (amountInCedis >= PLAN_PRICING.THREE_MONTHS.price - 50) {
     return 'THREE_MONTHS';
+  } else if (amountInCedis >= PLAN_PRICING.ONE_MONTH.price - 50) {
+    return 'ONE_MONTH';
   }
-  return 'ONE_MONTH';
+  return 'DAILY';
 }
 
 /**

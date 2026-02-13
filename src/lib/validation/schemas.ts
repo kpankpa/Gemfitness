@@ -43,7 +43,7 @@ export const createMemberSchema = z.object({
   fitnessGoals: z.string().optional(),
   medicalConditions: z.string().optional(),
   role: z.enum(['MEMBER', 'RECEPTIONIST', 'MANAGER', 'ADMIN']).default('MEMBER'),
-  plan: z.enum(['ONE_MONTH', 'THREE_MONTHS', 'ONE_YEAR']),
+  plan: z.enum(['DAILY', 'ONE_MONTH', 'THREE_MONTHS', 'ONE_YEAR']),
   registrationType: z.enum(['SELF', 'WALK_IN', 'ADMIN']),
   password: z.string().min(8),
 });
@@ -65,7 +65,7 @@ export const scanQRSchema = z.object({
 // Subscription Schemas
 export const createSubscriptionSchema = z.object({
   userId: z.string().uuid(),
-  plan: z.enum(['ONE_MONTH', 'THREE_MONTHS', 'ONE_YEAR']),
+  plan: z.enum(['DAILY', 'ONE_MONTH', 'THREE_MONTHS', 'ONE_YEAR']),
   amount: z.number().positive(),
   paymentReference: z.string(),
 });

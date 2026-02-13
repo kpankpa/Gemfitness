@@ -30,10 +30,11 @@ export class PaymentReminderSystem {
   }
 
   private static async sendExpiryReminders(expiryDate: Date, reminderType: string): Promise<void> {
-    // Find subscriptions expiring on the target date
+    // Find subscriptions expiring on the target date (skip DAILY day passes)
     const expiringSubscriptions = await prisma.subscription.findMany({
       where: {
         status: 'ACTIVE',
+        plan: { not: 'DAILY' },
         endDate: {
           gte: new Date(expiryDate.getFullYear(), expiryDate.getMonth(), expiryDate.getDate()),
           lt: new Date(expiryDate.getFullYear(), expiryDate.getMonth(), expiryDate.getDate() + 1)
@@ -98,10 +99,11 @@ export class PaymentReminderSystem {
     const now = new Date();
     const gracePeriodEnd = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000)); // 7 days ago
 
-    // Find subscriptions that expired more than 7 days ago
+    // Find subscriptions that expired more than 7 days ago (skip DAILY day passes)
     const expiredSubscriptions = await prisma.subscription.findMany({
       where: {
         status: 'ACTIVE',
+        plan: { not: 'DAILY' },
         endDate: { lt: gracePeriodEnd }
       },
       include: {
@@ -197,6 +199,7 @@ export class PaymentReminderSystem {
 
   private static getPlanPrice(plan: string): number {
     switch (plan) {
+      case 'DAILY': return 30;
       case 'ONE_MONTH': return 200;
       case 'THREE_MONTHS': return 500;
       case 'ONE_YEAR': return 2200;
@@ -206,6 +209,7 @@ export class PaymentReminderSystem {
 
   private static formatPlan(plan: string): string {
     switch (plan) {
+      case 'DAILY': return 'Day Pass';
       case 'ONE_MONTH': return '1 Month';
       case 'THREE_MONTHS': return '3 Months';
       case 'ONE_YEAR': return '1 Year';

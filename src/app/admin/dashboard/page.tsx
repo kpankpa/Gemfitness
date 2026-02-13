@@ -245,6 +245,29 @@ export default function AdminDashboard() {
   const [isSubmittingMember, setIsSubmittingMember] = useState(false);
   const [memberError, setMemberError] = useState<string | null>(null);
 
+  // Day Pass modal states
+  const [showDayPassModal, setShowDayPassModal] = useState(false);
+  const [isProcessingDayPass, setIsProcessingDayPass] = useState(false);
+  const [dayPassPrice, setDayPassPrice] = useState(30);
+  const [dayPassSuccess, setDayPassSuccess] = useState(false);
+  const [dayPassResult, setDayPassResult] = useState<{
+    firstName: string;
+    lastName: string;
+    phone: string;
+    price: number;
+    reference: string;
+    expiresAt: string;
+  } | null>(null);
+  const [dayPassForm, setDayPassForm] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    emergencyContact: '',
+    emergencyPhone: '',
+    paymentMethod: 'CASH' as 'CASH' | 'MOMO',
+  });
+  const [dayPassErrors, setDayPassErrors] = useState<Record<string, string>>({});
+
   // Staff modal states
   const [showAddStaffModal, setShowAddStaffModal] = useState(false);
   const [showEditStaffModal, setShowEditStaffModal] = useState(false);
@@ -429,7 +452,7 @@ export default function AdminDashboard() {
     password: z.string().min(6, 'Password must be at least 6 characters'),
     dateOfBirth: z.string().optional(),
     registrationType: z.enum(['SELF', 'WALK_IN', 'ADMIN']).optional(),
-    plan: z.enum(['ONE_MONTH', 'THREE_MONTHS', 'ONE_YEAR', 'SIX_MONTHS', 'TWELVE_MONTHS', 'DAILY']).optional()
+    plan: z.enum(['DAILY', 'ONE_MONTH', 'THREE_MONTHS', 'ONE_YEAR', 'SIX_MONTHS', 'TWELVE_MONTHS']).optional()
   });
 
   const memberEditSchema = z.object({
@@ -847,6 +870,7 @@ export default function AdminDashboard() {
     fetchAnalytics();
     fetchPaymentAnalytics();
     fetchPaymentHistory();
+    fetchDayPassPrice();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, authLoading, user?.role, router]);
 
@@ -995,6 +1019,93 @@ export default function AdminDashboard() {
     } finally {
       setIsLoadingFees(false);
     }
+  };
+
+  // Fetch day pass price from API
+  const fetchDayPassPrice = async () => {
+    try {
+      const response = await fetch('/api/day-pass');
+      const data = await response.json();
+      if (data.success) {
+        setDayPassPrice(data.price);
+      }
+    } catch (error) {
+      console.error('Error fetching day pass price:', error);
+    }
+  };
+
+  // Handle day pass sale
+  const handleSellDayPass = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsProcessingDayPass(true);
+    setDayPassErrors({});
+
+    // Validate
+    const errors: Record<string, string> = {};
+    if (!dayPassForm.firstName.trim() || dayPassForm.firstName.length < 2) errors.firstName = 'First name required';
+    if (!dayPassForm.lastName.trim() || dayPassForm.lastName.length < 2) errors.lastName = 'Last name required';
+    if (!dayPassForm.phone.trim() || dayPassForm.phone.length < 7) errors.phone = 'Phone number required';
+    if (!dayPassForm.emergencyContact.trim() || dayPassForm.emergencyContact.length < 2) errors.emergencyContact = 'Emergency contact required';
+    if (!dayPassForm.emergencyPhone.trim() || dayPassForm.emergencyPhone.length < 7) errors.emergencyPhone = 'Emergency phone required';
+
+    if (Object.keys(errors).length > 0) {
+      setDayPassErrors(errors);
+      setIsProcessingDayPass(false);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/day-pass', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...dayPassForm,
+          amountPaid: dayPassPrice,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setDayPassSuccess(true);
+        setDayPassResult({
+          firstName: data.dayPass.firstName,
+          lastName: data.dayPass.lastName,
+          phone: data.dayPass.phone,
+          price: data.dayPass.price || dayPassPrice,
+          reference: data.reference,
+          expiresAt: data.dayPass.expiresAt || new Date().toISOString(),
+        });
+        pushToast(`Day pass sold to ${data.dayPass.firstName} ${data.dayPass.lastName}`, 'success');
+        fetchCheckIns();
+        fetchStats();
+      } else if (response.status === 409) {
+        pushToast(data.error || 'This person already has an active day pass today', 'error');
+      } else {
+        pushToast(data.error || 'Failed to process day pass', 'error');
+      }
+    } catch (error) {
+      console.error('Day pass error:', error);
+      pushToast('Failed to process day pass', 'error');
+    } finally {
+      setIsProcessingDayPass(false);
+    }
+  };
+
+  // Reset day pass modal
+  const closeDayPassModal = () => {
+    setShowDayPassModal(false);
+    setDayPassSuccess(false);
+    setDayPassResult(null);
+    setDayPassErrors({});
+    setDayPassForm({
+      firstName: '',
+      lastName: '',
+      phone: '',
+      emergencyContact: '',
+      emergencyPhone: '',
+      paymentMethod: 'CASH',
+    });
   };
 
   // Fetch staff from API
@@ -1847,11 +1958,11 @@ export default function AdminDashboard() {
     if (!registeredMemberData) return;
 
     const planDetails = {
+      'DAILY': { name: 'Day Pass', price: dayPassPrice, duration: '1 Day' },
       'ONE_MONTH': { name: 'Monthly', price: 200, duration: '1 Month' },
       'THREE_MONTHS': { name: 'Quarterly', price: 450, duration: '3 Months' },
       'SIX_MONTHS': { name: 'Semi-Annual', price: 1000, duration: '6 Months' },
       'TWELVE_MONTHS': { name: 'Annual', price: 2000, duration: '12 Months' },
-      'DAILY': { name: 'Daily Walk-In', price: 50, duration: '1 Day' },
     };
 
     const regFees = {
@@ -2697,13 +2808,17 @@ export default function AdminDashboard() {
                 <CardDescription>Common tasks</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                   {canRegisterMember && (
                     <Button onClick={() => setShowNewMemberModal(true)} className="h-auto flex-col gap-2 py-4 bg-orange-500 hover:bg-orange-600">
                       <UserPlus className="h-6 w-6" />
                       <span className="text-xs sm:text-sm">New Member</span>
                     </Button>
                   )}
+                  <Button onClick={() => { fetchDayPassPrice(); setShowDayPassModal(true); }} className="h-auto flex-col gap-2 py-4 bg-green-600 hover:bg-green-700 text-white">
+                    <Ticket className="h-6 w-6" />
+                    <span className="text-xs sm:text-sm">Day Pass</span>
+                  </Button>
                   <Button onClick={() => setActiveTab('checkin')} variant="outline" className="h-auto flex-col gap-2 py-4 border-2">
                     <QrCode className="h-6 w-6" />
                     <span className="text-xs sm:text-sm">Check-In</span>
@@ -6243,6 +6358,211 @@ export default function AdminDashboard() {
                   className="flex-1 bg-orange-500 hover:bg-orange-600"
                 >
                   {isRegistering ? 'Registering...' : 'Register Member'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </>
+      )}
+    </div>
+  </div>
+)}
+
+{/* Day Pass Modal */}
+{showDayPassModal && (
+  <div
+    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+    onClick={(e) => {
+      if (e.target === e.currentTarget && !dayPassSuccess) closeDayPassModal();
+    }}
+  >
+    <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+      {dayPassSuccess && dayPassResult ? (
+        /* Day Pass Success */
+        <>
+          <div className="p-6 border-b flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-gray-900">Day Pass Sold!</h2>
+            <button onClick={closeDayPassModal} className="text-gray-400 hover:text-gray-600">
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+          <div className="p-6 space-y-4">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+              <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-2" />
+              <p className="text-lg font-semibold text-green-800">
+                {dayPassResult.firstName} {dayPassResult.lastName}
+              </p>
+              <p className="text-sm text-green-600">has been checked in</p>
+            </div>
+
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-gray-600">Phone</span>
+                <span className="font-medium">{dayPassResult.phone}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-gray-600">Amount Paid</span>
+                <span className="font-medium text-green-600">GH₵ {dayPassResult.price}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-gray-600">Reference</span>
+                <span className="font-mono text-xs">{dayPassResult.reference}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-gray-600">Valid Until</span>
+                <span className="font-medium">Today, Midnight</span>
+              </div>
+              <div className="flex justify-between py-2">
+                <span className="text-gray-600">Payment</span>
+                <span className="font-medium">{dayPassForm.paymentMethod}</span>
+              </div>
+            </div>
+
+            <Button onClick={closeDayPassModal} className="w-full bg-orange-500 hover:bg-orange-600">
+              Done
+            </Button>
+          </div>
+        </>
+      ) : (
+        /* Day Pass Form */
+        <>
+          <div className="p-6 border-b flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Sell Day Pass</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Quick access for walk-in visitors • <span className="font-semibold text-green-600">GH₵ {dayPassPrice}</span>
+              </p>
+            </div>
+            <button onClick={closeDayPassModal} className="text-gray-400 hover:text-gray-600">
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+          <div className="p-6">
+            <form onSubmit={handleSellDayPass} className="space-y-4">
+              {/* Name */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">First Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={dayPassForm.firstName}
+                    onChange={(e) => setDayPassForm({ ...dayPassForm, firstName: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="John"
+                  />
+                  {dayPassErrors.firstName && <p className="text-xs text-red-600 mt-1">{dayPassErrors.firstName}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Last Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={dayPassForm.lastName}
+                    onChange={(e) => setDayPassForm({ ...dayPassForm, lastName: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="Doe"
+                  />
+                  {dayPassErrors.lastName && <p className="text-xs text-red-600 mt-1">{dayPassErrors.lastName}</p>}
+                </div>
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Phone Number *</label>
+                <input
+                  type="tel"
+                  required
+                  value={dayPassForm.phone}
+                  onChange={(e) => setDayPassForm({ ...dayPassForm, phone: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="0XX XXX XXXX"
+                />
+                {dayPassErrors.phone && <p className="text-xs text-red-600 mt-1">{dayPassErrors.phone}</p>}
+              </div>
+
+              {/* Emergency Contact */}
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Emergency Contact</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={dayPassForm.emergencyContact}
+                      onChange={(e) => setDayPassForm({ ...dayPassForm, emergencyContact: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="Contact name"
+                    />
+                    {dayPassErrors.emergencyContact && <p className="text-xs text-red-600 mt-1">{dayPassErrors.emergencyContact}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Phone *</label>
+                    <input
+                      type="tel"
+                      required
+                      value={dayPassForm.emergencyPhone}
+                      onChange={(e) => setDayPassForm({ ...dayPassForm, emergencyPhone: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="0XX XXX XXXX"
+                    />
+                    {dayPassErrors.emergencyPhone && <p className="text-xs text-red-600 mt-1">{dayPassErrors.emergencyPhone}</p>}
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Method */}
+              <div className="border-t pt-4">
+                <label className="block text-sm font-medium mb-2">Payment Method</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setDayPassForm({ ...dayPassForm, paymentMethod: 'CASH' })}
+                    className={`flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition-colors ${
+                      dayPassForm.paymentMethod === 'CASH'
+                        ? 'border-green-500 bg-green-50 text-green-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    <DollarSign className="h-5 w-5" />
+                    <span className="font-medium">Cash</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDayPassForm({ ...dayPassForm, paymentMethod: 'MOMO' })}
+                    className={`flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition-colors ${
+                      dayPassForm.paymentMethod === 'MOMO'
+                        ? 'border-yellow-500 bg-yellow-50 text-yellow-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    <Phone className="h-5 w-5" />
+                    <span className="font-medium">MoMo</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Price Summary */}
+              <div className="bg-gray-50 rounded-lg p-4 border">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Day Pass</span>
+                  <span className="text-xl font-bold text-green-600">GH₵ {dayPassPrice}</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Valid for today only. No registration fee.</p>
+              </div>
+
+              {/* Submit */}
+              <div className="flex gap-3 pt-2">
+                <Button type="button" variant="outline" onClick={closeDayPassModal} className="flex-1">
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isProcessingDayPass}
+                  className="flex-1 bg-green-600 hover:bg-green-700"
+                >
+                  {isProcessingDayPass ? 'Processing...' : `Sell Day Pass • GH₵ ${dayPassPrice}`}
                 </Button>
               </div>
             </form>

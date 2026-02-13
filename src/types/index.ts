@@ -18,7 +18,7 @@ export interface User {
 export interface Subscription {
   id: string;
   userId: string;
-  plan: 'ONE_MONTH' | 'THREE_MONTHS' | 'ONE_YEAR';
+  plan: 'DAILY' | 'ONE_MONTH' | 'THREE_MONTHS' | 'ONE_YEAR';
   status: 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'PAUSED' | 'TRIAL';
   amount: number;
   endDate: string;
@@ -370,7 +370,7 @@ export interface ParQSubmission {
 export interface PaymentMetadata {
   userId: string;
   email: string;
-  plan: 'ONE_MONTH' | 'THREE_MONTHS' | 'ONE_YEAR';
+  plan: 'DAILY' | 'ONE_MONTH' | 'THREE_MONTHS' | 'ONE_YEAR';
   firstName: string;
   lastName: string;
   phone: string;

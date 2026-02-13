@@ -31,13 +31,15 @@ interface PlanPreview {
   message: string;
 }
 
-const PLAN_NAMES = {
+const PLAN_NAMES: Record<string, string> = {
+  DAILY: 'Day Pass',
   ONE_MONTH: 'Monthly Plan',
   THREE_MONTHS: 'Quarterly Plan',
   ONE_YEAR: 'Annual Plan',
 };
 
-const PLAN_PRICES = {
+const PLAN_PRICES: Record<string, number> = {
+  DAILY: 30,
   ONE_MONTH: 200,
   THREE_MONTHS: 500,
   ONE_YEAR: 2200,
