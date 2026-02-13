@@ -608,7 +608,7 @@ async function handleDayPassMoMoPayment(reference: string, metadata: Record<stri
     });
 
     // Update pending transaction to success
-    await prisma.paymentTransaction.update({
+    const updatedTx = await prisma.paymentTransaction.update({
       where: { id: pendingTx.id },
       data: {
         status: 'success',
@@ -617,6 +617,29 @@ async function handleDayPassMoMoPayment(reference: string, metadata: Record<stri
         paidAt: now,
       },
     });
+
+    // Send receipt email if user has valid email
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, firstName: true, lastName: true } });
+    if (user && !user.email.includes('@gemfitness.local')) {
+      try {
+        const { sendReceiptEmail } = await import('@/lib/services/email/receipt-email');
+        const receiptUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/payments/receipt/${updatedTx.id}`;
+        await sendReceiptEmail({
+          memberName: `${user.firstName} ${user.lastName}`,
+          memberEmail: user.email,
+          transactionId: updatedTx.id,
+          reference,
+          amount: dayPassPrice,
+          currency: 'GHS',
+          paymentMethod: 'momo',
+          plan: 'Day Pass',
+          transactionDate: now,
+          receiptUrl,
+        });
+      } catch (emailError) {
+        logger.error('❌ Day pass receipt email failed:', { error: emailError });
+      }
+    }
 
     // Auto check-in
     await prisma.checkIn.create({
@@ -802,6 +825,26 @@ async function handleWalkInRegistrationPayment(reference: string) {
       }
     });
 
+    // Send receipt email
+    try {
+      const { sendReceiptEmail } = await import('@/lib/services/email/receipt-email');
+      const receiptUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/payments/receipt/${paymentTransaction.id}`;
+      await sendReceiptEmail({
+        memberName: `${user.firstName} ${user.lastName}`,
+        memberEmail: user.email,
+        transactionId: paymentTransaction.id,
+        reference: pendingReg.paymentReference,
+        amount: pendingReg.amountPaid,
+        currency: 'GHS',
+        paymentMethod: 'momo',
+        plan: pendingReg.plan,
+        transactionDate: new Date(),
+        receiptUrl,
+      });
+    } catch (emailError) {
+      logger.error('❌ Walk-in receipt email failed:', { error: emailError });
+    }
+
     // Delete pending registration
     await prisma.pendingRegistration.delete({
       where: { id: pendingReg.id }
@@ -811,11 +854,6 @@ async function handleWalkInRegistrationPayment(reference: string) {
       userId: user.id,
       email: user.email,
       reference,
-    });
-
-    // Send payment receipt email (async, don't wait)
-    ReceiptEmailService.sendReceiptEmail(paymentTransaction.id).catch(error => {
-      logger.error('❌ Walk-in receipt email failed:', { transactionId: paymentTransaction.id, error });
     });
 
   } catch (error) {

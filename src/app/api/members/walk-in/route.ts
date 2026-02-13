@@ -294,34 +294,76 @@ async function completeRegistration(pendingId: string) {
     throw new Error('Pending registration not found');
   }
 
-  // Create user
-  const user = await prisma.user.create({
-    data: {
-      firstName: pending.firstName,
-      lastName: pending.lastName,
-      email: pending.email,
-      phone: pending.phone,
-      password: pending.password,
-      role: $Enums.UserRole.MEMBER,
-      qrCode: '', // Will be updated after creation
-      registrationType: $Enums.RegistrationType.WALK_IN,
-      registrationPaid: true,
-      emergencyContact: pending.emergencyContact,
-      emergencyPhone: pending.emergencyPhone,
-      dateOfBirth: pending.dateOfBirth,
-      address: pending.address || '',
-      fitnessGoals: pending.fitnessGoals || '',
-      medicalConditions: pending.medicalConditions || '',
+  // Check if user already exists (day pass holder upgrading to full member)
+  let user = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { email: pending.email },
+        { phone: pending.phone }
+      ]
     }
   });
 
-  // Generate QR code
-  const { generateMemberQRCode } = await import('@/lib/qr/generator');
-  const qrCodeResult = await generateMemberQRCode();
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { qrCode: qrCodeResult.token }
-  });
+  if (user) {
+    // Existing user found - update their record instead of creating new
+    console.log(`📝 Updating existing user (day pass → full member): ${user.id}`);
+    
+    // Check if they have a placeholder email (day pass user)
+    const isPlaceholderEmail = user.email.includes('@gemfitness.local');
+    
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        // Update to real email if they had placeholder
+        ...(isPlaceholderEmail && { email: pending.email }),
+        // Update other fields
+        firstName: pending.firstName,
+        lastName: pending.lastName,
+        password: pending.password,
+        dateOfBirth: pending.dateOfBirth,
+        address: pending.address || user.address,
+        fitnessGoals: pending.fitnessGoals || user.fitnessGoals,
+        medicalConditions: pending.medicalConditions || user.medicalConditions,
+        emergencyContact: pending.emergencyContact,
+        emergencyPhone: pending.emergencyPhone,
+        registrationPaid: true,
+        passwordSet: true,
+        emailVerified: true,
+      }
+    });
+  } else {
+    // Create new user
+    user = await prisma.user.create({
+      data: {
+        firstName: pending.firstName,
+        lastName: pending.lastName,
+        email: pending.email,
+        phone: pending.phone,
+        password: pending.password,
+        role: $Enums.UserRole.MEMBER,
+        qrCode: '', // Will be updated after creation
+        registrationType: $Enums.RegistrationType.WALK_IN,
+        registrationPaid: true,
+        emergencyContact: pending.emergencyContact,
+        emergencyPhone: pending.emergencyPhone,
+        dateOfBirth: pending.dateOfBirth,
+        address: pending.address || '',
+        fitnessGoals: pending.fitnessGoals || '',
+        medicalConditions: pending.medicalConditions || '',
+      }
+    });
+  }
+
+  // Generate QR code (only if user doesn't have one yet)
+  if (!user.qrCode) {
+    const { generateMemberQRCode } = await import('@/lib/qr/generator');
+    const qrCodeResult = await generateMemberQRCode();
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { qrCode: qrCodeResult.token }
+    });
+    user.qrCode = qrCodeResult.token;
+  }
 
   // Create PAR-Q response
   const yesCount = [
@@ -435,6 +477,27 @@ async function completeRegistration(pendingId: string) {
     }
   });
 
+  // Send receipt email
+  try {
+    const { sendReceiptEmail } = await import('@/lib/services/email/receipt-email');
+    const receiptUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/payments/receipt/${paymentTransaction.id}`;
+    await sendReceiptEmail({
+      memberName: `${user.firstName} ${user.lastName}`,
+      memberEmail: user.email,
+      transactionId: paymentTransaction.id,
+      reference: pending.paymentReference,
+      amount: pending.amountPaid,
+      currency: 'GHS',
+      paymentMethod: pending.paymentMethod.toLowerCase(),
+      plan: pending.plan,
+      transactionDate: new Date(),
+      receiptUrl,
+    });
+  } catch (emailError) {
+    console.error('Failed to send receipt email:', emailError);
+    // Don't fail registration if email fails
+  }
+
   // Delete pending registration
   await prisma.pendingRegistration.delete({
     where: { id: pending.id }
@@ -452,7 +515,7 @@ async function completeRegistration(pendingId: string) {
       lastName: user.lastName,
       email: user.email,
       phone: user.phone,
-      qrCode: `GYM|${qrCodeResult.token}`,
+      qrCode: `GYM|${user.qrCode}`,
       plan: pending.plan,
       emergencyContact: pending.emergencyContact,
       emergencyPhone: pending.emergencyPhone,

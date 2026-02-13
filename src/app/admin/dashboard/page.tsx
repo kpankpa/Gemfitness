@@ -55,6 +55,7 @@ import {
   LayoutGrid,
   CalendarDays,
   ExternalLink,
+  Printer,
 } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/components/ToastProvider';
@@ -225,7 +226,24 @@ export default function AdminDashboard() {
   const [memberStatusFilter, setMemberStatusFilter] = useState<'all' | 'active' | 'expiring_soon' | 'expired'>('all');
   const [planFilter, setPlanFilter] = useState<string>('all');
   const [paymentMethod, setPaymentMethod] = useState<'momo' | 'cash' | 'card' | 'all'>('all');
-  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
+  const [paymentHistory, setPaymentHistory] = useState<Array<{
+    id: string;
+    reference: string;
+    amount: number;
+    currency: string;
+    status: string;
+    paymentMethod: string;
+    transactionType: string | null;
+    paidAt: string | null;
+    createdAt: string;
+    member: {
+      id: string;
+      name: string;
+      email: string;
+      plan: string;
+    } | null;
+    metadata: Record<string, unknown> | null;
+  }>>([]);
   const [isLoadingPayments, setIsLoadingPayments] = useState(false);
   const [paymentPage, setPaymentPage] = useState(1);
   const [paymentTotalPages, setPaymentTotalPages] = useState(1);
@@ -257,6 +275,7 @@ export default function AdminDashboard() {
     price: number;
     reference: string;
     expiresAt: string;
+    transactionId?: string;
   } | null>(null);
   const [dayPassForm, setDayPassForm] = useState({
     firstName: '',
@@ -618,7 +637,21 @@ export default function AdminDashboard() {
   const [isLoadingAuditLogs, setIsLoadingAuditLogs] = useState(false);
   const [auditLogFilter, setAuditLogFilter] = useState<string>('all');
   const [auditDateRange, setAuditDateRange] = useState({ start: '', end: '' });
-  const [selectedAuditLog, setSelectedAuditLog] = useState<any>(null);
+  const [selectedAuditLog, setSelectedAuditLog] = useState<{
+    id: string;
+    action: string;
+    entityType: string;
+    entityId?: string;
+    userId: string;
+    userName: string;
+    userEmail: string;
+    changes?: Record<string, unknown>;
+    ipAddress?: string;
+    userAgent?: string;
+    sessionId?: string;
+    metadata?: Record<string, unknown>;
+    timestamp: string;
+  } | null>(null);
   const [showAuditLogDetails, setShowAuditLogDetails] = useState(false);
 
   // Settings state with validation
@@ -736,12 +769,16 @@ export default function AdminDashboard() {
 
     const headers = ['Date', 'Time', 'User', 'Action', 'Entity Type', 'Entity ID', 'IP Address'];
     const rows = auditLogs.map(log => {
-      const date = new Date(log.timestamp);
+      // Safely parse timestamp
+      const timestamp = log.timestamp ? new Date(log.timestamp) : new Date();
+      const isValidDate = !isNaN(timestamp.getTime());
+      
       return [
-        date.toLocaleDateString('en-GB'),
-        date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        isValidDate ? timestamp.toLocaleDateString('en-GB') : 'N/A',
+        isValidDate ? timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'N/A',
         log.userName || 'System',
-        log.action.replace(/_/g, ' '),
+        // Safely handle action string replacement
+        (log.action && typeof log.action === 'string') ? log.action.replace(/_/g, ' ') : (log.action || 'Unknown'),
         log.entityType || '',
         log.entityId || '',
         log.ipAddress || ''
@@ -1067,20 +1104,35 @@ export default function AdminDashboard() {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        setDayPassSuccess(true);
-        setDayPassResult({
-          firstName: data.dayPass.firstName,
-          lastName: data.dayPass.lastName,
-          phone: data.dayPass.phone,
-          price: data.dayPass.price || dayPassPrice,
-          reference: data.reference,
-          expiresAt: data.dayPass.expiresAt || new Date().toISOString(),
-        });
-        pushToast(`Day pass sold to ${data.dayPass.firstName} ${data.dayPass.lastName}`, 'success');
-        fetchCheckIns();
-        fetchStats();
+        // Handle MoMo pending vs Cash immediate success
+        if (data.payment_method === 'MOMO' && data.status === 'pending') {
+          pushToast('MoMo payment initiated! Customer will receive USSD prompt.', 'success');
+          pushToast(`Reference: ${data.reference}`, 'info');
+          closeDayPassModal();
+          // Optionally: Show a "pending" indicator or poll for status
+        } else {
+          // Cash payment - immediate success
+          setDayPassSuccess(true);
+          setDayPassResult({
+            firstName: data.dayPass.firstName,
+            lastName: data.dayPass.lastName,
+            phone: data.dayPass.phone,
+            price: data.dayPass.price || dayPassPrice,
+            reference: data.reference,
+            expiresAt: data.dayPass.expiresAt || new Date().toISOString(),
+            transactionId: data.transactionId,
+          });
+          pushToast(`Day pass sold to ${data.dayPass.firstName} ${data.dayPass.lastName}`, 'success');
+          fetchCheckIns();
+          fetchStats();
+        }
       } else if (response.status === 409) {
-        pushToast(data.error || 'This person already has an active day pass today', 'error');
+        // Duplicate day pass
+        if (data.existingPass?.isStillValid) {
+          pushToast(`⚠️ ${data.error}\nPass expires at midnight today.`, 'error');
+        } else {
+          pushToast(data.error || 'Day pass already purchased today', 'error');
+        }
       } else {
         pushToast(data.error || 'Failed to process day pass', 'error');
       }
@@ -1106,6 +1158,107 @@ export default function AdminDashboard() {
       emergencyPhone: '',
       paymentMethod: 'CASH',
     });
+  };
+
+  // Print day pass receipt
+  const printDayPassReceipt = async () => {
+    if (!dayPassResult) return;
+
+    const receiptWindow = window.open('', '', 'width=300,height=600');
+    if (!receiptWindow) {
+      pushToast('Please allow pop-ups to print receipt', 'error');
+      return;
+    }
+
+    const receiptHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Day Pass Receipt - ${dayPassResult.reference}</title>
+        <style>
+          @media print {
+            @page { size: 80mm auto; margin: 0; }
+            body { margin: 0; padding: 8mm 4mm; }
+          }
+          body {
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            line-height: 1.4;
+            max-width: 72mm;
+            margin: 0 auto;
+            padding: 8mm 4mm;
+          }
+          .header { text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 8px; }
+          .subheader { text-align: center; font-size: 10px; margin-bottom: 12px; }
+          .divider { border-top: 1px dashed #000; margin: 8px 0; }
+          .row { display: flex; justify-content: space-between; margin: 4px 0; }
+          .label { font-weight: bold; }
+          .value { text-align: right; }
+          .total { font-size: 13px; font-weight: bold; margin-top: 8px; }
+          .footer { text-align: center; font-size: 9px; margin-top: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">GEMFITNESS GYM</div>
+        <div class="subheader">DAY PASS RECEIPT</div>
+        <div class="divider"></div>
+        
+        <div class="row">
+          <span class="label">Name:</span>
+          <span class="value">${dayPassResult.firstName} ${dayPassResult.lastName}</span>
+        </div>
+        <div class="row">
+          <span class="label">Phone:</span>
+          <span class="value">${dayPassResult.phone}</span>
+        </div>
+        <div class="row">
+          <span class="label">Reference:</span>
+          <span class="value">${dayPassResult.reference}</span>
+        </div>
+        <div class="row">
+          <span class="label">Date:</span>
+          <span class="value">${new Date().toLocaleDateString('en-GB')}</span>
+        </div>
+        <div class="row">
+          <span class="label">Time:</span>
+          <span class="value">${new Date().toLocaleTimeString('en-GB')}</span>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <div class="row total">
+          <span class="label">Day Pass:</span>
+          <span class="value">GH₵ ${dayPassResult.price}</span>
+        </div>
+        <div class="row">
+          <span class="label">Payment:</span>
+          <span class="value">${dayPassForm.paymentMethod}</span>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <div class="footer">
+          <div>✓ Checked In</div>
+          <div>Valid Until: Today, Midnight</div>
+          <div style="margin-top: 8px;">Thank you for visiting!</div>
+          <div>www.gemfitness.com</div>
+        </div>
+        
+        <script>
+          window.onload = function() {
+            setTimeout(() => {
+              window.print();
+              window.onafterprint = () => window.close();
+            }, 300);
+          };
+        </script>
+      </body>
+      </html>
+    `;
+
+    receiptWindow.document.write(receiptHTML);
+    receiptWindow.document.close();
   };
 
   // Fetch staff from API
@@ -6418,9 +6571,35 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <Button onClick={closeDayPassModal} className="w-full bg-orange-500 hover:bg-orange-600">
-              Done
-            </Button>
+            <div className="space-y-2">
+              <div className="flex gap-3">
+                <Button 
+                  onClick={printDayPassReceipt} 
+                  variant="outline" 
+                  className="flex-1 border-2 border-green-500 text-green-700 hover:bg-green-50"
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print Receipt
+                </Button>
+                {dayPassResult.transactionId && (
+                  <Button 
+                    onClick={() => {
+                      closeDayPassModal();
+                      setActiveTab('receipts');
+                      // Optionally scroll to transaction
+                    }}
+                    variant="outline" 
+                    className="flex-1 border-2 border-blue-500 text-blue-700 hover:bg-blue-50"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    View in Receipts
+                  </Button>
+                )}
+              </div>
+              <Button onClick={closeDayPassModal} className="w-full bg-orange-500 hover:bg-orange-600">
+                Done
+              </Button>
+            </div>
           </div>
         </>
       ) : (
@@ -6476,8 +6655,10 @@ export default function AdminDashboard() {
                   value={dayPassForm.phone}
                   onChange={(e) => setDayPassForm({ ...dayPassForm, phone: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="0XX XXX XXXX"
+                  placeholder="024 123 4567"
+                  pattern="[0-9\s\-\+\(\)]+"
                 />
+                <p className="text-xs text-gray-500 mt-1">Used to check for returning visitors</p>
                 {dayPassErrors.phone && <p className="text-xs text-red-600 mt-1">{dayPassErrors.phone}</p>}
               </div>
 

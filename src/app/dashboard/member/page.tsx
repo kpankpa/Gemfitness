@@ -24,6 +24,7 @@ import {
   Star,
   Zap,
   TrendingDown,
+  Receipt,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,6 +34,7 @@ import ParQBanner from '@/components/ParQBanner';
 import ProfileCompletionBanner from '@/components/ProfileCompletionBanner';
 import ProfilePictureUpload from '@/components/ProfilePictureUpload';
 import SubscriptionManagement from '@/components/SubscriptionManagement';
+import MemberReceipts from '@/components/MemberReceipts';
 
 type UserData = {
   id: string;
@@ -819,6 +821,19 @@ export default function MemberDashboardPage() {
                   <p className="text-gray-500 text-xs md:text-sm">Visit the gym and scan your QR code to get started!</p>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Payment Receipts Section */}
+          <Card className="lg:col-span-4">
+            <CardHeader>
+              <CardTitle className="text-lg md:text-xl flex items-center gap-2">
+                <Receipt className="w-5 h-5" />
+                Payment Receipts
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <MemberReceipts />
             </CardContent>
           </Card>
         </div>

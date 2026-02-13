@@ -57,7 +57,17 @@ export async function GET() {
         checkInTime: { gte: todayStart }
       }
     });
-    console.log(`  ✓ Today's check-ins: ${todayCheckIns} (${Date.now() - startTime}ms)`);
+    console.log(`  ✓ Today's check-ins: ${todayCheckIns} (${Date.now() - startTime}ms`);
+
+    // Query 3.5: Day passes sold today
+    console.log('  → Counting day passes sold today...');
+    const dayPassesToday = await prisma.subscription.count({
+      where: {
+        plan: 'DAILY',
+        startDate: { gte: todayStart }
+      }
+    });
+    console.log(`  ✓ Day passes today: ${dayPassesToday} (${Date.now() - startTime}ms)`);
 
     // Query 4: Subscriptions expiring within 7 days
     console.log('  → Counting expiring subscriptions...');
@@ -199,6 +209,7 @@ export async function GET() {
       activeMembers,
       expiringSoon,
       todayCheckIns,
+      dayPassesToday,
       monthlyRevenue,
       lastMonthRevenue,
       monthlyTransactions,

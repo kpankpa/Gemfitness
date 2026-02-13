@@ -140,6 +140,15 @@ export async function POST(request: NextRequest) {
 
     const data = parsed.data;
 
+    // Validate phone number format (Ghana phone numbers)
+    const phoneDigits = data.phone.replace(/\D/g, '');
+    if (phoneDigits.length < 9 || phoneDigits.length > 15) {
+      return NextResponse.json({
+        error: 'Invalid phone number format',
+        details: 'Phone number must be between 9 and 15 digits',
+      }, { status: 400 });
+    }
+
     // Get day pass price from DB (or default)
     const dayPassFee = await prisma.registrationFee.findUnique({
       where: { type: 'DAY_PASS' },
@@ -157,22 +166,30 @@ export async function POST(request: NextRequest) {
     });
 
     if (user) {
-      // Existing user — check if they already have an active DAILY subscription today
+      // Existing user — check if they already have a DAILY subscription today (any status)
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const existingDayPass = await prisma.subscription.findFirst({
         where: {
           userId: user.id,
           plan: 'DAILY',
-          status: 'ACTIVE',
-          startDate: { gte: new Date(now.getFullYear(), now.getMonth(), now.getDate()) },
+          startDate: { gte: todayStart },
         },
+        orderBy: { startDate: 'desc' },
       });
 
       if (existingDayPass) {
+        // Check if still valid (not yet midnight)
+        const isStillValid = existingDayPass.endDate > now;
         return NextResponse.json({
-          error: 'This person already has an active day pass for today',
+          error: isStillValid 
+            ? `${user.firstName} ${user.lastName} already purchased a day pass today` 
+            : 'Day pass already purchased today (expired)',
+          duplicate: true,
           existingPass: {
             id: existingDayPass.id,
-            expiresAt: existingDayPass.endDate,
+            expiresAt: existingDayPass.endDate.toISOString(),
+            isStillValid,
+            status: existingDayPass.status,
           },
         }, { status: 409 });
       }
@@ -231,7 +248,7 @@ export async function POST(request: NextRequest) {
       });
 
       // Create payment transaction
-      await prisma.paymentTransaction.create({
+      const paymentTransaction = await prisma.paymentTransaction.create({
         data: {
           userId: user.id,
           reference: cashRef,
@@ -254,6 +271,29 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      // Send receipt email if user has valid email
+      if (!user.email.includes('@gemfitness.local')) {
+        try {
+          const { sendReceiptEmail } = await import('@/lib/services/email/receipt-email');
+          const receiptUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/payments/receipt/${paymentTransaction.id}`;
+          await sendReceiptEmail({
+            memberName: `${user.firstName} ${user.lastName}`,
+            memberEmail: user.email,
+            transactionId: paymentTransaction.id,
+            reference: cashRef,
+            amount: amountPaid,
+            currency: 'GHS',
+            paymentMethod: 'cash',
+            plan: 'Day Pass',
+            transactionDate: now,
+            receiptUrl,
+          });
+        } catch (emailError) {
+          console.error('Failed to send receipt email:', emailError);
+          // Don't fail the transaction if email fails
+        }
+      }
+
       // Auto check-in the day pass holder
       await prisma.checkIn.create({
         data: {
@@ -269,6 +309,7 @@ export async function POST(request: NextRequest) {
         success: true,
         payment_method: 'CASH',
         reference: cashRef,
+        transactionId: paymentTransaction.id,
         dayPass: {
           userId: user.id,
           firstName: user.firstName,
