@@ -17,9 +17,15 @@ export function useAnalytics(): UseAnalyticsReturn {
     expiringSoon: 0,
     todayCheckIns: 0,
     monthlyRevenue: 0,
+    lastMonthRevenue: 0,
     monthlyTransactions: 0,
     recentPayments: [],
     attendanceRate: '0%',
+    revenueGrowth: 0,
+    retentionRate: 0,
+    avgCheckInsPerDay: 0,
+    peakCheckIns: 0,
+    weeklyCheckIns: [],
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,9 +54,15 @@ export function useAnalytics(): UseAnalyticsReturn {
           expiringSoon: data.expiringSoon || 0,
           todayCheckIns: data.todayCheckIns || 0,
           monthlyRevenue: data.monthlyRevenue || 0,
+          lastMonthRevenue: data.lastMonthRevenue || 0,
           monthlyTransactions: data.monthlyTransactions || 0,
           recentPayments: data.recentPayments || [],
           attendanceRate: data.attendanceRate || '0%',
+          revenueGrowth: data.revenueGrowth || 0,
+          retentionRate: data.retentionRate || 0,
+          avgCheckInsPerDay: data.avgCheckInsPerDay || 0,
+          peakCheckIns: data.peakCheckIns || 0,
+          weeklyCheckIns: data.weeklyCheckIns || [],
         });
       } else {
         throw new Error('Invalid response format');
@@ -67,9 +79,15 @@ export function useAnalytics(): UseAnalyticsReturn {
         expiringSoon: 0,
         todayCheckIns: 0,
         monthlyRevenue: 0,
+        lastMonthRevenue: 0,
         monthlyTransactions: 0,
         recentPayments: [],
         attendanceRate: '0%',
+        revenueGrowth: 0,
+        retentionRate: 0,
+        avgCheckInsPerDay: 0,
+        peakCheckIns: 0,
+        weeklyCheckIns: [],
       });
     } finally {
       isLoadingRef.current = false;

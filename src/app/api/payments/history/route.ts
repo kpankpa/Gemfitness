@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
     const method = searchParams.get('method'); // 'paystack', 'momo', 'cash'
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const search = searchParams.get('search'); // Search by name, email, or reference
 
     const offset = (page - 1) * limit;
 
@@ -42,6 +43,17 @@ export async function GET(request: NextRequest) {
       if (endDate) {
         whereClause.paidAt.lte = new Date(endDate);
       }
+    }
+
+    // Add search filter (name, email, or reference)
+    if (search && search.trim()) {
+      const sanitizedSearch = search.trim().toLowerCase();
+      whereClause.OR = [
+        { reference: { contains: sanitizedSearch, mode: 'insensitive' } },
+        { user: { firstName: { contains: sanitizedSearch, mode: 'insensitive' } } },
+        { user: { lastName: { contains: sanitizedSearch, mode: 'insensitive' } } },
+        { user: { email: { contains: sanitizedSearch, mode: 'insensitive' } } },
+      ];
     }
 
     // Get payment transactions with user details

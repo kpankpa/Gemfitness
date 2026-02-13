@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ReceiptGenerator } from '@/lib/services/payment/receipt-generator';
 import { verifySessionForApi } from '@/lib/auth/dal';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(
   _request: NextRequest,
@@ -20,6 +21,30 @@ export async function GET(
 
     if (!transactionId) {
       return NextResponse.json({ error: 'Transaction ID required' }, { status: 400 });
+    }
+
+    // Verify ownership: member can only view their own receipts, admin/manager can view all
+    const transaction = await prisma.paymentTransaction.findUnique({
+      where: { id: transactionId },
+      select: { userId: true }
+    });
+
+    if (!transaction) {
+      return new NextResponse(
+        `<!DOCTYPE html><html><body style="font-family: Arial; text-align: center; padding: 40px;"><h2>Receipt Not Found</h2><p>The requested receipt does not exist.</p></body></html>`,
+        { status: 404, headers: { 'Content-Type': 'text/html' } }
+      );
+    }
+
+    // Check authorization
+    const isAdmin = session.role === 'ADMIN' || session.role === 'MANAGER';
+    const isOwner = transaction.userId === session.userId;
+
+    if (!isAdmin && !isOwner) {
+      return new NextResponse(
+        `<!DOCTYPE html><html><body style="font-family: Arial; text-align: center; padding: 40px;"><h2>Access Denied</h2><p>You are not authorized to view this receipt.</p></body></html>`,
+        { status: 403, headers: { 'Content-Type': 'text/html' } }
+      );
     }
 
     // Generate receipt HTML

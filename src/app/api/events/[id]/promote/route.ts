@@ -19,9 +19,10 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: eventId } = await params;
     const session = await verifySessionForApi();
     if (!session.isAuth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -35,7 +36,6 @@ export async function POST(
       );
     }
 
-    const { id: eventId } = params;
     const body = await request.json();
     const { targetAudience = 'all', customMessage } = body;
 

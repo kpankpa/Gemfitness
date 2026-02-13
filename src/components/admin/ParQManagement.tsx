@@ -25,6 +25,47 @@ interface ParQStats {
   highRisk: number;
 }
 
+const parqQuestions = [
+  {
+    id: 'heartCondition',
+    question: 'Has your doctor ever said that you have a heart condition and that you should only perform physical activity recommended by a doctor?'
+  },
+  {
+    id: 'chestPain',
+    question: 'Do you feel pain in your chest when you perform physical activity?'
+  },
+  {
+    id: 'chestPainRest',
+    question: 'In the past month, have you had chest pain when you were not performing any physical activity?'
+  },
+  {
+    id: 'lossOfBalance',
+    question: 'Do you lose your balance because of dizziness or do you ever lose consciousness?'
+  },
+  {
+    id: 'boneJoint',
+    question: 'Do you have a bone or joint problem that could be made worse by a change in your physical activity?'
+  },
+  {
+    id: 'medication',
+    question: 'Is your doctor currently prescribing medication for your blood pressure or heart condition?'
+  },
+  {
+    id: 'otherReason',
+    question: 'Do you know of any other reason why you should not engage in physical activity?'
+  },
+] as const;
+
+type ParqQuestionId = (typeof parqQuestions)[number]['id'];
+
+interface ParQResponseData {
+  id: string;
+  responses: Record<string, boolean>;
+  otherReasonDetails: string | null;
+  riskLevel: 'low' | 'medium' | 'high';
+  completedAt: string;
+}
+
 export default function ParQManagement() {
   const [members, setMembers] = useState<ParQMember[]>([]);
   const [stats, setStats] = useState<ParQStats>({
@@ -40,6 +81,16 @@ export default function ParQManagement() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'completed' | 'pending' | 'low' | 'medium' | 'high'>('all');
   const [selectedMember, setSelectedMember] = useState<ParQMember | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState('');
+  const [detailsSuccess, setDetailsSuccess] = useState('');
+  const [responseData, setResponseData] = useState<ParQResponseData | null>(null);
+  const [responses, setResponses] = useState<Record<string, boolean>>({});
+  const [otherReasonDetails, setOtherReasonDetails] = useState('');
+  const [completedAt, setCompletedAt] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   useEffect(() => {
     fetchParQData();
@@ -102,6 +153,124 @@ export default function ParQManagement() {
       </span>
     );
   };
+
+  const calculateRiskLevel = (currentResponses: Record<string, boolean>): 'low' | 'medium' | 'high' => {
+    const yesCount = Object.values(currentResponses).filter(Boolean).length;
+    if (yesCount === 0) return 'low';
+    if (yesCount <= 2) return 'medium';
+    return 'high';
+  };
+
+  const normalizeResponses = (incoming: Record<string, boolean>) => {
+    const normalized: Record<string, boolean> = {};
+    parqQuestions.forEach((q) => {
+      normalized[q.id] = incoming[q.id] === true;
+    });
+    return normalized;
+  };
+
+  const loadParqDetails = async (member: ParQMember) => {
+    setDetailsLoading(true);
+    setDetailsError('');
+    setDetailsSuccess('');
+    setResponseData(null);
+    setIsEditing(false);
+
+    try {
+      const response = await fetch(`/api/admin/parq/${member.id}`);
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setDetailsError(data.error || 'Failed to load PAR-Q details');
+        return;
+      }
+
+      if (!data.data.response) {
+        setDetailsError('No PAR-Q response found for this member');
+        return;
+      }
+
+      const responseRecord = data.data.response as ParQResponseData;
+      const normalized = normalizeResponses(responseRecord.responses || {});
+
+      setResponseData(responseRecord);
+      setResponses(normalized);
+      setOtherReasonDetails(responseRecord.otherReasonDetails || '');
+      setCompletedAt(responseRecord.completedAt || '');
+    } catch (error) {
+      console.error('Failed to load PAR-Q details:', error);
+      setDetailsError('Failed to load PAR-Q details');
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  const handleResponseChange = (questionId: ParqQuestionId, value: boolean) => {
+    setResponses((prev) => ({
+      ...prev,
+      [questionId]: value,
+    }));
+    setDetailsError('');
+    setDetailsSuccess('');
+  };
+
+  const handleSave = async () => {
+    if (!selectedMember || !responseData) return;
+
+    const missing = parqQuestions.filter(
+      (q) => responses[q.id] !== true && responses[q.id] !== false
+    );
+    if (missing.length > 0) {
+      setDetailsError('Please answer all questions before saving');
+      return;
+    }
+
+    if (responses.otherReason && !otherReasonDetails.trim()) {
+      setDetailsError('Please provide details for the other reason response');
+      return;
+    }
+
+    // Show confirmation dialog
+    setShowConfirmDialog(true);
+  };
+
+  const confirmSave = async () => {
+    if (!selectedMember || !responseData) return;
+
+    setShowConfirmDialog(false);
+    setIsSaving(true);
+    setDetailsError('');
+    setDetailsSuccess('');
+
+    try {
+      const response = await fetch(`/api/admin/parq/${selectedMember.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          responses,
+          otherReasonDetails: otherReasonDetails || undefined,
+          completedAt: completedAt || undefined,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        setDetailsError(data.error || 'Failed to update PAR-Q responses');
+        return;
+      }
+
+      setDetailsSuccess('PAR-Q responses updated successfully');
+      setIsEditing(false);
+      await fetchParQData();
+    } catch (error) {
+      console.error('Failed to update PAR-Q responses:', error);
+      setDetailsError('Failed to update PAR-Q responses');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const currentRiskLevel = responseData ? calculateRiskLevel(responses) : null;
 
   return (
     <motion.div
@@ -332,6 +501,7 @@ export default function ParQManagement() {
                             onClick={() => {
                               setSelectedMember(member);
                               setShowDetailsModal(true);
+                              loadParqDetails(member);
                             }}
                             className="text-orange-600 border-orange-300 hover:bg-orange-50"
                           >
@@ -351,43 +521,204 @@ export default function ParQManagement() {
         </CardContent>
       </Card>
 
-      {/* Details Modal Placeholder */}
+      {/* Details Modal */}
       {showDetailsModal && selectedMember && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold">PAR-Q Details</h3>
-                <Button variant="ghost" size="sm" onClick={() => setShowDetailsModal(false)}>
+                <div>
+                  <h3 className="text-xl font-bold">PAR-Q Details</h3>
+                  <p className="text-sm text-gray-600">
+                    {selectedMember.firstName} {selectedMember.lastName} - {selectedMember.email}
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowDetailsModal(false)}
+                >
                   ✕
                 </Button>
               </div>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-gray-600">Member</p>
-                  <p className="font-semibold">
-                    {selectedMember.firstName} {selectedMember.lastName}
-                  </p>
+
+              {detailsLoading && (
+                <div className="text-center py-6 text-gray-500">Loading details...</div>
+              )}
+
+              {!detailsLoading && detailsError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                  {detailsError}
                 </div>
-                <div>
-                  <p className="text-sm text-gray-600">Risk Level</p>
-                  <div className="mt-1">{getRiskBadge(selectedMember.parqRiskLevel)}</div>
+              )}
+
+              {!detailsLoading && detailsSuccess && (
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                  {detailsSuccess}
                 </div>
-                <div>
-                  <p className="text-sm text-gray-600">Completed</p>
-                  <p>
-                    {selectedMember.parqCompletedAt
-                      ? new Date(selectedMember.parqCompletedAt).toLocaleString('en-GB')
-                      : 'Not completed'}
-                  </p>
+              )}
+
+              {!detailsLoading && responseData && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-600">Risk Level</p>
+                      <div className="mt-1">{getRiskBadge(currentRiskLevel)}</div>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Completed</p>
+                      <p className="text-sm text-gray-900">
+                        {responseData.completedAt
+                          ? new Date(responseData.completedAt).toLocaleString('en-GB')
+                          : 'Not completed'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="border border-gray-200 rounded-lg p-4 space-y-4">
+                    {parqQuestions.map((q, index) => {
+                      const answer = responses[q.id];
+                      return (
+                        <div key={q.id} className="border-b border-gray-100 pb-4 last:border-b-0 last:pb-0">
+                          <p className="text-sm font-medium text-gray-900">
+                            {index + 1}. {q.question}
+                          </p>
+                          {isEditing ? (
+                            <div className="mt-2 flex gap-4">
+                              <label className="flex items-center gap-2 text-sm text-gray-700">
+                                <input
+                                  type="radio"
+                                  name={q.id}
+                                  checked={responses[q.id] === true}
+                                  onChange={() => handleResponseChange(q.id, true)}
+                                  className="w-4 h-4 text-orange-500 focus:ring-orange-500 border-gray-300"
+                                />
+                                Yes
+                              </label>
+                              <label className="flex items-center gap-2 text-sm text-gray-700">
+                                <input
+                                  type="radio"
+                                  name={q.id}
+                                  checked={responses[q.id] === false}
+                                  onChange={() => handleResponseChange(q.id, false)}
+                                  className="w-4 h-4 text-green-500 focus:ring-green-500 border-gray-300"
+                                />
+                                No
+                              </label>
+                            </div>
+                          ) : (
+                            <p className="mt-1 text-sm text-gray-700">
+                              {answer === true ? 'Yes' : answer === false ? 'No' : 'Not answered'}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {responses.otherReason && (
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">Other reason details</p>
+                        {isEditing ? (
+                          <>
+                            <textarea
+                              value={otherReasonDetails}
+                              onChange={(e) => setOtherReasonDetails(e.target.value)}
+                              maxLength={1000}
+                              rows={3}
+                              className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                              placeholder="Provide details..."
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                              {otherReasonDetails.length}/1000 characters
+                            </p>
+                          </>
+                        ) : (
+                          <p className="mt-1 text-sm text-gray-700">
+                            {otherReasonDetails || 'No details provided'}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2">
+                    {isEditing ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            if (!responseData) return;
+                            setIsEditing(false);
+                            setResponses(normalizeResponses(responseData.responses));
+                            setOtherReasonDetails(responseData.otherReasonDetails || '');
+                            setCompletedAt(responseData.completedAt || '');
+                            setDetailsError('');
+                            setDetailsSuccess('');
+                          }}
+                          disabled={isSaving}
+                        >
+                          Cancel
+                        </Button>
+                        <Button onClick={handleSave} disabled={isSaving}>
+                          {isSaving ? 'Saving...' : 'Save Changes'}
+                        </Button>
+                      </>
+                    ) : (
+                      <Button onClick={() => setIsEditing(true)}>
+                        Edit Responses
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                  <p className="text-sm text-blue-800">
-                    <strong>Note:</strong> Full PAR-Q response details would be fetched from the ParQResponse table
-                    and displayed here.
-                  </p>
-                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Dialog */}
+      {showConfirmDialog && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <div className="flex items-start gap-4 mb-4">
+              <div className="flex-shrink-0 w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-orange-600" />
               </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">Confirm PAR-Q Changes</h3>
+                <p className="text-sm text-gray-600">
+                  You are about to update the health screening responses for{' '}
+                  <strong>{selectedMember?.firstName} {selectedMember?.lastName}</strong>.
+                </p>
+                <p className="text-sm text-gray-600 mt-2">
+                  {currentRiskLevel && (
+                    <>New risk level: <strong className={`${
+                      currentRiskLevel === 'high' ? 'text-red-600' : 
+                      currentRiskLevel === 'medium' ? 'text-yellow-600' : 
+                      'text-green-600'
+                    }`}>{currentRiskLevel.toUpperCase()}</strong></>
+                  )}
+                </p>
+                <p className="text-sm text-gray-600 mt-2">
+                  This action will be logged in the audit trail.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowConfirmDialog(false)}
+                disabled={isSaving}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmSave}
+                disabled={isSaving}
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                {isSaving ? 'Saving...' : 'Confirm Changes'}
+              </Button>
             </div>
           </div>
         </div>

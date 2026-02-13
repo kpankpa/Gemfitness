@@ -85,27 +85,106 @@ enum RegistrationType {
   ADMIN // Registered by admin
 }
 
-// Subscription model - Membership plans
+// Subscription model - Membership plans with renewal support
 model Subscription {
-  id               String             @id @default(cuid())
-  userId           String
-  plan             MembershipPlan
-  status           SubscriptionStatus @default(ACTIVE)
-  startDate        DateTime           @default(now())
-  endDate          DateTime
-  amount           Float
-  registrationType RegistrationType   @default(SELF)
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  id                           String             @id @default(cuid())
+  userId                       String
+  plan                         MembershipPlan
+  status                       SubscriptionStatus @default(ACTIVE)
+  renewalStatus                String             @default("PENDING") // PENDING, SCHEDULED, PROCESSING, SUCCESS, FAILED, PAUSED
+  startDate                    DateTime           @default(now())
+  endDate                       DateTime
+  amount                        Float // Current plan price
+  registrationType             RegistrationType   @default(SELF)
+  
+  // Renewal tracking
+  nextRenewalDate              DateTime? // When next renewal should happen
+  lastRenewalAttemptAt         DateTime? // Last renewal attempt timestamp
+  renewalAttemptsCount         Int                @default(0) // Number of renewal attempts
+  maxRenewalAttempts           Int                @default(3) // Max retry attempts
+  lastRenewalFailureReason     String? // Reason for last failure
+  
+  // Pause/Resume support
+  pausedAt                     DateTime? // When subscription was paused
+  resumeDate                   DateTime? // When to resume (null = manual resume)
+  
+  // Trial support
+  isTrial                      Boolean            @default(false)
+  trialEndDate                 DateTime? // When trial ends
+  trialConvertedAt             DateTime? // When trial converted to paid
+  
+  // Payment method tracking
+  paymentMethodId              String? // Paystack authorization code or payment method ID
+  
+  // For plan upgrades/downgrades
+  previousPlan                 String? // Previous plan enum value
+  planChangeReason             String? // Why plan was changed
+  lastPlanChangeAt             DateTime?
+  
+  createdAt                    DateTime           @default(now())
+  updatedAt                    DateTime           @updatedAt
 
   // Relations
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  payments Payment[]
-
+  user                         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  renewalHistory               SubscriptionRenewal[]
+  changeHistory                SubscriptionChange[]
+  payments                     Payment[]
+  
   @@index([userId])
   @@index([status])
+  @@index([renewalStatus])
   @@index([endDate])
+  @@index([nextRenewalDate])
+  @@index([pausedAt])
   @@map("subscriptions")
+}
+
+// SubscriptionRenewal model - Track renewal attempts and history
+model SubscriptionRenewal {
+  id                String    @id @default(cuid())
+  subscriptionId    String
+  attemptNumber     Int
+  status            String    @default("PENDING") // PENDING, PROCESSING, SUCCESS, FAILED
+  attemptedAt       DateTime  @default(now())
+  completedAt       DateTime?
+  amount            Float // Charge amount
+  paymentReference  String? // Paystack reference
+  failureReason     String? // Why it failed
+  errorCode         String? // Paystack error code
+  retryAfter        DateTime? // When to retry
+  createdAt         DateTime  @default(now())
+
+  // Relations
+  subscription      Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+  @@index([status])
+  @@index([attemptedAt])
+  @@map("subscription_renewals")
+}
+
+// SubscriptionChange model - Track plan upgrades, downgrades
+model SubscriptionChange {
+  id                String    @id @default(cuid())
+  subscriptionId    String
+  changeType        String    // "UPGRADE", "DOWNGRADE", "PAUSE", "RESUME", "TRIAL_CONVERSION"
+  oldPlan           String?   // Previous plan
+  newPlan           String?   // New plan
+  oldPrice          Float?    // Previous price
+  newPrice          Float?    // New price
+  proratedAmount    Float?    // Amount owed or credited
+  reason            String?   // Why the change was made
+  initiatedBy       String    // User ID who made the change (admin or system)
+  appliedAt         DateTime  @default(now())
+  createdAt         DateTime  @default(now())
+
+  // Relations
+  subscription      Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+  @@index([changeType])
+  @@index([appliedAt])
+  @@map("subscription_changes")
 }
 
 enum MembershipPlan {
@@ -118,6 +197,8 @@ enum SubscriptionStatus {
   ACTIVE
   EXPIRED
   CANCELLED
+  PAUSED
+  TRIAL
 }
 
 // CheckIn model - Track member attendance

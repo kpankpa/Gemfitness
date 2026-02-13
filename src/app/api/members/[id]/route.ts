@@ -29,6 +29,9 @@ const updateMemberSchema = z.object({
   emergencyPhone: z.string().max(15).optional(),
   fitnessGoals: z.string().max(500).optional(),
   medicalConditions: z.string().max(500).optional(),
+  suspend: z.boolean().optional(),
+  unsuspend: z.boolean().optional(),
+  suspendReason: z.string().max(500).optional(),
 });
 
 // GET /api/members/[id] - Fetch single member
@@ -140,6 +143,63 @@ export async function PUT(
 
     if (!existingMember) {
       return NextResponse.json({ error: 'Member not found' }, { status: 404 });
+    }
+
+    // Handle suspend/unsuspend
+    if (validatedData.suspend) {
+      const activeSubscription = await prisma.subscription.findFirst({
+        where: { userId: id, status: 'ACTIVE' },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      if (!activeSubscription) {
+        return NextResponse.json({ error: 'No active subscription to suspend' }, { status: 400 });
+      }
+
+      await prisma.subscription.update({
+        where: { id: activeSubscription.id },
+        data: { status: 'PAUSED' }
+      });
+
+      // Log the suspension
+      const sessionUser = await prisma.user.findUnique({
+        where: { id: session.userId },
+        select: { firstName: true, lastName: true, email: true }
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          userId: session.userId,
+          userName: sessionUser ? `${sessionUser.firstName} ${sessionUser.lastName}` : 'Unknown',
+          userEmail: sessionUser?.email || 'unknown@example.com',
+          action: 'member_suspended',
+          entityType: 'member',
+          entityId: id,
+          changes: { reason: validatedData.suspendReason || 'No reason provided', memberName: `${existingMember.firstName} ${existingMember.lastName}` },
+          ipAddress: 'server',
+          userAgent: 'admin-dashboard',
+        }
+      });
+
+      return NextResponse.json({ success: true, message: 'Member suspended successfully' });
+    }
+
+    if (validatedData.unsuspend) {
+      const pausedSubscription = await prisma.subscription.findFirst({
+        where: { userId: id, status: 'PAUSED' },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      if (!pausedSubscription) {
+        return NextResponse.json({ error: 'No paused subscription to reactivate' }, { status: 400 });
+      }
+
+      await prisma.subscription.update({
+        where: { id: pausedSubscription.id },
+        data: { status: 'ACTIVE' }
+      });
+
+      return NextResponse.json({ success: true, message: 'Member reactivated successfully' });
     }
 
     // Update member (handle unique constraint via Prisma)

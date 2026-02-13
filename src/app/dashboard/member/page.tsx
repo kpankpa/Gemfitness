@@ -32,6 +32,7 @@ import QRCodeDisplay from '@/components/QRCodeDisplay';
 import ParQBanner from '@/components/ParQBanner';
 import ProfileCompletionBanner from '@/components/ProfileCompletionBanner';
 import ProfilePictureUpload from '@/components/ProfilePictureUpload';
+import SubscriptionManagement from '@/components/SubscriptionManagement';
 
 type UserData = {
   id: string;
@@ -50,11 +51,13 @@ type UserData = {
   profileImageGracePeriodEnd?: Date | null;
   subscriptions?: Array<{
     id: string;
-    plan: string;
-    status: string;
-    startDate: Date;
-    endDate: Date;
+    userId?: string;
+    plan: 'ONE_MONTH' | 'THREE_MONTHS' | 'ONE_YEAR';
+    status: 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'PAUSED' | 'TRIAL';
+    startDate: Date | string;
+    endDate: Date | string;
     amount: number;
+    registrationType?: 'SELF' | 'WALK_IN' | 'ADMIN';
   }>;
   checkIns?: Array<{
     id: string;
@@ -642,68 +645,25 @@ export default function MemberDashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Subscription Card */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="text-lg md:text-xl flex items-center gap-2">
-                <CreditCard className="w-5 h-5" />
-                Membership Status
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {activeSubscription ? (
-                <>
-                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-lg p-4 md:p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <span className="inline-block px-2 md:px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full mb-2">
-                          ACTIVE
-                        </span>
-                        <h3 className="text-lg md:text-xl font-bold text-gray-900">
-                          {activeSubscription.plan.replace('_', ' ')} Plan
-                        </h3>
-                      </div>
-                      <Award className="w-10 h-10 md:w-12 md:h-12 text-green-500" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 md:gap-4">
-                      <div>
-                        <p className="text-xs md:text-sm text-gray-600">Started</p>
-                        <p className="font-semibold text-sm md:text-base text-gray-900">
-                          {new Date(activeSubscription.startDate).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs md:text-sm text-gray-600">Expires</p>
-                        <p className="font-semibold text-sm md:text-base text-gray-900">
-                          {new Date(activeSubscription.endDate).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs md:text-sm text-gray-600">Amount Paid</p>
-                        <p className="font-semibold text-sm md:text-base text-gray-900">
-                          GH₵ {activeSubscription.amount}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs md:text-sm text-gray-600">Days Remaining</p>
-                        <p className="font-semibold text-sm md:text-base text-gray-900">
-                          {daysUntilExpiry} days
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <Button className="flex-1 bg-orange-500 hover:bg-orange-600 text-sm md:text-base">
-                      <TrendingUp className="w-4 h-4 mr-2" />
-                      Upgrade Plan
-                    </Button>
-                    <Button variant="outline" className="flex-1 border-orange-500 text-orange-500 hover:bg-orange-50 text-sm md:text-base">
-                      <Calendar className="w-4 h-4 mr-2" />
-                      Renew Early
-                    </Button>
-                  </div>
-                </>
-              ) : (
+          {/* Subscription Management */}
+          {activeSubscription && (
+            <div className="lg:col-span-2">
+              <SubscriptionManagement
+                subscription={activeSubscription as unknown as import('@/types').Subscription}
+                onUpdate={() => window.location.reload()}
+              />
+            </div>
+          )}
+
+          {!activeSubscription && (
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="text-lg md:text-xl flex items-center gap-2">
+                  <CreditCard className="w-5 h-5" />
+                  Membership Status
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4 md:p-6 text-center">
                   <p className="text-base md:text-lg font-semibold text-red-700 mb-2">No Active Membership</p>
                   <p className="text-xs md:text-sm text-red-600 mb-4">Subscribe now to access all gym facilities</p>
@@ -712,9 +672,9 @@ export default function MemberDashboardPage() {
                     Subscribe Now
                   </Button>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Upcoming Events */}
           <Card>

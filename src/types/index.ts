@@ -19,11 +19,28 @@ export interface Subscription {
   id: string;
   userId: string;
   plan: 'ONE_MONTH' | 'THREE_MONTHS' | 'ONE_YEAR';
-  status: 'ACTIVE' | 'EXPIRED' | 'CANCELLED';
+  status: 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'PAUSED' | 'TRIAL';
   amount: number;
   endDate: string;
   startDate: string;
   registrationType: 'SELF' | 'WALK_IN' | 'ADMIN';
+  renewalStatus?: string;
+  renewalAttemptsCount?: number;
+  maxRenewalAttempts?: number;
+  lastRenewalFailureReason?: string;
+  pausedAt?: string;
+  resumeDate?: string;
+  paymentMethodId?: string;
+  previousPlan?: string;
+  planChangeReason?: string;
+  lastPlanChangeAt?: string;
+  nextRenewalDate?: string;
+  user?: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+  };
 }
 
 export interface CheckIn {
@@ -82,6 +99,7 @@ export interface Analytics {
   expiringSoon: number;
   todayCheckIns: number;
   monthlyRevenue: number;
+  lastMonthRevenue?: number;
   monthlyTransactions?: number;
   recentPayments: Array<{
     id: string;
@@ -90,6 +108,11 @@ export interface Analytics {
     date: string;
   }>;
   attendanceRate?: string;
+  revenueGrowth?: number;
+  retentionRate?: number;
+  avgCheckInsPerDay?: number;
+  peakCheckIns?: number;
+  weeklyCheckIns?: Array<{ day: string; count: number }>;
 }
 
 // Legacy analytics with nested stats (for backward compatibility)

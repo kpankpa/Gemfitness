@@ -285,10 +285,14 @@ export default function ParQPage() {
                           <textarea
                             value={otherReasonDetails}
                             onChange={(e) => setOtherReasonDetails(e.target.value)}
+                            maxLength={1000}
                             rows={3}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                             placeholder="Describe any other health concerns..."
                           />
+                          <p className="text-xs text-gray-500 mt-1">
+                            {otherReasonDetails.length}/1000 characters
+                          </p>
                         </div>
                       )}
                     </div>

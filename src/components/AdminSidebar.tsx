@@ -21,12 +21,13 @@ import {
   Settings,
   Heart,
   FileText,
+  Receipt,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface AdminSidebarProps {
   adminUser: string;
-  adminRole: 'receptionist' | 'manager';
+  adminRole: string;
   onLogout: () => void;
   activeTab: string;
   onTabChange: (tab: string) => void;
@@ -41,8 +42,13 @@ export default function AdminSidebar({
 }: AdminSidebarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  
-  const isManager = adminRole === 'manager';
+
+  const roleLower = adminRole.toLowerCase();
+  const isManager = roleLower === 'manager' || roleLower === 'admin';
+  const roleLabel = roleLower
+    .split('_')
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
 
   const menuItems = [
     { id: 'overview', label: 'Overview', icon: BarChart3, show: true },
@@ -53,7 +59,9 @@ export default function AdminSidebar({
     { id: 'attendance', label: 'Attendance', icon: Activity, show: true },
     { id: 'parq', label: 'PAR-Q & Safety', icon: Heart, show: true },
     { id: 'payments', label: 'Payments', icon: CreditCard, show: isManager },
+    { id: 'receipts', label: 'Receipts', icon: FileText, show: isManager },
     { id: 'plans', label: 'Plans', icon: Package, show: isManager },
+    { id: 'subscriptions', label: 'Subscriptions', icon: Receipt, show: isManager },
     { id: 'staff', label: 'Staff', icon: UserCog, show: isManager },
     { id: 'reports', label: 'Reports', icon: FileText, show: isManager },
     { id: 'analytics', label: 'Analytics', icon: TrendingUp, show: isManager },
@@ -81,7 +89,7 @@ export default function AdminSidebar({
             />
             <div>
               <h1 className="text-lg font-bold text-gray-900">GemFitness</h1>
-              <p className="text-xs text-gray-500 capitalize">{adminRole}</p>
+              <p className="text-xs text-gray-500">{roleLabel}</p>
             </div>
           </div>
           <Button
@@ -149,7 +157,7 @@ export default function AdminSidebar({
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-gray-900 truncate">{adminUser}</p>
-                  <p className="text-sm text-orange-700 capitalize">{adminRole}</p>
+                  <p className="text-sm text-orange-700">{roleLabel}</p>
                 </div>
               </div>
             </div>

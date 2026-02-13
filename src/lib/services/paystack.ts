@@ -339,6 +339,51 @@ export class PaystackService {
   }
 
   /**
+   * Charge an existing authorization (recurring payment)
+   * Used for subscription renewals
+   */
+  async chargeAuthorization(params: {
+    authorization_code: string;
+    email: string;
+    amount: number;
+    currency?: string;
+    reference?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<PaystackResponse> {
+    try {
+      const payload = {
+        authorization_code: params.authorization_code,
+        email: params.email,
+        amount: this.toKobo(params.amount),
+        currency: params.currency || 'GHS',
+        reference: params.reference || this.generateReference('RENEWAL'),
+        ...(params.metadata && { metadata: params.metadata }),
+      };
+
+      const response = await fetch('https://api.paystack.co/transaction/charge_authorization', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.secretKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('Paystack charge authorization error:', data);
+        throw new Error(data.message || 'Failed to charge authorization');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Charge authorization error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get public key for frontend
    */
   getPublicKey(): string {

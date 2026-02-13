@@ -60,7 +60,27 @@ export function usePaymentAnalytics(): UsePaymentAnalyticsReturn {
       const response = await fetch(`/api/payments/analytics?period=${period}`);
 
       if (!response.ok) {
-        throw new Error('Failed to fetch payment analytics');
+        let errorMessage = 'Failed to fetch payment analytics';
+        try {
+          const errorData = await response.json();
+          if (errorData?.error) {
+            errorMessage = errorData.error;
+          }
+        } catch {
+          // Ignore JSON parse errors
+        }
+        setError(errorMessage);
+        setPaymentAnalytics({
+          paymentMethodBreakdown: [],
+          monthlyRecurringRevenue: 0,
+          annualRecurringRevenue: 0,
+          paymentSuccessRate: 0,
+          totalRevenue: 0,
+          revenueTrends: [],
+          outstandingPayments: 0,
+          outstandingAmount: 0,
+        });
+        return;
       }
 
       const data = await response.json();
@@ -68,7 +88,18 @@ export function usePaymentAnalytics(): UsePaymentAnalyticsReturn {
       if (data.success) {
         setPaymentAnalytics(data.analytics);
       } else {
-        throw new Error('Invalid response format');
+        const errorMessage = data?.error || 'Invalid response format';
+        setError(errorMessage);
+        setPaymentAnalytics({
+          paymentMethodBreakdown: [],
+          monthlyRecurringRevenue: 0,
+          annualRecurringRevenue: 0,
+          paymentSuccessRate: 0,
+          totalRevenue: 0,
+          revenueTrends: [],
+          outstandingPayments: 0,
+          outstandingAmount: 0,
+        });
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch payment analytics';

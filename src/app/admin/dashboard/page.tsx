@@ -54,6 +54,7 @@ import {
   ClipboardCheck,
   LayoutGrid,
   CalendarDays,
+  ExternalLink,
 } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/components/ToastProvider';
@@ -88,12 +89,14 @@ import AdminSidebar from '@/components/AdminSidebar';
 import ParQManagement from '@/components/admin/ParQManagement';
 import ReportsAnalytics from '@/components/admin/ReportsAnalytics';
 import ProfilePictureUpload from '@/components/ProfilePictureUpload';
+import AdminSubscriptionManager from '@/components/admin/AdminSubscriptionManager';
+import ReceiptsManager from '@/components/admin/ReceiptsManager';
 import type { Member } from '@/types';
 import { printRegistrationReceipt, generateReceiptNumber } from '@/lib/receipt-printer';
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading, logout, refreshSession } = useAuth();
   const { members, fetchMembers, currentPage, pageSize, totalMembers } = useMembers();
   const { checkIns, stats: checkInStats, isCheckingIn, performCheckIn, fetchCheckIns, fetchStats } = useCheckIns();
   const { analytics, fetchAnalytics } = useAnalytics();
@@ -166,8 +169,21 @@ export default function AdminDashboard() {
     lastActive: string;
     actionsCount: number;
   }>>([]);
+  const [trainers, setTrainers] = useState<Array<{
+    id: string;
+    name: string;
+    email?: string | null;
+    phone?: string | null;
+    status: string;
+    specializations: string[];
+    certifications?: string[];
+    maxWeeklyHours?: number;
+    preferredDays?: string[];
+    preferredTimes?: string[];
+  }>>([]);
   const [isLoadingPlans, setIsLoadingPlans] = useState(false);
   const [isLoadingStaff, setIsLoadingStaff] = useState(false);
+  const [isLoadingTrainers, setIsLoadingTrainers] = useState(false);
   
   // Plan analytics state
   const [planAnalytics, setPlanAnalytics] = useState<{
@@ -203,13 +219,22 @@ export default function AdminDashboard() {
   }>>([]);
   const [isLoadingFees, setIsLoadingFees] = useState(false);
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'checkin' | 'members' | 'classes' | 'events' | 'attendance' | 'payments' | 'plans' | 'staff' | 'analytics' | 'audit' | 'settings' | 'parq' | 'reports'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'checkin' | 'members' | 'classes' | 'events' | 'attendance' | 'payments' | 'receipts' | 'plans' | 'staff' | 'analytics' | 'audit' | 'settings' | 'parq' | 'reports' | 'subscriptions'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
+  const [checkinSearchQuery, setCheckinSearchQuery] = useState('');
   const [memberStatusFilter, setMemberStatusFilter] = useState<'all' | 'active' | 'expiring_soon' | 'expired'>('all');
   const [planFilter, setPlanFilter] = useState<string>('all');
-  const [paymentMethod, setPaymentMethod] = useState<'momo' | 'cash' | 'card'>('momo');
+  const [paymentMethod, setPaymentMethod] = useState<'momo' | 'cash' | 'card' | 'all'>('all');
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
   const [isLoadingPayments, setIsLoadingPayments] = useState(false);
+  const [paymentPage, setPaymentPage] = useState(1);
+  const [paymentTotalPages, setPaymentTotalPages] = useState(1);
+  const [paymentTotal, setPaymentTotal] = useState(0);
+  const [attendancePage, setAttendancePage] = useState(1);
+  const [showSuspendModal, setShowSuspendModal] = useState(false);
+  const [suspendReason, setSuspendReason] = useState('');
+  const [memberToSuspend, setMemberToSuspend] = useState<Member | null>(null);
+  const [isSuspending, setIsSuspending] = useState(false);
   
   const loading = authLoading;
   
@@ -224,6 +249,9 @@ export default function AdminDashboard() {
   const [showAddStaffModal, setShowAddStaffModal] = useState(false);
   const [showEditStaffModal, setShowEditStaffModal] = useState(false);
   const [showDeleteStaffModal, setShowDeleteStaffModal] = useState(false);
+  const [showAddTrainerModal, setShowAddTrainerModal] = useState(false);
+  const [showEditTrainerModal, setShowEditTrainerModal] = useState(false);
+  const [showDeactivateTrainerModal, setShowDeactivateTrainerModal] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<{
     id: string;
     firstName: string;
@@ -232,17 +260,43 @@ export default function AdminDashboard() {
     phone: string;
     role: string;
   } | null>(null);
+  const [selectedTrainer, setSelectedTrainer] = useState<{
+    id: string;
+    name: string;
+    email?: string | null;
+    phone?: string | null;
+    status: string;
+    specializations: string[];
+    certifications?: string[];
+    maxWeeklyHours?: number;
+    preferredDays?: string[];
+    preferredTimes?: string[];
+  } | null>(null);
   const [staffFormData, setStaffFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
     password: '',
-    role: 'RECEPTIONIST' as 'RECEPTIONIST' | 'MANAGER',
+    role: 'RECEPTIONIST' as 'RECEPTIONIST' | 'MANAGER' | 'ADMIN',
     dateOfBirth: '2000-01-01',
+  });
+  const [trainerFormData, setTrainerFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    specializations: '',
+    certifications: '',
+    bio: '',
+    maxWeeklyHours: 40,
+    preferredDays: '',
+    preferredTimes: '',
+    status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE',
   });
   const [isSubmittingStaff, setIsSubmittingStaff] = useState(false);
   const [staffError, setStaffError] = useState<string | null>(null);
+  const [isSubmittingTrainer, setIsSubmittingTrainer] = useState(false);
+  const [trainerError, setTrainerError] = useState<string | null>(null);
 
   // Plan modal states
   const [showAddPlanModal, setShowAddPlanModal] = useState(false);
@@ -592,14 +646,25 @@ export default function AdminDashboard() {
   const [settingsErrors, setSettingsErrors] = useState<Record<string, string>>({});
 
   // Fetch payment history
-  const fetchPaymentHistory = async () => {
+  const fetchPaymentHistory = async (page = 1, method?: string) => {
     setIsLoadingPayments(true);
     try {
-      const response = await fetch('/api/payments/history?limit=10&page=1');
+      const params = new URLSearchParams();
+      params.append('limit', '20');
+      params.append('page', page.toString());
+      if (method && method !== 'all') {
+        // Map UI method names to API values
+        const methodMap: Record<string, string> = { momo: 'momo', cash: 'cash', card: 'paystack' };
+        params.append('method', methodMap[method] || method);
+      }
+      const response = await fetch(`/api/payments/history?${params.toString()}`);
       const data = await response.json();
       
       if (data.success) {
         setPaymentHistory(data.data);
+        setPaymentPage(data.pagination?.page || 1);
+        setPaymentTotalPages(data.pagination?.pages || 1);
+        setPaymentTotal(data.pagination?.total || 0);
       }
     } catch (error) {
       console.error('Error fetching payment history:', error);
@@ -637,6 +702,38 @@ export default function AdminDashboard() {
     } finally {
       setIsLoadingAuditLogs(false);
     }
+  };
+
+  // Export audit logs as CSV
+  const handleExportAuditLogs = () => {
+    if (auditLogs.length === 0) {
+      pushToast('No audit logs to export', 'error');
+      return;
+    }
+
+    const headers = ['Date', 'Time', 'User', 'Action', 'Entity Type', 'Entity ID', 'IP Address'];
+    const rows = auditLogs.map(log => {
+      const date = new Date(log.timestamp);
+      return [
+        date.toLocaleDateString('en-GB'),
+        date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        log.userName || 'System',
+        log.action.replace(/_/g, ' '),
+        log.entityType || '',
+        log.entityId || '',
+        log.ipAddress || ''
+      ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+    });
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `audit-logs-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    pushToast('Audit logs exported successfully', 'success');
   };
 
   // Fetch settings
@@ -791,10 +888,15 @@ export default function AdminDashboard() {
     
     if (activeTab === 'staff') {
       fetchStaff();
+      fetchTrainers();
     }
 
     if (activeTab === 'attendance') {
       fetchAttendanceHistory();
+    }
+
+    if (activeTab === 'analytics') {
+      fetchAnalytics();
     }
 
     if (activeTab === 'audit') {
@@ -807,6 +909,13 @@ export default function AdminDashboard() {
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, isAuthenticated]);
+
+  // Re-fetch audit logs when filter or date range changes
+  useEffect(() => {
+    if (!isAuthenticated || activeTab !== 'audit') return;
+    fetchAuditLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auditLogFilter, auditDateRange.start, auditDateRange.end]);
 
   // Fetch classes from API
   const fetchClasses = async () => {
@@ -904,6 +1013,22 @@ export default function AdminDashboard() {
     }
   };
 
+  // Fetch trainers from API
+  const fetchTrainers = async () => {
+    setIsLoadingTrainers(true);
+    try {
+      const response = await fetch('/api/staff/trainers');
+      const data = await response.json();
+      if (data.success) {
+        setTrainers(data.trainers);
+      }
+    } catch (error) {
+      console.error('Error fetching trainers:', error);
+    } finally {
+      setIsLoadingTrainers(false);
+    }
+  };
+
   // Fetch attendance history (last 30 days or custom range)
   const fetchAttendanceHistory = async (startDate?: string, endDate?: string) => {
     try {
@@ -932,6 +1057,7 @@ export default function AdminDashboard() {
       if (data.success && Array.isArray(data.checkIns)) {
         console.log(`✅ Fetched ${data.checkIns.length} attendance records`);
         setFilteredCheckIns(data.checkIns);
+        setAttendancePage(1); // Reset to first page on new data
       }
     } catch (error) {
       console.error('❌ Error fetching attendance history:', error);
@@ -1020,6 +1146,9 @@ export default function AdminDashboard() {
           dateOfBirth: '2000-01-01',
         });
         fetchStaff(); // Refresh staff list
+        if (selectedStaff.id === user?.id) {
+          await refreshSession();
+        }
       } else {
         setStaffError(data.error || 'Failed to update staff member');
       }
@@ -1057,6 +1186,164 @@ export default function AdminDashboard() {
       setStaffError('Failed to delete staff member');
     } finally {
       setIsSubmittingStaff(false);
+    }
+  };
+
+  const parseCommaList = (value: string) =>
+    value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+  const openEditTrainerModal = (trainer: {
+    id: string;
+    name: string;
+    email?: string | null;
+    phone?: string | null;
+    status: string;
+    specializations: string[];
+    certifications?: string[];
+    maxWeeklyHours?: number;
+    preferredDays?: string[];
+    preferredTimes?: string[];
+  }) => {
+    setSelectedTrainer(trainer);
+    setTrainerFormData({
+      name: trainer.name || '',
+      email: trainer.email || '',
+      phone: trainer.phone || '',
+      specializations: trainer.specializations?.join(', ') || '',
+      certifications: trainer.certifications?.join(', ') || '',
+      bio: '',
+      maxWeeklyHours: trainer.maxWeeklyHours || 40,
+      preferredDays: trainer.preferredDays?.join(', ') || '',
+      preferredTimes: trainer.preferredTimes?.join(', ') || '',
+      status: trainer.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
+    });
+    setTrainerError(null);
+    setShowEditTrainerModal(true);
+  };
+
+  const handleAddTrainer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmittingTrainer(true);
+    setTrainerError(null);
+
+    try {
+      const response = await fetch('/api/staff/trainers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: trainerFormData.name,
+          email: trainerFormData.email || undefined,
+          phone: trainerFormData.phone || undefined,
+          specializations: parseCommaList(trainerFormData.specializations),
+          certifications: parseCommaList(trainerFormData.certifications),
+          bio: trainerFormData.bio || undefined,
+          maxWeeklyHours: Number(trainerFormData.maxWeeklyHours) || 40,
+          preferredDays: parseCommaList(trainerFormData.preferredDays),
+          preferredTimes: parseCommaList(trainerFormData.preferredTimes),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setShowAddTrainerModal(false);
+        setTrainerFormData({
+          name: '',
+          email: '',
+          phone: '',
+          specializations: '',
+          certifications: '',
+          bio: '',
+          maxWeeklyHours: 40,
+          preferredDays: '',
+          preferredTimes: '',
+          status: 'ACTIVE',
+        });
+        fetchTrainers();
+        showToast('Trainer added successfully', 'success');
+      } else {
+        setTrainerError(data.error || 'Failed to add trainer');
+      }
+    } catch (error) {
+      console.error('Error adding trainer:', error);
+      setTrainerError('Failed to add trainer');
+    } finally {
+      setIsSubmittingTrainer(false);
+    }
+  };
+
+  const handleEditTrainer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTrainer) return;
+
+    setIsSubmittingTrainer(true);
+    setTrainerError(null);
+
+    try {
+      const response = await fetch(`/api/staff/trainers/${selectedTrainer.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: trainerFormData.name,
+          email: trainerFormData.email || undefined,
+          phone: trainerFormData.phone || undefined,
+          specializations: parseCommaList(trainerFormData.specializations),
+          certifications: parseCommaList(trainerFormData.certifications),
+          bio: trainerFormData.bio || undefined,
+          maxWeeklyHours: Number(trainerFormData.maxWeeklyHours) || 40,
+          preferredDays: parseCommaList(trainerFormData.preferredDays),
+          preferredTimes: parseCommaList(trainerFormData.preferredTimes),
+          status: trainerFormData.status,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setShowEditTrainerModal(false);
+        setSelectedTrainer(null);
+        fetchTrainers();
+        showToast('Trainer updated successfully', 'success');
+      } else {
+        setTrainerError(data.error || 'Failed to update trainer');
+      }
+    } catch (error) {
+      console.error('Error updating trainer:', error);
+      setTrainerError('Failed to update trainer');
+    } finally {
+      setIsSubmittingTrainer(false);
+    }
+  };
+
+  const handleDeactivateTrainer = async () => {
+    if (!selectedTrainer) return;
+
+    setIsSubmittingTrainer(true);
+    setTrainerError(null);
+
+    try {
+      const response = await fetch(`/api/staff/trainers/${selectedTrainer.id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setShowDeactivateTrainerModal(false);
+        setSelectedTrainer(null);
+        fetchTrainers();
+        showToast('Trainer deactivated successfully', 'success');
+      } else {
+        setTrainerError(data.error || 'Failed to deactivate trainer');
+      }
+    } catch (error) {
+      console.error('Error deactivating trainer:', error);
+      setTrainerError('Failed to deactivate trainer');
+    } finally {
+      setIsSubmittingTrainer(false);
     }
   };
 
@@ -1376,6 +1663,48 @@ export default function AdminDashboard() {
     setShowDeleteMemberModal(true);
   };
 
+  // Open suspend member modal
+  const openSuspendModal = (member: Member) => {
+    setMemberToSuspend(member);
+    setSuspendReason('');
+    setShowSuspendModal(true);
+  };
+
+  // Handle suspend/unsuspend member
+  const handleSuspendMember = async () => {
+    if (!memberToSuspend) return;
+    if (!suspendReason.trim()) {
+      pushToast('Please provide a reason for suspension', 'error');
+      return;
+    }
+
+    setIsSuspending(true);
+    try {
+      // Update the member's active subscription to PAUSED
+      const response = await fetch(`/api/members/${memberToSuspend.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ suspendReason: suspendReason.trim(), suspend: true })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        pushToast(`${memberToSuspend.name} has been suspended`, 'success');
+        setShowSuspendModal(false);
+        setMemberToSuspend(null);
+        setSuspendReason('');
+        fetchMembers(currentPage, pageSize);
+      } else {
+        pushToast(data.error || 'Failed to suspend member', 'error');
+      }
+    } catch (error) {
+      console.error('Error suspending member:', error);
+      pushToast('Failed to suspend member', 'error');
+    } finally {
+      setIsSuspending(false);
+    }
+  };
+
   // Open edit staff modal
   const openEditStaffModal = (staffMember: typeof staff[0]) => {
     setSelectedStaff({
@@ -1392,7 +1721,7 @@ export default function AdminDashboard() {
       email: staffMember.email,
       phone: staffMember.phone,
       password: '', // Leave empty - only update if changed
-      role: staffMember.role as 'RECEPTIONIST' | 'MANAGER',
+      role: (staffMember.role || 'RECEPTIONIST').toUpperCase() as 'RECEPTIONIST' | 'MANAGER' | 'ADMIN',
       dateOfBirth: '2000-01-01',
     });
     setStaffError(null);
@@ -1671,7 +2000,7 @@ export default function AdminDashboard() {
       if (data.success) {
         await fetchClasses();
         closeClassModal();
-        alert(editingClass ? '✅ Class updated successfully!' : '✅ Class created successfully!');
+        pushToast(editingClass ? 'Class updated successfully!' : 'Class created successfully!', 'success');
       } else {
         setClassError(data.error || 'Failed to save class');
       }
@@ -1698,20 +2027,20 @@ export default function AdminDashboard() {
 
       if (data.success) {
         await fetchClasses();
-        alert('✅ Class deleted successfully!');
+        pushToast('Class deleted successfully!', 'success');
       } else {
-        alert('❌ Failed to delete class');
+        pushToast('Failed to delete class', 'error');
       }
     } catch (error) {
       console.error('Error deleting class:', error);
-      alert('❌ Error deleting class');
+      pushToast('Error deleting class', 'error');
     }
   };
 
   // Cancel class with notifications
   const handleCancelClass = async () => {
     if (!selectedClassForModal || !cancellationReason.trim()) {
-      alert('Please provide a cancellation reason');
+      pushToast('Please provide a cancellation reason', 'error');
       return;
     }
 
@@ -1851,13 +2180,13 @@ export default function AdminDashboard() {
           allGenerated: true
         });
         setShowTicketModal(true);
-        alert(`✅ Generated ${data.generatedCount} QR tickets successfully!`);
+        pushToast(`Generated ${data.generatedCount} QR tickets successfully!`, 'success');
       } else {
-        alert(`❌ ${data.error || 'Failed to generate tickets'}`);
+        pushToast(data.error || 'Failed to generate tickets', 'error');
       }
     } catch (error) {
       console.error('Error generating tickets:', error);
-      alert('❌ Error generating tickets');
+      pushToast('Error generating tickets', 'error');
     } finally {
       setIsGeneratingTickets(false);
     }
@@ -1945,7 +2274,7 @@ export default function AdminDashboard() {
   // Set registration deadline
   const handleSetDeadline = async () => {
     if (!selectedEventForModal || !deadlineDate) {
-      alert('Please select a deadline date');
+      pushToast('Please select a deadline date', 'error');
       return;
     }
 
@@ -1968,13 +2297,13 @@ export default function AdminDashboard() {
         setShowDeadlineModal(false);
         setSelectedEventForModal(null);
         setDeadlineDate('');
-        alert('✅ Registration deadline set successfully!');
+        pushToast('Registration deadline set successfully!', 'success');
       } else {
-        alert(`❌ ${data.error || 'Failed to set deadline'}`);
+        pushToast(data.error || 'Failed to set deadline', 'error');
       }
     } catch (error) {
       console.error('Error setting deadline:', error);
-      alert('❌ Error setting deadline');
+      pushToast('Error setting deadline', 'error');
     }
   };
 
@@ -2072,7 +2401,7 @@ export default function AdminDashboard() {
       if (data.success) {
         await fetchEvents();
         closeEventModal();
-        alert(editingEvent ? '✅ Event updated successfully!' : '✅ Event created successfully!');
+        pushToast(editingEvent ? 'Event updated successfully!' : 'Event created successfully!', 'success');
       } else {
         setEventError(data.error || 'Failed to save event');
       }
@@ -2099,13 +2428,13 @@ export default function AdminDashboard() {
 
       if (data.success) {
         await fetchEvents();
-        alert('✅ Event deleted successfully!');
+        pushToast('Event deleted successfully!', 'success');
       } else {
-        alert(`❌ ${data.error || 'Failed to delete event'}`);
+        pushToast(data.error || 'Failed to delete event', 'error');
       }
     } catch (error) {
       console.error('Error deleting event:', error);
-      alert('❌ Error deleting event');
+      pushToast('Error deleting event', 'error');
     }
   };
 
@@ -2116,13 +2445,13 @@ export default function AdminDashboard() {
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      alert('❌ Please select an image file');
+      pushToast('Please select an image file', 'error');
       return;
     }
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      alert('❌ Image size must be less than 5MB');
+      pushToast('Image size must be less than 5MB', 'error');
       return;
     }
 
@@ -2139,7 +2468,7 @@ export default function AdminDashboard() {
       reader.readAsDataURL(file);
     } catch (error) {
       console.error('Error uploading image:', error);
-      alert('❌ Failed to upload image');
+      pushToast('Failed to upload image', 'error');
     } finally {
       setIsUploadingImage(false);
     }
@@ -2157,7 +2486,7 @@ export default function AdminDashboard() {
 
     // Validate QR code
     if (!dataToSend.qrCode) {
-      alert('❌ Error: No QR code found for this member');
+      pushToast('No QR code found for this member', 'error');
       return;
     }
 
@@ -2224,11 +2553,11 @@ export default function AdminDashboard() {
         });
         setShowDuplicateWarning(true);
       } else {
-        alert(`❌ ${result.error || 'Failed to check-in'}`);
+        pushToast(result.error || 'Failed to check-in', 'error');
       }
     } catch (error) {
       console.error('❌ Check-in error:', error);
-      alert('❌ Failed to check-in. Please check your connection and try again.');
+      pushToast('Failed to check-in. Please check your connection and try again.', 'error');
     }
   };
 
@@ -2286,7 +2615,7 @@ export default function AdminDashboard() {
         {/* Sidebar */}
         <AdminSidebar
           adminUser={user?.email || user?.firstName || 'Admin'}
-          adminRole={user?.role?.toLowerCase() === 'receptionist' ? 'receptionist' : 'manager'}
+          adminRole={user?.role || 'RECEPTIONIST'}
           onLogout={handleLogout}
           activeTab={activeTab}
           onTabChange={(tab) => setActiveTab(tab as typeof activeTab)}
@@ -2310,6 +2639,7 @@ export default function AdminDashboard() {
                   {activeTab === 'events' && 'Special events and programs'}
                   {activeTab === 'attendance' && 'Member attendance history'}
                   {activeTab === 'payments' && 'Payment tracking and revenue'}
+                  {activeTab === 'receipts' && 'Member payment receipts and downloads'}
                   {activeTab === 'plans' && 'Membership plan management'}
                   {activeTab === 'staff' && 'Staff account management'}
                   {activeTab === 'reports' && 'Comprehensive reports and data exports'}
@@ -2338,8 +2668,8 @@ export default function AdminDashboard() {
             {/* Stats Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {[
-                { label: 'Total Members', value: members.length.toLocaleString() || '0', icon: Users, color: 'text-blue-500', bg: 'bg-blue-50', visible: true },
-                { label: 'Active Members', value: members.filter(m => m.status === 'active').length.toLocaleString() || '0', icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-50', visible: true },
+                { label: 'Total Members', value: (totalMembers || 0).toLocaleString(), icon: Users, color: 'text-blue-500', bg: 'bg-blue-50', visible: true },
+                { label: 'Active Members', value: (analytics?.activeMembers || members.filter(m => m.status === 'active').length || 0).toLocaleString(), icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-50', visible: true },
                 { label: 'Expiring Soon', value: analytics?.expiringSoon?.toString() || '0', icon: AlertTriangle, color: 'text-yellow-500', bg: 'bg-yellow-50', visible: true },
                 { label: 'Checked In Today', value: analytics?.todayCheckIns?.toString() || '0', icon: Activity, color: 'text-purple-500', bg: 'bg-purple-50', visible: true },
                 { label: 'Revenue (GH₵)', value: canViewFinancials ? analytics?.monthlyRevenue?.toLocaleString() || '0' : '***', icon: DollarSign, color: 'text-orange-500', bg: 'bg-orange-50', visible: canViewFinancials },
@@ -2537,6 +2867,115 @@ export default function AdminDashboard() {
                 )}
               </CardContent>
             </Card>
+
+            <Card className="border-2 border-gray-100">
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <CardTitle className="text-xl sm:text-2xl">Trainer Management</CardTitle>
+                    <CardDescription>Manage trainers, preferences, and availability</CardDescription>
+                  </div>
+                  {isManager && (
+                    <Button 
+                      onClick={() => {
+                        setTrainerFormData({
+                          name: '',
+                          email: '',
+                          phone: '',
+                          specializations: '',
+                          certifications: '',
+                          bio: '',
+                          maxWeeklyHours: 40,
+                          preferredDays: '',
+                          preferredTimes: '',
+                          status: 'ACTIVE',
+                        });
+                        setTrainerError(null);
+                        setShowAddTrainerModal(true);
+                      }}
+                      className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
+                    >
+                      <Dumbbell className="mr-2 h-5 w-5" />
+                      Add Trainer
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isLoadingTrainers ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-600">Loading trainers...</p>
+                  </div>
+                ) : trainers.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-600">No trainers found.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b-2 border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Name</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Email</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Phone</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Specializations</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Status</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {trainers.map((trainer) => (
+                          <tr key={trainer.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{trainer.name}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{trainer.email || '—'}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{trainer.phone || '—'}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">
+                              {trainer.specializations?.length ? trainer.specializations.join(', ') : '—'}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                trainer.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                              }`}>
+                                {trainer.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex gap-1">
+                                {isManager && (
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    title="Edit trainer"
+                                    onClick={() => openEditTrainerModal(trainer)}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                {isAdmin && (
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="text-red-600 hover:text-red-700" 
+                                    title="Deactivate trainer"
+                                    onClick={() => {
+                                      setSelectedTrainer(trainer);
+                                      setTrainerError(null);
+                                      setShowDeactivateTrainerModal(true);
+                                    }}
+                                  >
+                                    <Ban className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </motion.div>
         )}
 
@@ -2676,6 +3115,7 @@ export default function AdminDashboard() {
                                   variant="ghost" 
                                   size="sm" 
                                   className="text-red-600 hover:text-red-700"
+                                  onClick={() => openSuspendModal(member as Member)}
                                   title="Suspend member"
                                 >
                                   <Ban className="h-4 w-4" />
@@ -3366,16 +3806,24 @@ export default function AdminDashboard() {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-gray-400" />
                         <input
                           type="text"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
+                          value={checkinSearchQuery}
+                          onChange={(e) => {
+                            setCheckinSearchQuery(e.target.value);
+                            // Trigger server-side member search for check-in
+                            const val = e.target.value;
+                            if (val.length >= 2) {
+                              setTimeout(() => fetchMembers(1, 10, val), 400);
+                            }
+                          }}
                           placeholder="Search by name, phone number, or member ID..."
                           className="w-full pl-14 pr-4 py-4 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
                           autoFocus
+                          maxLength={100}
                         />
                       </div>
                       
                       {/* Search Results with Check-In Buttons */}
-                      {searchQuery && filteredMembers.length > 0 && (
+                      {checkinSearchQuery && filteredMembers.length > 0 && (
                         <div className="border-2 border-gray-200 rounded-xl divide-y max-h-96 overflow-y-auto">
                           {filteredMembers.map((member) => (
                             <div
@@ -3421,13 +3869,13 @@ export default function AdminDashboard() {
                                   }
                                   
                                   if (member.status === 'expired') {
-                                    alert('❌ Cannot check-in: Member subscription has expired');
+                                    pushToast('Cannot check-in: Member subscription has expired', 'error');
                                     return;
                                   }
                                   
                                   if (!member.qrCode) {
                                     console.error('❌ Member has no QR code!', member);
-                                    alert('❌ Error: This member has no QR code');
+                                    pushToast('This member has no QR code', 'error');
                                     return;
                                   }
                                   
@@ -3495,7 +3943,7 @@ export default function AdminDashboard() {
                           await handleCheckIn({ qrCode, method: 'qr' });
                         }}
                         onError={(error) => {
-                          alert(`❌ ${error}`);
+                          pushToast(error, 'error');
                         }}
                         placeholder="Scan or enter member QR code"
                       />
@@ -3663,8 +4111,16 @@ export default function AdminDashboard() {
                         <div className="flex gap-2">
                           <Button 
                             size="sm" 
+                            variant={paymentMethod === 'all' ? 'default' : 'outline'}
+                            onClick={() => { setPaymentMethod('all'); fetchPaymentHistory(1, 'all'); }}
+                            className={paymentMethod === 'all' ? 'bg-gray-700 hover:bg-gray-800' : ''}
+                          >
+                            All
+                          </Button>
+                          <Button 
+                            size="sm" 
                             variant={paymentMethod === 'momo' ? 'default' : 'outline'}
-                            onClick={() => setPaymentMethod('momo')}
+                            onClick={() => { setPaymentMethod('momo'); fetchPaymentHistory(1, 'momo'); }}
                             className={paymentMethod === 'momo' ? 'bg-green-600 hover:bg-green-700' : ''}
                           >
                             MTN MoMo
@@ -3672,14 +4128,14 @@ export default function AdminDashboard() {
                           <Button 
                             size="sm" 
                             variant={paymentMethod === 'cash' ? 'default' : 'outline'}
-                            onClick={() => setPaymentMethod('cash')}
+                            onClick={() => { setPaymentMethod('cash'); fetchPaymentHistory(1, 'cash'); }}
                           >
                             Cash
                           </Button>
                           <Button 
                             size="sm" 
                             variant={paymentMethod === 'card' ? 'default' : 'outline'}
-                            onClick={() => setPaymentMethod('card')}
+                            onClick={() => { setPaymentMethod('card'); fetchPaymentHistory(1, 'card'); }}
                           >
                             Card/Bank
                           </Button>
@@ -3739,6 +4195,7 @@ export default function AdminDashboard() {
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Method</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Status</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Reference</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Receipt</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
@@ -3773,11 +4230,28 @@ export default function AdminDashboard() {
                                   </span>
                                 </td>
                                 <td className="px-4 py-3 text-sm text-gray-600">{payment.reference}</td>
+                                <td className="px-4 py-3">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    asChild
+                                    disabled={payment.status !== 'success'}
+                                  >
+                                    <a
+                                      href={`/api/payments/receipt/${payment.id}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                    >
+                                      <ExternalLink className="h-4 w-4 mr-1" />
+                                      View
+                                    </a>
+                                  </Button>
+                                </td>
                               </tr>
                             ))
                           ) : (
                             <tr>
-                              <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                              <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                                 {isLoadingPayments ? 'Loading payments...' : 'No payment history found'}
                               </td>
                             </tr>
@@ -3785,6 +4259,36 @@ export default function AdminDashboard() {
                         </tbody>
                       </table>
                     </div>
+
+                    {/* Payment Pagination Controls */}
+                    {paymentTotalPages > 1 && (
+                      <div className="mt-4 pt-4 border-t-2 flex items-center justify-between">
+                        <p className="text-sm text-gray-600">
+                          Showing {((paymentPage - 1) * 10) + 1}-{Math.min(paymentPage * 10, paymentTotal)} of {paymentTotal} transactions
+                        </p>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={paymentPage <= 1}
+                            onClick={() => fetchPaymentHistory(paymentPage - 1, paymentMethod)}
+                          >
+                            Previous
+                          </Button>
+                          <span className="flex items-center px-3 text-sm text-gray-700">
+                            Page {paymentPage} of {paymentTotalPages}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={paymentPage >= paymentTotalPages}
+                            onClick={() => fetchPaymentHistory(paymentPage + 1, paymentMethod)}
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </>
@@ -3794,6 +4298,26 @@ export default function AdminDashboard() {
                   <ShieldAlert className="h-16 w-16 text-red-400 mx-auto mb-4" />
                   <h3 className="text-xl font-bold text-red-900 mb-2">Access Restricted</h3>
                   <p className="text-red-700">Only managers can access payment management</p>
+                </CardContent>
+              </Card>
+            )}
+          </motion.div>
+        )}
+
+        {activeTab === 'receipts' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            {canManagePayments ? (
+              <ReceiptsManager />
+            ) : (
+              <Card className="border-2 border-red-100 bg-red-50">
+                <CardContent className="p-8 text-center">
+                  <ShieldAlert className="h-16 w-16 text-red-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-red-900 mb-2">Access Restricted</h3>
+                  <p className="text-red-700">Only managers can access receipts</p>
                 </CardContent>
               </Card>
             )}
@@ -3949,7 +4473,7 @@ export default function AdminDashboard() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                          {filteredCheckIns.slice(0, 50).map((checkin) => {
+                          {filteredCheckIns.slice((attendancePage - 1) * 50, attendancePage * 50).map((checkin) => {
                             const checkInDate = new Date(checkin.checkInTime);
                             const formattedDate = checkInDate.toLocaleDateString('en-US', { 
                               month: 'short', 
@@ -4006,10 +4530,33 @@ export default function AdminDashboard() {
                       </table>
                     </div>
                     
-                    {/* Pagination Info */}
+                    {/* Pagination Controls */}
                     {filteredCheckIns.length > 50 && (
-                      <div className="mt-4 pt-4 border-t-2 text-sm text-gray-600 text-center">
-                        Showing 50 of {filteredCheckIns.length} records
+                      <div className="mt-4 pt-4 border-t-2 flex items-center justify-between">
+                        <p className="text-sm text-gray-600">
+                          Showing {((attendancePage - 1) * 50) + 1}-{Math.min(attendancePage * 50, filteredCheckIns.length)} of {filteredCheckIns.length} records
+                        </p>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={attendancePage <= 1}
+                            onClick={() => setAttendancePage(attendancePage - 1)}
+                          >
+                            Previous
+                          </Button>
+                          <span className="flex items-center px-3 text-sm text-gray-700">
+                            Page {attendancePage} of {Math.ceil(filteredCheckIns.length / 50)}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={attendancePage >= Math.ceil(filteredCheckIns.length / 50)}
+                            onClick={() => setAttendancePage(attendancePage + 1)}
+                          >
+                            Next
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </>
@@ -4485,27 +5032,121 @@ export default function AdminDashboard() {
                   <div className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl">
                     <TrendingUp className="h-8 w-8 text-blue-600 mb-3" />
                     <p className="text-sm text-gray-600 mb-1">Revenue Growth</p>
-                    <p className="text-3xl font-bold text-blue-900">+15.3%</p>
-                    <p className="text-xs text-blue-700 mt-2">vs last month</p>
+                    <p className="text-3xl font-bold text-blue-900">
+                      {analytics?.revenueGrowth !== undefined 
+                        ? `${analytics.revenueGrowth >= 0 ? '+' : ''}${analytics.revenueGrowth.toFixed(1)}%`
+                        : 'N/A'}
+                    </p>
+                    <p className="text-xs text-blue-700 mt-2">
+                      {analytics?.lastMonthRevenue 
+                        ? `Last month: GH₵${analytics.lastMonthRevenue.toLocaleString()}`
+                        : 'vs last month'}
+                    </p>
                   </div>
                   <div className="p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-xl">
                     <Users className="h-8 w-8 text-green-600 mb-3" />
                     <p className="text-sm text-gray-600 mb-1">Member Retention</p>
-                    <p className="text-3xl font-bold text-green-900">92.4%</p>
-                    <p className="text-xs text-green-700 mt-2">Above target</p>
+                    <p className="text-3xl font-bold text-green-900">
+                      {analytics?.retentionRate !== undefined 
+                        ? `${analytics.retentionRate.toFixed(1)}%`
+                        : 'N/A'}
+                    </p>
+                    <p className="text-xs text-green-700 mt-2">
+                      {analytics?.activeMembers && analytics?.totalMembers
+                        ? `${analytics.activeMembers} of ${analytics.totalMembers} active`
+                        : 'Based on subscriptions'}
+                    </p>
                   </div>
                   <div className="p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl">
                     <Activity className="h-8 w-8 text-purple-600 mb-3" />
                     <p className="text-sm text-gray-600 mb-1">Avg. Check-ins/Day</p>
-                    <p className="text-3xl font-bold text-purple-900">87</p>
-                    <p className="text-xs text-purple-700 mt-2">Peak: 124</p>
+                    <p className="text-3xl font-bold text-purple-900">
+                      {analytics?.avgCheckInsPerDay !== undefined 
+                        ? analytics.avgCheckInsPerDay
+                        : 'N/A'}
+                    </p>
+                    <p className="text-xs text-purple-700 mt-2">
+                      {analytics?.peakCheckIns 
+                        ? `Peak: ${analytics.peakCheckIns}`
+                        : '30-day average'}
+                    </p>
                   </div>
                 </div>
 
-                <div className="mt-6 p-8 border-2 border-dashed border-gray-300 rounded-xl text-center">
-                  <BarChart3 className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-600 font-medium mb-2">Detailed Analytics</p>
-                  <p className="text-sm text-gray-500">Charts and graphs will be displayed here</p>
+                {/* Weekly Check-ins Chart */}
+                <div className="mt-6 p-6 border-2 border-gray-200 rounded-xl bg-white">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">Weekly Check-ins</h3>
+                      <p className="text-sm text-gray-600">Last 7 days attendance</p>
+                    </div>
+                    <BarChart3 className="h-8 w-8 text-orange-500" />
+                  </div>
+                  
+                  {analytics?.weeklyCheckIns && analytics.weeklyCheckIns.length > 0 ? (
+                    <div className="space-y-3">
+                      {analytics.weeklyCheckIns.map((day, index) => {
+                        const maxCount = Math.max(...analytics.weeklyCheckIns!.map(d => d.count), 1);
+                        const percentage = (day.count / maxCount) * 100;
+                        return (
+                          <div key={index} className="flex items-center gap-3">
+                            <span className="text-sm font-medium text-gray-700 w-12">{day.day}</span>
+                            <div className="flex-1 bg-gray-100 rounded-full h-8 relative overflow-hidden">
+                              <div 
+                                className="absolute inset-y-0 left-0 bg-gradient-to-r from-orange-400 to-orange-600 rounded-full transition-all duration-500"
+                                style={{ width: `${percentage}%` }}
+                              />
+                              <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-gray-700">
+                                {day.count} check-ins
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <BarChart3 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-500">No check-in data available</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Revenue Summary */}
+                <div className="mt-6 grid md:grid-cols-2 gap-6">
+                  <div className="p-6 border-2 border-green-200 rounded-xl bg-green-50">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                        <DollarSign className="h-6 w-6 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">This Month Revenue</p>
+                        <p className="text-2xl font-bold text-green-900">
+                          GH₵{analytics?.monthlyRevenue?.toLocaleString() || '0'}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-600">
+                      {analytics?.monthlyTransactions || 0} transactions
+                    </p>
+                  </div>
+                  
+                  <div className="p-6 border-2 border-blue-200 rounded-xl bg-blue-50">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                        <UserCheck className="h-6 w-6 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Today&apos;s Activity</p>
+                        <p className="text-2xl font-bold text-blue-900">
+                          {analytics?.todayCheckIns || 0} check-ins
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-600">
+                      {analytics?.attendanceRate || '0%'} of active members
+                    </p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -4529,7 +5170,7 @@ export default function AdminDashboard() {
                     </CardTitle>
                     <CardDescription>Security and activity tracking</CardDescription>
                   </div>
-                  <Button variant="outline" className="border-2">
+                  <Button variant="outline" className="border-2" onClick={handleExportAuditLogs}>
                     <Download className="h-4 w-4 mr-2" />
                     Export
                   </Button>
@@ -4676,6 +5317,9 @@ export default function AdminDashboard() {
 
         {/* PAR-Q Tab */}
         {activeTab === 'parq' && <ParQManagement />}
+
+        {/* Subscriptions Tab */}
+        {activeTab === 'subscriptions' && <AdminSubscriptionManager />}
 
         {/* Reports Tab */}
         {activeTab === 'reports' && (
@@ -6352,11 +6996,12 @@ export default function AdminDashboard() {
                   <select
                     required
                     value={staffFormData.role}
-                    onChange={(e) => setStaffFormData({ ...staffFormData, role: e.target.value as 'RECEPTIONIST' | 'MANAGER' })}
+                    onChange={(e) => setStaffFormData({ ...staffFormData, role: e.target.value as 'RECEPTIONIST' | 'MANAGER' | 'ADMIN' })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                   >
                     <option value="RECEPTIONIST">Receptionist</option>
                     <option value="MANAGER">Manager</option>
+                    <option value="ADMIN">Admin</option>
                   </select>
                 </div>
                 <div className="flex gap-3 pt-4">
@@ -6484,11 +7129,12 @@ export default function AdminDashboard() {
                   <select
                     required
                     value={staffFormData.role}
-                    onChange={(e) => setStaffFormData({ ...staffFormData, role: e.target.value as 'RECEPTIONIST' | 'MANAGER' })}
+                    onChange={(e) => setStaffFormData({ ...staffFormData, role: e.target.value as 'RECEPTIONIST' | 'MANAGER' | 'ADMIN' })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                   >
                     <option value="RECEPTIONIST">Receptionist</option>
                     <option value="MANAGER">Manager</option>
+                    <option value="ADMIN">Admin</option>
                   </select>
                 </div>
                 <div className="flex gap-3 pt-4">
@@ -6587,6 +7233,400 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* Add Trainer Modal */}
+      {showAddTrainerModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowAddTrainerModal(false);
+              setTrainerError(null);
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6 border-b flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                  <Dumbbell className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Add Trainer</h2>
+                  <p className="text-sm text-gray-600 mt-1">Create a new trainer profile</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAddTrainerModal(false);
+                  setTrainerError(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-6">
+              {trainerError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {trainerError}
+                </div>
+              )}
+              <form onSubmit={handleAddTrainer} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={trainerFormData.name}
+                    onChange={(e) => setTrainerFormData({ ...trainerFormData, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={trainerFormData.email}
+                      onChange={(e) => setTrainerFormData({ ...trainerFormData, email: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Phone</label>
+                    <input
+                      type="tel"
+                      value={trainerFormData.phone}
+                      onChange={(e) => setTrainerFormData({ ...trainerFormData, phone: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Specializations</label>
+                  <input
+                    type="text"
+                    value={trainerFormData.specializations}
+                    onChange={(e) => setTrainerFormData({ ...trainerFormData, specializations: e.target.value })}
+                    placeholder="e.g., strength training, yoga, HIIT"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Comma-separated</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Certifications</label>
+                  <input
+                    type="text"
+                    value={trainerFormData.certifications}
+                    onChange={(e) => setTrainerFormData({ ...trainerFormData, certifications: e.target.value })}
+                    placeholder="e.g., ACE, NASM, CPR"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Comma-separated</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Bio</label>
+                  <textarea
+                    value={trainerFormData.bio}
+                    onChange={(e) => setTrainerFormData({ ...trainerFormData, bio: e.target.value })}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Max Weekly Hours</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={trainerFormData.maxWeeklyHours}
+                      onChange={(e) => setTrainerFormData({ ...trainerFormData, maxWeeklyHours: Number(e.target.value) })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Preferred Days</label>
+                    <input
+                      type="text"
+                      value={trainerFormData.preferredDays}
+                      onChange={(e) => setTrainerFormData({ ...trainerFormData, preferredDays: e.target.value })}
+                      placeholder="e.g., Monday, Wednesday"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Preferred Times</label>
+                  <input
+                    type="text"
+                    value={trainerFormData.preferredTimes}
+                    onChange={(e) => setTrainerFormData({ ...trainerFormData, preferredTimes: e.target.value })}
+                    placeholder="e.g., mornings, evenings"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowAddTrainerModal(false);
+                      setTrainerError(null);
+                    }}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={isSubmittingTrainer}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  >
+                    {isSubmittingTrainer ? 'Adding...' : 'Add Trainer'}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Trainer Modal */}
+      {showEditTrainerModal && selectedTrainer && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowEditTrainerModal(false);
+              setSelectedTrainer(null);
+              setTrainerError(null);
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6 border-b flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                  <Edit className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Edit Trainer</h2>
+                  <p className="text-sm text-gray-600 mt-1">Update trainer profile</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowEditTrainerModal(false);
+                  setSelectedTrainer(null);
+                  setTrainerError(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-6">
+              {trainerError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {trainerError}
+                </div>
+              )}
+              <form onSubmit={handleEditTrainer} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={trainerFormData.name}
+                    onChange={(e) => setTrainerFormData({ ...trainerFormData, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={trainerFormData.email}
+                      onChange={(e) => setTrainerFormData({ ...trainerFormData, email: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Phone</label>
+                    <input
+                      type="tel"
+                      value={trainerFormData.phone}
+                      onChange={(e) => setTrainerFormData({ ...trainerFormData, phone: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Specializations</label>
+                  <input
+                    type="text"
+                    value={trainerFormData.specializations}
+                    onChange={(e) => setTrainerFormData({ ...trainerFormData, specializations: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Comma-separated</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Certifications</label>
+                  <input
+                    type="text"
+                    value={trainerFormData.certifications}
+                    onChange={(e) => setTrainerFormData({ ...trainerFormData, certifications: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Bio</label>
+                  <textarea
+                    value={trainerFormData.bio}
+                    onChange={(e) => setTrainerFormData({ ...trainerFormData, bio: e.target.value })}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Max Weekly Hours</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={trainerFormData.maxWeeklyHours}
+                      onChange={(e) => setTrainerFormData({ ...trainerFormData, maxWeeklyHours: Number(e.target.value) })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Preferred Days</label>
+                    <input
+                      type="text"
+                      value={trainerFormData.preferredDays}
+                      onChange={(e) => setTrainerFormData({ ...trainerFormData, preferredDays: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Preferred Times</label>
+                  <input
+                    type="text"
+                    value={trainerFormData.preferredTimes}
+                    onChange={(e) => setTrainerFormData({ ...trainerFormData, preferredTimes: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Status</label>
+                  <select
+                    value={trainerFormData.status}
+                    onChange={(e) => setTrainerFormData({ ...trainerFormData, status: e.target.value as 'ACTIVE' | 'INACTIVE' })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    <option value="ACTIVE">Active</option>
+                    <option value="INACTIVE">Inactive</option>
+                  </select>
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowEditTrainerModal(false);
+                      setSelectedTrainer(null);
+                      setTrainerError(null);
+                    }}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={isSubmittingTrainer}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  >
+                    {isSubmittingTrainer ? 'Updating...' : 'Update Trainer'}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Deactivate Trainer Confirmation Modal */}
+      {showDeactivateTrainerModal && selectedTrainer && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowDeactivateTrainerModal(false);
+              setSelectedTrainer(null);
+              setTrainerError(null);
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6 border-b flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Deactivate Trainer</h2>
+                  <p className="text-sm text-gray-600 mt-1">This action will set the trainer to inactive</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowDeactivateTrainerModal(false);
+                  setSelectedTrainer(null);
+                  setTrainerError(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-6">
+              {trainerError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {trainerError}
+                </div>
+              )}
+              <p className="text-gray-600">
+                Are you sure you want to deactivate <span className="font-semibold">{selectedTrainer.name}</span>?
+              </p>
+            </div>
+            <div className="p-6 border-t flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowDeactivateTrainerModal(false);
+                  setSelectedTrainer(null);
+                  setTrainerError(null);
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDeactivateTrainer}
+                disabled={isSubmittingTrainer}
+                className="flex-1 bg-red-600 hover:bg-red-700"
+              >
+                {isSubmittingTrainer ? 'Deactivating...' : 'Deactivate'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Member Confirmation Modal */}
       {showDeleteMemberModal && selectedMember && (
         <div 
@@ -6650,6 +7690,82 @@ export default function AdminDashboard() {
                 className="flex-1 bg-red-600 hover:bg-red-700"
               >
                 {isSubmittingMember ? 'Deleting...' : 'Delete Member'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Suspend Member Modal */}
+      {showSuspendModal && memberToSuspend && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowSuspendModal(false);
+              setMemberToSuspend(null);
+              setSuspendReason('');
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6 border-b flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+                  <Ban className="h-5 w-5 text-orange-600" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Suspend Member</h2>
+                  <p className="text-sm text-gray-600 mt-1">Membership will be paused</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowSuspendModal(false);
+                  setMemberToSuspend(null);
+                  setSuspendReason('');
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-gray-600">
+                Are you sure you want to suspend <span className="font-semibold">{memberToSuspend.name}</span>? Their subscription will be paused until reactivated.
+              </p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Suspension *</label>
+                <textarea
+                  value={suspendReason}
+                  onChange={(e) => setSuspendReason(e.target.value)}
+                  placeholder="Enter reason for suspending this member..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
+                  rows={3}
+                  maxLength={500}
+                />
+                <p className="text-xs text-gray-400 mt-1">{suspendReason.length}/500</p>
+              </div>
+            </div>
+            <div className="p-6 border-t flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowSuspendModal(false);
+                  setMemberToSuspend(null);
+                  setSuspendReason('');
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSuspendMember}
+                disabled={isSuspending || !suspendReason.trim()}
+                className="flex-1 bg-orange-600 hover:bg-orange-700"
+              >
+                {isSuspending ? 'Suspending...' : 'Suspend Member'}
               </Button>
             </div>
           </div>
