@@ -1,19 +1,15 @@
-'use client';
+﻿'use client';
 
 import { motion } from 'framer-motion';
 import {
   Heart,
   Target,
   Users,
-  Award,
-  Building2,
-  Dumbbell,
-  Clock,
-  Shield,
-  Sparkles,
   TrendingUp,
   MapPin,
   Calendar,
+  Sparkles,
+  Star,
 } from 'lucide-react';
 import Link from 'next/link';
 import PageHero from '@/components/PageHero';
@@ -24,61 +20,32 @@ const values = [
   {
     icon: Heart,
     title: 'Community First',
-    description: 'We build a supportive environment where everyone feels welcome and motivated to reach their goals.',
+    description: 'A supportive environment where everyone belongs.',
   },
   {
     icon: Target,
     title: 'Excellence',
-    description: 'From equipment to coaching, we maintain the highest standards in everything we do.',
+    description: 'The highest standards in coaching and equipment.',
   },
   {
     icon: Users,
     title: 'Inclusivity',
-    description: 'Fitness is for everyone. All ages, levels, and backgrounds are celebrated here.',
+    description: 'All ages, all levels, all backgrounds — welcome here.',
   },
   {
     icon: TrendingUp,
     title: 'Results-Driven',
-    description: 'We measure success by your progress and celebrate every milestone achieved.',
-  },
-];
-
-const facilities = [
-  {
-    name: 'Cardio Zone',
-    description: 'State-of-the-art treadmills, bikes, rowing machines, and more',
-    features: ['20+ Cardio Machines', 'Individual TV Screens', 'Heart Rate Monitoring', 'Virtual Training'],
-    icon: Heart,
+    description: 'We measure success by your progress.',
   },
   {
-    name: 'Strength Training Area',
-    description: 'Comprehensive free weights and resistance equipment',
-    features: ['Olympic Lifting Platform', 'Power Racks', 'Full Dumbbell Set (2-50kg)', 'Cable Machines'],
-    icon: Dumbbell,
-  },
-  {
-    name: 'Group Fitness Studios',
-    description: 'Spacious studios for classes and group training',
-    features: ['2 Climate-Controlled Studios', 'Premium Sound System', 'Spring-Loaded Floors', 'Mirror Walls'],
-    icon: Users,
-  },
-  {
-    name: 'Functional Training',
-    description: 'Dedicated space for HIIT, bootcamp, and functional workouts',
-    features: ['Turf Area', 'Battle Ropes', 'Kettlebells', 'Plyometric Boxes'],
     icon: Sparkles,
+    title: 'Passion',
+    description: "We love what we do. You'll feel it in every class.",
   },
   {
-    name: 'Locker Rooms',
-    description: 'Clean, spacious facilities with premium amenities',
-    features: ['Private Showers', 'Sauna', 'Day Lockers', 'Grooming Stations'],
-    icon: Building2,
-  },
-  {
-    name: 'Recovery Zone',
-    description: 'Dedicated area for stretching and recovery',
-    features: ['Foam Rollers', 'Massage Guns', 'Stretching Mats', 'Recovery Tools'],
-    icon: Shield,
+    icon: Star,
+    title: 'Integrity',
+    description: 'Honest, transparent, and always in your corner.',
   },
 ];
 
@@ -86,22 +53,22 @@ const timeline = [
   {
     year: '2015',
     title: 'The Beginning',
-    description: 'GemFitness opened its doors in Tema Gbestile, Ghana with a vision to transform the local fitness culture. "We\'re What We Eat!" became our motto.',
+    description: 'GemFitness opened its doors in Tema Gbestile with a simple mission: make fitness accessible.',
   },
   {
     year: '2017',
-    title: 'Expansion',
-    description: 'Doubled our space to accommodate growing membership and added group fitness studios.',
+    title: 'Expanding the Vision',
+    description: 'Doubled our space and launched group fitness studios to meet growing demand.',
   },
   {
     year: '2019',
-    title: '1,000 Members',
-    description: 'Reached milestone of 1,000 active members and became Tema\'s largest fitness community.',
+    title: '1,000 Members Strong',
+    description: "Reached our first major membership milestone as Tema's fastest-growing gym.",
   },
   {
     year: '2021',
-    title: 'Equipment Upgrade',
-    description: 'Invested ₵500,000 in premium equipment and facility renovations.',
+    title: 'Next-Level Equipment',
+    description: 'Major investment in premium equipment and full facility renovation.',
   },
   {
     year: '2023',
@@ -110,23 +77,16 @@ const timeline = [
   },
   {
     year: '2024',
-    title: 'Going Strong',
-    description: '2,500+ members, 50+ weekly classes, and still growing!',
+    title: 'Stronger Than Ever',
+    description: '2,500+ active members, 50+ weekly classes, and still growing every day.',
   },
 ];
 
-const awards = [
-  { title: 'Best Gym in Greater Accra', year: '2023', org: 'Ghana Fitness Awards' },
-  { title: 'Community Impact Award', year: '2022', org: 'Tema Chamber of Commerce' },
-  { title: 'Excellence in Customer Service', year: '2023', org: 'Business Excellence Ghana' },
-  { title: 'Top Employer - Fitness Industry', year: '2024', org: 'HR Ghana' },
-];
-
 const stats = [
-  { number: '2,500+', label: 'Active Members', icon: Users },
-  { number: '50+', label: 'Weekly Classes', icon: Calendar },
-  { number: '15+', label: 'Expert Trainers', icon: Award },
-  { number: '9', label: 'Years of Excellence', icon: TrendingUp },
+  { number: '2,500+', label: 'Active Members' },
+  { number: '50+', label: 'Weekly Classes' },
+  { number: '15+', label: 'Expert Trainers' },
+  { number: '9', label: 'Years Strong' },
 ];
 
 export default function AboutPage() {
@@ -135,114 +95,62 @@ export default function AboutPage() {
       <PageHero
         subtitle="About Us"
         title="Our Story"
-        description="From a small gym in 2015 to Tema's premier fitness destination. Learn about our journey, values, and commitment to your success."
+        description="From a single room in 2015 to Tema's premier fitness destination — this is who we are."
       />
 
-      {/* Stats Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-orange-500/10 to-transparent">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-            {stats.map((stat, index) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-                className="text-center"
-              >
-                <Card className="bg-white border-gray-200 p-6">
-                  <stat.icon className="w-8 h-8 text-orange-500 mx-auto mb-3" />
-                  <div className="text-3xl md:text-4xl font-bold text-orange-500 mb-2">
-                    {stat.number}
-                  </div>
-                  <div className="text-sm text-gray-600">{stat.label}</div>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Mission & Values */}
+      {/* Purpose Statement */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-20">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-            >
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
-                Our <span className="text-orange-500">Mission</span>
-              </h2>
-              <p className="text-xl text-gray-700 mb-6">
-                To empower every individual in our community to achieve their fitness goals through world-class facilities, 
-                expert coaching, and an inclusive, supportive environment.
-              </p>
-              <p className="text-gray-600 mb-6">
-                At GemFitness, we believe fitness is more than just physical transformation—it&apos;s about building confidence, 
-                creating healthy habits, and being part of a community that lifts each other up.
-              </p>
-              <p className="text-gray-600">
-                Whether you&apos;re a beginner taking your first steps or an athlete pushing your limits, we&apos;re here 
-                to guide, motivate, and celebrate your journey every step of the way.
-              </p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-            >
-              <Card className="bg-gradient-to-br from-orange-500/20 to-transparent border-orange-500/30 p-8">
-                <div className="aspect-video bg-gradient-to-br from-orange-500/20 to-transparent rounded-lg flex items-center justify-center mb-4">
-                  <Building2 className="w-24 h-24 text-orange-500/50" />
-                </div>
-                <p className="text-gray-700 text-center italic">
-                  &quot;GemFitness isn&apos;t just a gym—it&apos;s a lifestyle, a community, and a commitment to being your best self.&quot;
-                </p>
-              </Card>
-            </motion.div>
-          </div>
-
-          {/* Core Values */}
+        <div className="max-w-4xl mx-auto text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center mb-12"
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Our <span className="text-orange-500">Core Values</span>
+            <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-6 tracking-tight">
+              We believe fitness changes <span className="text-orange-500">everything.</span>
             </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              These principles guide everything we do, from how we train to how we treat our community.
+            <div className="w-24 h-1 bg-orange-500 mx-auto mb-8" />
+            <p className="text-xl text-gray-700 leading-relaxed mb-6">
+              At GemFitness, we&apos;re more than a gym. We&apos;re a community built on the belief that when
+              you invest in your health, every part of your life gets better — your confidence, your energy,
+              your relationships, and your future.
+            </p>
+            <p className="text-lg text-gray-600 leading-relaxed">
+              Whether you&apos;re stepping into a gym for the first time or training for your next competition,
+              GemFitness is where you belong. Our certified coaches, world-class equipment, and welcoming
+              community make sure you never work out alone.
             </p>
           </motion.div>
+        </div>
+      </section>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {values.map((value, index) => (
+      {/* Stats Bar */}
+      <section className="py-12 px-4 sm:px-6 lg:px-8 bg-gray-900">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+            {stats.map((stat, index) => (
               <motion.div
-                key={value.title}
-                initial={{ opacity: 0, y: 20 }}
+                key={stat.label}
+                initial={{ opacity: 0, y: 10 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
+                className="text-center"
               >
-                <Card className="bg-white border-gray-200 p-6 hover:border-orange-500/30 transition-all h-full">
-                  <value.icon className="w-12 h-12 text-orange-500 mb-4" />
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">{value.title}</h3>
-                  <p className="text-gray-600">{value.description}</p>
-                </Card>
+                <div className="text-3xl md:text-4xl font-black text-orange-500 mb-1">
+                  {stat.number}
+                </div>
+                <div className="text-sm text-gray-400 uppercase tracking-wider font-medium">
+                  {stat.label}
+                </div>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Facilities Tour */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+      {/* Core Values */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gray-50">
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -250,58 +158,39 @@ export default function AboutPage() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              World-Class <span className="text-orange-500">Facilities</span>
+            <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
+              What We <span className="text-orange-500">Stand For</span>
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              Take a tour of our 15,000 sq ft facility equipped with everything you need to succeed.
+              These values guide every decision we make — from how we train to how we treat our community.
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {facilities.map((facility, index) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {values.map((value, index) => (
               <motion.div
-                key={facility.name}
+                key={value.title}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
+                transition={{ delay: index * 0.05 }}
               >
-                <Card className="bg-white border-gray-200 hover:border-orange-500/50 transition-all h-full">
-                  <div className="p-6">
-                    <facility.icon className="w-12 h-12 text-orange-500 mb-4" />
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">{facility.name}</h3>
-                    <p className="text-gray-600 mb-4">{facility.description}</p>
-                    <ul className="space-y-2">
-                      {facility.features.map((feature) => (
-                        <li key={feature} className="flex items-start space-x-2 text-sm text-gray-700">
-                          <div className="w-1.5 h-1.5 bg-orange-500 rounded-full mt-1.5 flex-shrink-0" />
-                          <span>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
+                <div className="flex items-start space-x-4 p-6">
+                  <div className="w-12 h-12 bg-orange-500/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <value.icon className="w-6 h-6 text-orange-500" />
                   </div>
-                </Card>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">{value.title}</h3>
+                    <p className="text-gray-600 text-sm">{value.description}</p>
+                  </div>
+                </div>
               </motion.div>
             ))}
           </div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mt-12"
-          >
-            <Link href="/contact">
-              <Button className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg px-8 py-6">
-                Schedule a Facility Tour
-              </Button>
-            </Link>
-          </motion.div>
         </div>
       </section>
 
-      {/* Timeline */}
+      {/* Our Story Timeline */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-5xl mx-auto">
           <motion.div
@@ -314,15 +203,14 @@ export default function AboutPage() {
               Our <span className="text-orange-500">Journey</span>
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              From humble beginnings to becoming Tema&apos;s premier fitness destination.
+              From humble beginnings to Tema&apos;s most trusted fitness brand.
             </p>
           </motion.div>
 
           <div className="relative">
-            {/* Timeline line */}
             <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-orange-500 via-orange-500/50 to-transparent" />
 
-            <div className="space-y-8">
+            <div className="space-y-6">
               {timeline.map((event, index) => (
                 <motion.div
                   key={event.year}
@@ -332,16 +220,15 @@ export default function AboutPage() {
                   transition={{ delay: index * 0.1 }}
                   className="relative pl-20"
                 >
-                  {/* Timeline dot */}
-                  <div className="absolute left-5 top-1 w-6 h-6 bg-orange-500 rounded-full border-4 border-black" />
-                  
-                  <Card className="bg-white border-gray-200 p-6">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <span className="text-2xl font-bold text-orange-500">{event.year}</span>
-                      <span className="text-xl font-bold text-gray-900">{event.title}</span>
+                  <div className="absolute left-5 top-1 w-6 h-6 bg-orange-500 rounded-full border-4 border-white shadow-sm" />
+
+                  <div className="pb-2">
+                    <div className="flex items-baseline space-x-3 mb-1">
+                      <span className="text-xl font-black text-orange-500">{event.year}</span>
+                      <span className="text-lg font-bold text-gray-900">{event.title}</span>
                     </div>
                     <p className="text-gray-600">{event.description}</p>
-                  </Card>
+                  </div>
                 </motion.div>
               ))}
             </div>
@@ -349,93 +236,57 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Awards & Recognition */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+      {/* Community Responsibility */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gray-50">
         <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <Award className="w-16 h-16 text-orange-500 mx-auto mb-6" />
-            <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
-              Awards & <span className="text-orange-500">Recognition</span>
-            </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              We&apos;re honored to be recognized for our commitment to excellence and community impact.
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {awards.map((award, index) => (
-              <motion.div
-                key={award.title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <Card className="bg-gradient-to-br from-orange-500/10 to-transparent border-orange-500/30 p-6">
-                  <div className="flex items-start space-x-4">
-                    <div className="w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Award className="w-8 h-8 text-orange-500" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900 mb-1">{award.title}</h3>
-                      <p className="text-sm text-gray-600">{award.org}</p>
-                      <p className="text-sm text-orange-500 font-semibold mt-1">{award.year}</p>
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Community Impact */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
             >
               <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-6 tracking-tight">
-                Community <span className="text-orange-500">Impact</span>
+                Giving Back to <span className="text-orange-500">Tema</span>
               </h2>
-              <p className="text-xl text-gray-700 mb-6">
-                We&apos;re more than a gym—we&apos;re a force for positive change in Tema.
+              <p className="text-lg text-gray-700 mb-8">
+                Fitness isn&apos;t just about personal gain — it&apos;s about lifting your community.
+                We&apos;re committed to making health and wellness accessible to everyone in Tema.
               </p>
-              <div className="space-y-4">
-                <div className="flex items-start space-x-3">
-                  <MapPin className="w-6 h-6 text-orange-500 flex-shrink-0 mt-1" />
+              <div className="space-y-6">
+                <div className="flex items-start space-x-4">
+                  <div className="w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Users className="w-5 h-5 text-orange-500" />
+                  </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-1">Youth Fitness Programs</h4>
-                    <p className="text-gray-600">Free fitness classes for underprivileged youth every Saturday</p>
+                    <h4 className="font-bold text-gray-900 mb-1">Youth Fitness Programs</h4>
+                    <p className="text-gray-600 text-sm">Free Saturday classes for underprivileged youth in the Tema community.</p>
                   </div>
                 </div>
-                <div className="flex items-start space-x-3">
-                  <Heart className="w-6 h-6 text-orange-500 flex-shrink-0 mt-1" />
+                <div className="flex items-start space-x-4">
+                  <div className="w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Heart className="w-5 h-5 text-orange-500" />
+                  </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-1">Health Awareness</h4>
-                    <p className="text-gray-600">Quarterly free health screenings and wellness workshops</p>
+                    <h4 className="font-bold text-gray-900 mb-1">Health Awareness</h4>
+                    <p className="text-gray-600 text-sm">Quarterly free health screenings and wellness workshops open to the public.</p>
                   </div>
                 </div>
-                <div className="flex items-start space-x-3">
-                  <Users className="w-6 h-6 text-orange-500 flex-shrink-0 mt-1" />
+                <div className="flex items-start space-x-4">
+                  <div className="w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Calendar className="w-5 h-5 text-orange-500" />
+                  </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-1">Community Events</h4>
-                    <p className="text-gray-600">Monthly charity fitness challenges and fundraisers</p>
+                    <h4 className="font-bold text-gray-900 mb-1">Community Events</h4>
+                    <p className="text-gray-600 text-sm">Monthly charity fitness challenges and fundraisers for local causes.</p>
                   </div>
                 </div>
-                <div className="flex items-start space-x-3">
-                  <Clock className="w-6 h-6 text-orange-500 flex-shrink-0 mt-1" />
+                <div className="flex items-start space-x-4">
+                  <div className="w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <MapPin className="w-5 h-5 text-orange-500" />
+                  </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-1">Senior Programs</h4>
-                    <p className="text-gray-600">Specialized classes and discounted memberships for seniors</p>
+                    <h4 className="font-bold text-gray-900 mb-1">Senior Wellness</h4>
+                    <p className="text-gray-600 text-sm">Specialized classes and discounted memberships for seniors (60+).</p>
                   </div>
                 </div>
               </div>
@@ -447,12 +298,14 @@ export default function AboutPage() {
               viewport={{ once: true }}
             >
               <Card className="bg-white border-gray-200 p-8">
-                <div className="aspect-video bg-gradient-to-br from-orange-500/20 to-transparent rounded-lg flex items-center justify-center mb-6">
-                  <Users className="w-32 h-32 text-orange-500/30" />
+                <div className="text-center mb-6">
+                  <div className="text-5xl md:text-6xl font-black text-orange-500 mb-2">&quot;We&apos;re What We Eat!&quot;</div>
+                  <p className="text-gray-500 text-sm uppercase tracking-wider">Our Motto Since 2015</p>
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-4 text-center">Join the Movement</h3>
-                <p className="text-gray-700 text-center mb-6">
-                  Be part of a gym that gives back. Every membership helps us support our community initiatives.
+                <div className="w-16 h-1 bg-orange-500 mx-auto mb-6" />
+                <p className="text-gray-700 text-center leading-relaxed mb-8">
+                  Every membership helps fund our community programs. When you train at GemFitness,
+                  you&apos;re not just investing in yourself — you&apos;re investing in Tema.
                 </p>
                 <Link href="/membership">
                   <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold">
@@ -466,19 +319,18 @@ export default function AboutPage() {
       </section>
 
       {/* CTA */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-orange-500/10 to-transparent">
+      <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <Building2 className="w-16 h-16 text-orange-500 mx-auto mb-6" />
             <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
-              Experience GemFitness Yourself
+              Come See for Yourself
             </h2>
             <p className="text-xl text-gray-700 mb-8">
-              Book a free tour and see why we&apos;re Tema&apos;s #1 fitness destination.
+              Book a free tour and experience why 2,500+ members call GemFitness home.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/contact">
@@ -488,7 +340,7 @@ export default function AboutPage() {
               </Link>
               <Link href="/membership">
                 <Button variant="outline" className="border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white text-lg px-8 py-6">
-                  View Membership Options
+                  View Membership Plans
                 </Button>
               </Link>
             </div>
@@ -498,4 +350,3 @@ export default function AboutPage() {
     </div>
   );
 }
-

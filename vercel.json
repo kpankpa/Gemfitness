@@ -1,5 +1,5 @@
 {
-  "crons": [
+  "crons-disabled-for-preview": [
     {
       "path": "/api/cron/payment-reminders",
       "schedule": "0 9 * * *"
