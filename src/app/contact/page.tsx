@@ -240,7 +240,7 @@ export default function ContactPage() {
                   <Button
                     type="submit"
                     disabled={formStatus !== 'idle'}
-                    className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-lg py-6 disabled:opacity-50"
+                    className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg py-6 disabled:opacity-50"
                   >
                     {formStatus === 'idle' && (
                       <>
@@ -332,7 +332,7 @@ export default function ContactPage() {
             className="text-center mb-16"
           >
             <HelpCircle className="w-12 h-12 text-orange-500 mx-auto mb-4" />
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
               Frequently Asked <span className="text-orange-500">Questions</span>
             </h2>
             <p className="text-gray-600">
@@ -387,13 +387,13 @@ export default function ContactPage() {
             viewport={{ once: true }}
           >
             <MapPin className="w-16 h-16 text-orange-500 mx-auto mb-6" />
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
               Visit Us Today!
             </h2>
             <p className="text-xl text-gray-700 mb-8">
               See our facilities in person. Schedule a free tour and experience GemFitness yourself.
             </p>
-            <Button className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-lg px-8 py-6">
+            <Button className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg px-8 py-6">
               Book Your Free Tour
             </Button>
           </motion.div>

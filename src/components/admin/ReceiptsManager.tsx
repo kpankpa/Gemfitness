@@ -108,7 +108,17 @@ export default function ReceiptsManager() {
   const formatMethod = (methodValue: string) => {
     if (methodValue === 'paystack') return 'Card/Bank';
     if (methodValue === 'momo') return 'MTN MoMo';
+    if (methodValue === 'cash') return 'Cash';
     return methodValue.toUpperCase();
+  };
+
+  const formatPlan = (planValue: string | undefined) => {
+    if (!planValue) return 'N/A';
+    if (planValue === 'DAILY') return 'Day Pass';
+    if (planValue === 'ONE_MONTH') return '1 Month';
+    if (planValue === 'THREE_MONTHS') return '3 Months';
+    if (planValue === 'ONE_YEAR') return '1 Year';
+    return planValue.replace(/_/g, ' ');
   };
 
   return (
@@ -314,7 +324,13 @@ export default function ReceiptsManager() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {payment.member?.plan ? payment.member.plan.replace('_', ' ') : 'N/A'}
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          payment.member?.plan === 'DAILY' 
+                            ? 'bg-purple-100 text-purple-700' 
+                            : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {formatPlan(payment.member?.plan)}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-sm font-semibold text-gray-900">
                         {payment.currency} {payment.amount.toLocaleString()}
@@ -343,21 +359,27 @@ export default function ReceiptsManager() {
                         {payment.reference}
                       </td>
                       <td className="px-4 py-3">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          asChild
-                          disabled={payment.status !== 'success'}
-                        >
-                          <a
-                            href={`/api/payments/receipt/${payment.id}`}
-                            target="_blank"
-                            rel="noreferrer"
+                        {payment.status === 'success' ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            className="border-green-500 text-green-700 hover:bg-green-50"
                           >
-                            <ExternalLink className="h-4 w-4 mr-1" />
-                            View
-                          </a>
-                        </Button>
+                            <a
+                              href={`/api/payments/receipt/${payment.id}`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              <ExternalLink className="h-4 w-4 mr-1" />
+                              View Receipt
+                            </a>
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">
+                            {payment.status === 'pending' ? 'Pending...' : 'N/A'}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))

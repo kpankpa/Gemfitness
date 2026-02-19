@@ -56,6 +56,7 @@ import {
   CalendarDays,
   ExternalLink,
   Printer,
+  Loader2,
 } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/components/ToastProvider';
@@ -69,6 +70,8 @@ import WebcamQRScanner from '@/components/WebcamQRScanner';
 import WaitlistModal from '@/components/admin/WaitlistModal';
 import BulkEmailModal from '@/components/admin/BulkEmailModal';
 import ClassReviewsModal from '@/components/admin/ClassReviewsModal';
+import ClassDetailsModal from '@/components/admin/ClassDetailsModal';
+import MemberDetailsModal from '@/components/admin/MemberDetailsModal';
 import MemberClassHistoryModal from '@/components/admin/MemberClassHistoryModal';
 import ClassEnrollmentModal from '@/components/admin/ClassEnrollmentModal';
 import ClassAttendanceModal from '@/components/admin/ClassAttendanceModal';
@@ -91,6 +94,7 @@ import ParQManagement from '@/components/admin/ParQManagement';
 import ReportsAnalytics from '@/components/admin/ReportsAnalytics';
 import ProfilePictureUpload from '@/components/ProfilePictureUpload';
 import AdminSubscriptionManager from '@/components/admin/AdminSubscriptionManager';
+import DayPassManager from '@/components/admin/DayPassManager';
 import ReceiptsManager from '@/components/admin/ReceiptsManager';
 import type { Member } from '@/types';
 import { printRegistrationReceipt, generateReceiptNumber } from '@/lib/receipt-printer';
@@ -220,7 +224,7 @@ export default function AdminDashboard() {
   }>>([]);
   const [isLoadingFees, setIsLoadingFees] = useState(false);
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'checkin' | 'members' | 'classes' | 'events' | 'attendance' | 'payments' | 'receipts' | 'plans' | 'staff' | 'analytics' | 'audit' | 'settings' | 'parq' | 'reports' | 'subscriptions'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'checkin' | 'members' | 'classes' | 'events' | 'attendance' | 'payments' | 'receipts' | 'plans' | 'staff' | 'analytics' | 'audit' | 'settings' | 'parq' | 'reports' | 'subscriptions' | 'daypass'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [checkinSearchQuery, setCheckinSearchQuery] = useState('');
   const [memberStatusFilter, setMemberStatusFilter] = useState<'all' | 'active' | 'expiring_soon' | 'expired'>('all');
@@ -268,7 +272,10 @@ export default function AdminDashboard() {
   const [isProcessingDayPass, setIsProcessingDayPass] = useState(false);
   const [dayPassPrice, setDayPassPrice] = useState(30);
   const [dayPassSuccess, setDayPassSuccess] = useState(false);
+  const [dayPassPending, setDayPassPending] = useState(false);
+  const [dayPassRefreshTrigger, setDayPassRefreshTrigger] = useState(0);
   const [dayPassResult, setDayPassResult] = useState<{
+    userId?: string;
     firstName: string;
     lastName: string;
     phone: string;
@@ -276,16 +283,87 @@ export default function AdminDashboard() {
     reference: string;
     expiresAt: string;
     transactionId?: string;
+    latePurchaseWarning?: string;
+    paymentMethod?: string;
+    provider?: string;
+    isPending?: boolean;
+    email?: string;
+    emergencyContact?: string;
+    emergencyPhone?: string;
+  } | null>(null);
+  const [dayPassUsage, setDayPassUsage] = useState<{
+    totalPasses: number;
+    last30DaysPasses: number;
+    totalSpent: number;
+    shouldSuggestMembership: boolean;
+    suggestMembershipReason: string;
+    potentialSavings: number;
   } | null>(null);
   const [dayPassForm, setDayPassForm] = useState({
     firstName: '',
     lastName: '',
     phone: '',
+    email: '',
     emergencyContact: '',
     emergencyPhone: '',
     paymentMethod: 'CASH' as 'CASH' | 'MOMO',
   });
   const [dayPassErrors, setDayPassErrors] = useState<Record<string, string>>({});
+
+  // Day Pass Upgrade modal states
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeUserId, setUpgradeUserId] = useState<string | null>(null);
+  const [upgradeUserData, setUpgradeUserData] = useState<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    emergencyContact: string;
+    emergencyPhone: string;
+    address: string;
+    dateOfBirth: string;
+    needsEmail: boolean;
+    needsDateOfBirth: boolean;
+  } | null>(null);
+  const [upgradePlans, setUpgradePlans] = useState<{
+    ONE_MONTH: { price: number; name: string; durationDays: number };
+    THREE_MONTHS: { price: number; name: string; durationDays: number };
+    ONE_YEAR: { price: number; name: string; durationDays: number };
+  } | null>(null);
+  const [upgradeFormData, setUpgradeFormData] = useState({
+    plan: 'ONE_MONTH' as 'ONE_MONTH' | 'THREE_MONTHS' | 'ONE_YEAR',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    dateOfBirth: '',
+    emergencyContact: '',
+    emergencyPhone: '',
+    address: '',
+    fitnessGoals: '',
+    medicalConditions: '',
+    hasHeartCondition: false,
+    hasChestPain: false,
+    hasDizziness: false,
+    hasJointProblems: false,
+    takesMedication: false,
+    hasOtherConditions: false,
+    otherConditionsDetails: '',
+    paymentMethod: 'CASH' as 'CASH' | 'MOMO',
+    momoReference: '',
+  });
+  const [isProcessingUpgrade, setIsProcessingUpgrade] = useState(false);
+  const [upgradeErrors, setUpgradeErrors] = useState<Record<string, string>>({});
+  const [upgradeSuccess, setUpgradeSuccess] = useState(false);
+  const [upgradedMemberData, setUpgradedMemberData] = useState<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    plan: string;
+    planName: string;
+    reference: string;
+    amountPaid: number;
+  } | null>(null);
 
   // Staff modal states
   const [showAddStaffModal, setShowAddStaffModal] = useState(false);
@@ -455,6 +533,15 @@ export default function AdminDashboard() {
   });
   const [isRegistering, setIsRegistering] = useState(false);
   const [newMemberErrors, setNewMemberErrors] = useState<Record<string, string>>({});
+  const [pendingRegistration, setPendingRegistration] = useState<{
+    email: string;
+    name: string;
+    reference: string;
+    expiresAt: string;
+    timeRemaining: number;
+  } | null>(null);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const { push: pushToast } = useToast();
 
@@ -463,23 +550,72 @@ export default function AdminDashboard() {
     pushToast(message, type);
   };
 
-  const memberCreateSchema = z.object({
-    firstName: z.string().min(2, 'First name is required'),
-    lastName: z.string().min(2, 'Last name is required'),
-    email: z.string().email('Invalid email'),
-    phone: z.string().min(7, 'Invalid phone'),
-    password: z.string().min(6, 'Password must be at least 6 characters'),
-    dateOfBirth: z.string().optional(),
-    registrationType: z.enum(['SELF', 'WALK_IN', 'ADMIN']).optional(),
-    plan: z.enum(['DAILY', 'ONE_MONTH', 'THREE_MONTHS', 'ONE_YEAR', 'SIX_MONTHS', 'TWELVE_MONTHS']).optional()
-  });
+  // Check pending registration status
+  const checkPendingStatus = async (email: string) => {
+    setIsCheckingStatus(true);
+    try {
+      const response = await fetch(`/api/members/walk-in/check-status?email=${encodeURIComponent(email)}`);
+      const data = await response.json();
+
+      if (data.status === 'pending') {
+        setPendingRegistration(data.pending);
+        pushToast(`Payment pending. Time remaining: ${data.pending.timeRemaining} minutes`, 'info');
+      } else if (data.status === 'completed') {
+        pushToast('Registration completed successfully!', 'success');
+        setPendingRegistration(null);
+        setNewMemberErrors({});
+        setShowNewMemberModal(false);
+        fetchMembers(currentPage, pageSize);
+      } else if (data.status === 'expired') {
+        pushToast('Pending registration expired. You can register again.', 'info');
+        setPendingRegistration(null);
+        setNewMemberErrors({});
+      } else {
+        pushToast('No pending registration found', 'info');
+        setPendingRegistration(null);
+      }
+    } catch (error) {
+      console.error('Error checking status:', error);
+      pushToast('Failed to check payment status', 'error');
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  };
+
+  // Cancel pending registration
+  const cancelPendingRegistration = async (email: string) => {
+    if (!confirm('Are you sure you want to cancel this pending registration?')) return;
+
+    setIsCancelling(true);
+    try {
+      const response = await fetch('/api/members/walk-in/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        pushToast('Pending registration cancelled. You can register again.', 'success');
+        setPendingRegistration(null);
+        setNewMemberErrors({});
+      } else {
+        pushToast(data.error || 'Failed to cancel registration', 'error');
+      }
+    } catch (error) {
+      console.error('Error cancelling:', error);
+      pushToast('Failed to cancel registration', 'error');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   const memberEditSchema = z.object({
     id: z.string().min(1),
-    firstName: z.string().min(2).optional(),
-    lastName: z.string().min(2).optional(),
-    email: z.string().email().optional(),
-    phone: z.string().min(7).optional(),
+    firstName: z.string().min(2, 'First name must be at least 2 characters'),
+    lastName: z.string().min(2, 'Last name must be at least 2 characters'),
+    email: z.string().email('Invalid email address'),
+    phone: z.string().min(10, 'Phone must be at least 10 digits'),
     dateOfBirth: z.string().optional(),
     address: z.string().max(200).optional(),
     emergencyContact: z.string().max(100).optional(),
@@ -564,9 +700,11 @@ export default function AdminDashboard() {
   const [eventImagePreview, setEventImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
-  // Advanced feature modal states
+  //  feature modal states
   const [showWaitlistModal, setShowWaitlistModal] = useState(false);
   const [showClassReviewsModal, setShowClassReviewsModal] = useState(false);
+  const [showClassDetailsModal, setShowClassDetailsModal] = useState(false);
+  const [showMemberDetailsModal, setShowMemberDetailsModal] = useState(false);
   const [showBulkEmailModal, setShowBulkEmailModal] = useState(false);
   const [showMemberClassHistoryModal, setShowMemberClassHistoryModal] = useState(false);
   const [showClassEnrollmentModal, setShowClassEnrollmentModal] = useState(false);
@@ -659,10 +797,10 @@ export default function AdminDashboard() {
   const [gymSettings, setGymSettings] = useState({
     name: 'GemFitness Tema',
     slogan: 'Transform Your Body, Transform Your Life',
-    email: 'info@gemfitness.com',
-    phone: '+233 XX XXX XXXX',
-    address: 'Tema, Greater Accra Region, Ghana',
-    website: 'www.gemfitness.com',
+    email: 'info@gemfitness.fit',
+    phone: '+233 249003832',
+    address: 'Gbetsile,Tema, Greater Accra Region, Ghana',
+    website: 'www.gemfitness.fit',
     timezone: 'Africa/Accra',
     currency: 'GHS',
     operatingHours: {
@@ -1071,6 +1209,38 @@ export default function AdminDashboard() {
     }
   };
 
+  // Check if visitor is a returning day pass customer (lookup by phone)
+  const checkDayPassVisitor = async (phone: string) => {
+    // Only check if phone has enough digits
+    if (!phone || phone.replace(/\D/g, '').length < 9) {
+      setDayPassUsage(null);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/day-pass/history?phone=${encodeURIComponent(phone)}`);
+      const data = await response.json();
+      
+      if (data.success && data.usage) {
+        setDayPassUsage(data.usage);
+        
+        // Auto-fill name if returning visitor
+        if (data.user && !dayPassForm.firstName && !dayPassForm.lastName) {
+          setDayPassForm(prev => ({
+            ...prev,
+            firstName: data.user.firstName || '',
+            lastName: data.user.lastName || '',
+          }));
+        }
+      } else {
+        setDayPassUsage(null);
+      }
+    } catch (error) {
+      console.error('Failed to check visitor history:', error);
+      setDayPassUsage(null);
+    }
+  };
+
   // Handle day pass sale
   const handleSellDayPass = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1102,18 +1272,49 @@ export default function AdminDashboard() {
       });
 
       const data = await response.json();
+      console.log('📋 Day pass API response:', { status: response.status, data });
 
       if (response.ok && data.success) {
+        // Capture usage data for membership conversion tracking
+        if (data.usage) {
+          setDayPassUsage(data.usage);
+
+          // Show membership suggestion if applicable
+          if (data.usage.shouldSuggestMembership && data.usage.suggestMembershipReason) {
+            pushToast(`💡 ${data.usage.suggestMembershipReason}`, 'info');
+          }
+        }
+
+        // Show late purchase warning if present
+        if (data.dayPass?.latePurchaseWarning || data.latePurchaseWarning) {
+          pushToast(`⚠️ ${data.dayPass?.latePurchaseWarning || data.latePurchaseWarning}`, 'info');
+        }
+
         // Handle MoMo pending vs Cash immediate success
         if (data.payment_method === 'MOMO' && data.status === 'pending') {
-          pushToast('MoMo payment initiated! Customer will receive USSD prompt.', 'success');
-          pushToast(`Reference: ${data.reference}`, 'info');
-          closeDayPassModal();
-          // Optionally: Show a "pending" indicator or poll for status
+          // MoMo - show pending state in modal, don't close
+          setDayPassPending(true);
+          setDayPassResult({
+            userId: data.userId || data.dayPass?.userId || '',
+            firstName: data.dayPass?.firstName || dayPassForm.firstName,
+            lastName: data.dayPass?.lastName || dayPassForm.lastName,
+            phone: data.dayPass?.phone || dayPassForm.phone,
+            price: data.dayPass?.price || dayPassPrice,
+            reference: data.reference,
+            expiresAt: data.dayPass?.expiresAt || new Date().toISOString(),
+            paymentMethod: 'MOMO',
+            provider: data.provider,
+            isPending: true,
+            email: data.dayPass?.email,
+            emergencyContact: data.dayPass?.emergencyContact,
+            emergencyPhone: data.dayPass?.emergencyPhone,
+          });
+          pushToast('USSD prompt sent to customer\'s phone', 'info');
         } else {
           // Cash payment - immediate success
           setDayPassSuccess(true);
           setDayPassResult({
+            userId: data.userId || data.dayPass.userId,
             firstName: data.dayPass.firstName,
             lastName: data.dayPass.lastName,
             phone: data.dayPass.phone,
@@ -1121,23 +1322,44 @@ export default function AdminDashboard() {
             reference: data.reference,
             expiresAt: data.dayPass.expiresAt || new Date().toISOString(),
             transactionId: data.transactionId,
+            latePurchaseWarning: data.dayPass.latePurchaseWarning,
+            paymentMethod: 'CASH',
+            email: data.dayPass.email, // Include email from response
+            emergencyContact: data.dayPass.emergencyContact,
+            emergencyPhone: data.dayPass.emergencyPhone,
+          });
+          console.log('✅ Day pass result set:', {
+            name: `${data.dayPass.firstName} ${data.dayPass.lastName}`,
+            email: data.dayPass.email,
+            phone: data.dayPass.phone,
           });
           pushToast(`Day pass sold to ${data.dayPass.firstName} ${data.dayPass.lastName}`, 'success');
           fetchCheckIns();
           fetchStats();
+          // Trigger day pass list refresh
+          setDayPassRefreshTrigger(prev => prev + 1);
         }
       } else if (response.status === 409) {
         // Duplicate day pass
+        console.warn('⚠️ Duplicate day pass attempt:', data);
         if (data.existingPass?.isStillValid) {
           pushToast(`⚠️ ${data.error}\nPass expires at midnight today.`, 'error');
         } else {
           pushToast(data.error || 'Day pass already purchased today', 'error');
         }
+      } else if (response.status === 403 && data.limitReached) {
+        // Day pass limit reached - strong membership push
+        console.warn('⚠️ Day pass limit reached:', data);
+        pushToast(data.message || 'Day pass limit reached', 'error');
+        if (data.usage) {
+          setDayPassUsage(data.usage);
+        }
       } else {
-        pushToast(data.error || 'Failed to process day pass', 'error');
+        console.error('❌ Day pass API error:', { status: response.status, data });
+        pushToast(data.error || data.message || 'Failed to process day pass', 'error');
       }
     } catch (error) {
-      console.error('Day pass error:', error);
+      console.error('❌ Day pass error:', error);
       pushToast('Failed to process day pass', 'error');
     } finally {
       setIsProcessingDayPass(false);
@@ -1148,12 +1370,15 @@ export default function AdminDashboard() {
   const closeDayPassModal = () => {
     setShowDayPassModal(false);
     setDayPassSuccess(false);
+    setDayPassPending(false);
     setDayPassResult(null);
+    setDayPassUsage(null);
     setDayPassErrors({});
     setDayPassForm({
       firstName: '',
       lastName: '',
       phone: '',
+      email: '',
       emergencyContact: '',
       emergencyPhone: '',
       paymentMethod: 'CASH',
@@ -1261,6 +1486,175 @@ export default function AdminDashboard() {
     receiptWindow.document.close();
   };
 
+  // Open upgrade modal and fetch user info
+  const openUpgradeModal = async (userId: string) => {
+    setIsProcessingUpgrade(true);
+    try {
+      const response = await fetch(`/api/day-pass/upgrade?userId=${userId}`);
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setUpgradeUserId(userId);
+        setUpgradeUserData({
+          ...data.user,
+          needsEmail: data.needsEmail,
+          needsDateOfBirth: data.needsDateOfBirth,
+        });
+        setUpgradePlans(data.plans);
+        // Pre-fill form with existing user data
+        setUpgradeFormData(prev => ({
+          ...prev,
+          plan: 'ONE_MONTH',
+          email: data.user.email || '',
+          dateOfBirth: data.user.dateOfBirth || '',
+          emergencyContact: data.user.emergencyContact || '',
+          emergencyPhone: data.user.emergencyPhone || '',
+          address: data.user.address || '',
+        }));
+        setShowUpgradeModal(true);
+        closeDayPassModal(); // Close day pass modal
+      } else {
+        pushToast(data.error || 'Failed to load upgrade information', 'error');
+      }
+    } catch (error) {
+      console.error('Error loading upgrade info:', error);
+      pushToast('Failed to load upgrade information', 'error');
+    } finally {
+      setIsProcessingUpgrade(false);
+    }
+  };
+
+  // Handle upgrade submission
+  const handleUpgrade = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUpgradeErrors({});
+
+    // Validation
+    const errors: Record<string, string> = {};
+    if (!upgradeFormData.password || upgradeFormData.password.length < 6) {
+      errors.password = 'Password must be at least 6 characters';
+    }
+    if (upgradeFormData.password !== upgradeFormData.confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match';
+    }
+    if (!upgradeFormData.dateOfBirth) {
+      errors.dateOfBirth = 'Date of birth is required';
+    }
+    if (upgradeUserData?.needsEmail && (!upgradeFormData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(upgradeFormData.email))) {
+      errors.email = 'Valid email address is required';
+    }
+    if (!upgradeFormData.emergencyContact || upgradeFormData.emergencyContact.length < 2) {
+      errors.emergencyContact = 'Emergency contact name is required';
+    }
+    if (!upgradeFormData.emergencyPhone || upgradeFormData.emergencyPhone.length < 7) {
+      errors.emergencyPhone = 'Emergency contact phone is required';
+    }
+    if (Object.keys(errors).length > 0) {
+      setUpgradeErrors(errors);
+      pushToast('Please fix the errors', 'error');
+      return;
+    }
+
+    if (!upgradeUserId || !upgradePlans) {
+      pushToast('Missing upgrade information', 'error');
+      return;
+    }
+
+    setIsProcessingUpgrade(true);
+    try {
+      const selectedPlan = upgradePlans[upgradeFormData.plan];
+      const amountToPay = selectedPlan.price;
+
+      const response = await fetch('/api/day-pass/upgrade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: upgradeUserId,
+          plan: upgradeFormData.plan,
+          password: upgradeFormData.password,
+          dateOfBirth: upgradeFormData.dateOfBirth,
+          email: upgradeFormData.email || undefined,
+          emergencyContact: upgradeFormData.emergencyContact || undefined,
+          emergencyPhone: upgradeFormData.emergencyPhone || undefined,
+          address: upgradeFormData.address || undefined,
+          fitnessGoals: upgradeFormData.fitnessGoals || undefined,
+          medicalConditions: upgradeFormData.medicalConditions || undefined,
+          hasHeartCondition: upgradeFormData.hasHeartCondition,
+          hasChestPain: upgradeFormData.hasChestPain,
+          hasDizziness: upgradeFormData.hasDizziness,
+          hasJointProblems: upgradeFormData.hasJointProblems,
+          takesMedication: upgradeFormData.takesMedication,
+          hasOtherConditions: upgradeFormData.hasOtherConditions,
+          otherConditionsDetails: upgradeFormData.otherConditionsDetails || undefined,
+          paymentMethod: upgradeFormData.paymentMethod,
+          amountPaid: amountToPay,
+          momoReference: upgradeFormData.momoReference || undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Show success screen
+        setUpgradeSuccess(true);
+        setUpgradedMemberData({
+          firstName: data.user.firstName,
+          lastName: data.user.lastName,
+          email: data.user.email,
+          phone: data.user.phone,
+          plan: data.subscription.plan,
+          planName: data.subscription.planName,
+          reference: data.payment.reference,
+          amountPaid: data.payment.amount,
+        });
+        pushToast(`Successfully upgraded to ${data.subscription.planName}!`, 'success');
+        // Refresh data
+        fetchMembers();
+        setDayPassRefreshTrigger(prev => prev + 1);
+        fetchStats();
+      } else {
+        pushToast(data.error || 'Failed to process upgrade', 'error');
+      }
+    } catch (error) {
+      console.error('Upgrade error:', error);
+      pushToast('Failed to process upgrade', 'error');
+    } finally {
+      setIsProcessingUpgrade(false);
+    }
+  };
+
+  // Close upgrade modal
+  const closeUpgradeModal = () => {
+    setShowUpgradeModal(false);
+    setUpgradeSuccess(false);
+    setUpgradeUserId(null);
+    setUpgradeUserData(null);
+    setUpgradePlans(null);
+    setUpgradedMemberData(null);
+    setUpgradeErrors({});
+    setUpgradeFormData({
+      plan: 'ONE_MONTH',
+      email: '',
+      password: '',
+      confirmPassword: '',
+      dateOfBirth: '',
+      emergencyContact: '',
+      emergencyPhone: '',
+      address: '',
+      fitnessGoals: '',
+      medicalConditions: '',
+      hasHeartCondition: false,
+      hasChestPain: false,
+      hasDizziness: false,
+      hasJointProblems: false,
+      takesMedication: false,
+      hasOtherConditions: false,
+      otherConditionsDetails: '',
+      paymentMethod: 'CASH',
+      momoReference: '',
+    });
+  };
+
   // Fetch staff from API
   const fetchStaff = async () => {
     setIsLoadingStaff(true);
@@ -1298,21 +1692,14 @@ export default function AdminDashboard() {
     try {
       console.log('📊 Fetching attendance history...');
       
-      // Default to last 30 days if no dates provided
       const params = new URLSearchParams();
-      if (startDate) {
-        params.append('startDate', startDate);
+      if (startDate || endDate) {
+        // Use explicit date range when provided
+        if (startDate) params.append('startDate', startDate);
+        if (endDate) params.append('endDate', endDate);
       } else {
-        // Default start: 30 days ago
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        params.append('startDate', thirtyDaysAgo.toISOString());
-      }
-      if (endDate) {
-        params.append('endDate', endDate);
-      } else {
-        // Default end: now
-        params.append('endDate', new Date().toISOString());
+        // Default: fetch ALL check-in records (no date restriction)
+        params.append('all', 'true');
       }
 
       const response = await fetch(`/api/checkins?${params.toString()}`);
@@ -1322,6 +1709,8 @@ export default function AdminDashboard() {
         console.log(`✅ Fetched ${data.checkIns.length} attendance records`);
         setFilteredCheckIns(data.checkIns);
         setAttendancePage(1); // Reset to first page on new data
+      } else {
+        console.warn('⚠️ Unexpected response from attendance API:', data);
       }
     } catch (error) {
       console.error('❌ Error fetching attendance history:', error);
@@ -1840,13 +2229,24 @@ export default function AdminDashboard() {
         });
         setEditMemberFieldErrors(issues);
         pushToast('Please fix the highlighted fields', 'error');
+        setIsUpdatingMember(false);
         return;
       }
 
-      // Use FormData for member update
+      // Use FormData for member update - filter out empty strings for optional fields
       const form = new FormData();
       Object.entries(editMemberFormData).forEach(([k, v]) => {
-        if (v !== undefined && v !== null) form.append(k, String(v));
+        // Always include required fields (id, firstName, lastName, email, phone)
+        const requiredFields = ['id', 'firstName', 'lastName', 'email', 'phone'];
+        
+        if (requiredFields.includes(k)) {
+          if (v !== undefined && v !== null) form.append(k, String(v));
+        } else {
+          // For optional fields, only include if not empty
+          if (v !== undefined && v !== null && String(v).trim() !== '') {
+            form.append(k, String(v));
+          }
+        }
       });
 
       const response = await fetch(`/api/members/${editMemberFormData.id}`, {
@@ -1855,6 +2255,10 @@ export default function AdminDashboard() {
       });
 
       const data = await response.json();
+      
+      // Log for debugging
+      console.log('Update response:', { status: response.status, data });
+      
       if (response.status === 400 && data?.details) {
         // Map Zod issues to field errors
         const issues: Record<string, string> = {};
@@ -1863,6 +2267,7 @@ export default function AdminDashboard() {
         });
         setEditMemberFieldErrors(issues);
         pushToast('Please fix the highlighted fields', 'error');
+        setIsUpdatingMember(false);
         return;
       }
 
@@ -1880,22 +2285,29 @@ export default function AdminDashboard() {
         pushToast(target === 'email' || (Array.isArray(target) && target.includes('email')) 
           ? 'Email address is already registered to another member' 
           : 'Please fix the highlighted fields', 'error');
+        setIsUpdatingMember(false);
         return;
       }
 
       if (data.success) {
         setShowEditMemberModal(false);
         setSelectedMember(null);
-        fetchMembers(currentPage, pageSize);
+        setMemberEditError(null);
+        setEditMemberFieldErrors({});
+        // Refresh the members list to show updated data
+        await fetchMembers(currentPage, pageSize);
         pushToast('Member updated successfully', 'success');
       } else {
-        setMemberEditError(data.error || 'Failed to update member');
-        pushToast(data.error || 'Failed to update member', 'error');
+        const errorMsg = data.error || data.message || 'Failed to update member';
+        setMemberEditError(errorMsg);
+        pushToast(errorMsg, 'error');
+        console.error('Update failed:', data);
       }
     } catch (error) {
       console.error('Edit member error:', error);
-      setMemberEditError('An error occurred while updating member');
-      pushToast('An error occurred while updating member', 'error');
+      const errorMsg = error instanceof Error ? error.message : 'An error occurred while updating member';
+      setMemberEditError(errorMsg);
+      pushToast(errorMsg, 'error');
     } finally {
       setIsUpdatingMember(false);
     }
@@ -1904,19 +2316,48 @@ export default function AdminDashboard() {
   // Open edit member modal
   const openEditMemberModal = (member: Member) => {
     setSelectedMember(member);
+    
+    // Split name if firstName/lastName are not available
+    let firstName = member.firstName || '';
+    let lastName = member.lastName || '';
+    
+    if (!firstName && !lastName && member.name) {
+      const nameParts = member.name.trim().split(' ');
+      firstName = nameParts[0] || '';
+      lastName = nameParts.slice(1).join(' ') || '';
+    }
+    
+    // Format date of birth for date input (YYYY-MM-DD)
+    let formattedDob = member.dateOfBirth || '';
+    if (formattedDob) {
+      try {
+        const date = new Date(formattedDob);
+        if (!isNaN(date.getTime())) {
+          formattedDob = date.toISOString().split('T')[0];
+        }
+      } catch (e) {
+        console.warn('Failed to format date of birth:', e);
+      }
+    }
+    
     setEditMemberFormData({
       id: member.id,
-      firstName: member.firstName || '',
-      lastName: member.lastName || '',
+      firstName,
+      lastName,
       email: member.email,
       phone: member.phone,
-      dateOfBirth: member.dateOfBirth || '',
+      dateOfBirth: formattedDob,
       address: member.address || '',
       emergencyContact: member.emergencyContact || '',
       emergencyPhone: member.emergencyPhone || '',
       fitnessGoals: member.fitnessGoals || '',
       medicalConditions: member.medicalConditions || '',
     });
+    
+    // Clear any previous errors
+    setMemberEditError(null);
+    setEditMemberFieldErrors({});
+    
     setShowEditMemberModal(true);
   };
 
@@ -2018,23 +2459,33 @@ export default function AdminDashboard() {
     try {
       // Auto-generate secure password if not provided
       const autoPassword = `GYM${Math.random().toString(36).slice(-8).toUpperCase()}${Math.floor(Math.random() * 100)}`;
+      
+      // Calculate expected amount (Plan + Registration Fee)
+      const planPrices: Record<string, number> = {
+        'ONE_MONTH': 200,
+        'THREE_MONTHS': 500,
+        'ONE_YEAR': 1800
+      };
+      const regFee = 250;
+      const planCost = planPrices[newMember.plan as keyof typeof planPrices] || 200;
+      const expectedAmount = planCost + regFee;
+      const actualAmount = parseFloat(newMember.amountPaid || '0');
+      
+      // Validate amount paid
+      if (actualAmount < expectedAmount) {
+        setNewMemberErrors({ amountPaid: `Amount should be at least GH₵${expectedAmount} (Plan: GH₵${planCost} + Registration: GH₵${regFee})` });
+        pushToast(`Invalid amount. Expected: GH₵${expectedAmount}`, 'error');
+        setIsRegistering(false);
+        return;
+      }
+      
       const memberData = {
         ...newMember,
         password: newMember.password || autoPassword,
-        registrationType: 'WALK_IN', // Force WALK_IN for receptionist registration
+        registrationType: 'WALK_IN',
+        amountPaid: actualAmount
       };
       
-      const parsed = memberCreateSchema.safeParse(memberData);
-      if (!parsed.success) {
-        const issues: Record<string, string> = {};
-        parsed.error.issues.forEach((iss) => {
-          if (iss.path && iss.path[0]) issues[String(iss.path[0])] = iss.message;
-        });
-        setNewMemberErrors(issues);
-        pushToast('Please fix the highlighted fields', 'error');
-        return;
-      }
-
       // Use FormData to support file upload
       const form = new FormData();
       Object.entries(memberData).forEach(([k, v]) => {
@@ -2044,12 +2495,30 @@ export default function AdminDashboard() {
       // Store generated password for receipt
       const generatedPassword = memberData.password;
 
-      const response = await fetch('/api/members', {
+      const response = await fetch('/api/members/walk-in', {
         method: 'POST',
         body: form,
       });
 
-      const data = await response.json();
+      // Parse response with proper error handling
+      let data;
+      try {
+        const responseText = await response.text();
+        console.log('Raw API response:', { status: response.status, body: responseText });
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch (parseError) {
+        console.error('Failed to parse API response:', parseError);
+        pushToast('Server returned invalid response', 'error');
+        return;
+      }
+      
+      // Enhanced logging for debugging
+      console.log('Walk-in registration response:', {
+        status: response.status,
+        ok: response.ok,
+        data
+      });
+      
       if (response.status === 400 && data?.details) {
         const issues: Record<string, string> = {};
         (data.details || []).forEach((iss: { path?: string[]; message?: string }) => {
@@ -2061,6 +2530,22 @@ export default function AdminDashboard() {
       }
 
       if (response.status === 409 && data?.fields) {
+        // Check if this is a "registration in progress" error
+        if (data.error === 'Registration already in progress for this email' || data.message?.includes('pending')) {
+          // Show pending registration details
+          const pendingInfo = {
+            email: newMember.email,
+            name: `${newMember.firstName} ${newMember.lastName}`,
+            reference: data.reference || 'Unknown',
+            expiresAt: data.expiresAt || '',
+            timeRemaining: 0
+          };
+          setPendingRegistration(pendingInfo);
+          pushToast(data.message || 'A mobile money payment is pending for this email', 'info');
+          return;
+        }
+
+        // Handle duplicate email/phone errors
         const issues: Record<string, string> = {};
         const target = data.fields;
         if (Array.isArray(target)) {
@@ -2077,30 +2562,43 @@ export default function AdminDashboard() {
         return;
       }
 
-      if (response.ok) {
-        // Store registered member data for receipt
-        setRegisteredMemberData({
-          ...data.user,
-          plan: memberData.plan,
-          registrationType: memberData.registrationType,
-          password: generatedPassword,
-          paymentMethod: memberData.paymentMethod,
-          amountPaid: memberData.amountPaid,
-          momoReference: memberData.momoReference,
-          emergencyContact: memberData.emergencyContact,
-          emergencyPhone: memberData.emergencyPhone,
-        });
-        setRegistrationSuccess(true);
-        // Refresh members list
-        fetchMembers(currentPage, pageSize);
-        fetchAnalytics();
-        pushToast('Member registered successfully', 'success');
+      if (response.ok || data.success) {
+        // Check if payment is pending (MoMo)
+        if (data.payment_method === 'MOMO' && data.status === 'pending') {
+          // MoMo payment pending - show pending state
+          pushToast('USSD prompt sent to customer phone. Awaiting payment...', 'info');
+          setNewMemberErrors({});
+          // Reset form but keep modal open to show pending state
+          // We'll handle this in the UI if needed
+        } else {
+          // CASH or completed payment - store data for receipt
+          setRegisteredMemberData({
+            ...data.user,
+            plan: memberData.plan,
+            registrationType: memberData.registrationType,
+            password: data.password || generatedPassword,
+            paymentMethod: memberData.paymentMethod,
+            amountPaid: memberData.amountPaid,
+            momoReference: data.reference || memberData.momoReference,
+            emergencyContact: memberData.emergencyContact,
+            emergencyPhone: memberData.emergencyPhone,
+          });
+          setRegistrationSuccess(true);
+          // Refresh members list
+          fetchMembers(currentPage, pageSize);
+          fetchAnalytics();
+          pushToast('Member registered successfully', 'success');
+        }
       } else {
-        pushToast(data.error || 'Failed to register member', 'error');
+        // Show detailed error message
+        const errorMsg = data.error || data.message || 'Failed to register member';
+        console.error('Registration failed:', { status: response.status, data });
+        pushToast(errorMsg, 'error');
       }
     } catch (error) {
       console.error('Registration error:', error);
-      pushToast('Failed to register member', 'error');
+      const errorMsg = error instanceof Error ? error.message : 'Failed to register member';
+      pushToast(errorMsg, 'error');
     } finally {
       setIsRegistering(false);
     }
@@ -2754,9 +3252,23 @@ export default function AdminDashboard() {
       return;
     }
 
+    // Normalize QR code format - accept both GYM|<token> and raw <token>
+    const fullQrPattern = /^GYM\|[A-Za-z0-9_-]{24}$/;
+    const tokenPattern = /^[A-Za-z0-9_-]{24}$/;
+    
+    let normalizedQrCode: string;
+    if (fullQrPattern.test(dataToSend.qrCode)) {
+      normalizedQrCode = dataToSend.qrCode;
+    } else if (tokenPattern.test(dataToSend.qrCode)) {
+      normalizedQrCode = `GYM|${dataToSend.qrCode}`;
+    } else {
+      pushToast('Invalid QR code format', 'error');
+      return;
+    }
+
     try {
       // First, check if member has completed PAR-Q
-      const memberCheck = await fetch(`/api/members/check-parq?qrCode=${encodeURIComponent(dataToSend.qrCode)}`);
+      const memberCheck = await fetch(`/api/members/check-parq?qrCode=${encodeURIComponent(normalizedQrCode)}`);
       const memberData = await memberCheck.json();
       
       if (memberData.requiresParQ) {
@@ -2788,7 +3300,7 @@ export default function AdminDashboard() {
       }
 
       const result = await performCheckIn({
-        qrCode: dataToSend.qrCode,
+        qrCode: normalizedQrCode,
         method: dataToSend.method || 'qr',
         checkedBy: user ? `${user.firstName} ${user.lastName}` : 'system',
         forceCheckIn: ('forceCheckIn' in dataToSend) ? dataToSend.forceCheckIn || false : false
@@ -2810,7 +3322,7 @@ export default function AdminDashboard() {
           message: result.message || 'Member already checked in recently',
           lastCheckIn: result.lastCheckIn,
           pendingData: {
-            qrCode: dataToSend.qrCode,
+            qrCode: normalizedQrCode,
             method: dataToSend.method || 'qr',
             forceCheckIn: false
           }
@@ -2902,6 +3414,7 @@ export default function AdminDashboard() {
                   {activeTab === 'classes' && 'Gym class scheduling and management'}
                   {activeTab === 'events' && 'Special events and programs'}
                   {activeTab === 'attendance' && 'Member attendance history'}
+                  {activeTab === 'daypass' && 'Day pass sales and management'}
                   {activeTab === 'payments' && 'Payment tracking and revenue'}
                   {activeTab === 'receipts' && 'Member payment receipts and downloads'}
                   {activeTab === 'plans' && 'Membership plan management'}
@@ -2968,10 +3481,6 @@ export default function AdminDashboard() {
                       <span className="text-xs sm:text-sm">New Member</span>
                     </Button>
                   )}
-                  <Button onClick={() => { fetchDayPassPrice(); setShowDayPassModal(true); }} className="h-auto flex-col gap-2 py-4 bg-green-600 hover:bg-green-700 text-white">
-                    <Ticket className="h-6 w-6" />
-                    <span className="text-xs sm:text-sm">Day Pass</span>
-                  </Button>
                   <Button onClick={() => setActiveTab('checkin')} variant="outline" className="h-auto flex-col gap-2 py-4 border-2">
                     <QrCode className="h-6 w-6" />
                     <span className="text-xs sm:text-sm">Check-In</span>
@@ -3351,7 +3860,7 @@ export default function AdminDashboard() {
                                 size="sm"
                                 onClick={() => { 
                                   setSelectedMember(member as Member);
-                                  setShowNewMemberModal(true);
+                                  setShowMemberDetailsModal(true);
                                 }}
                                 title="View member details"
                               >
@@ -3560,7 +4069,7 @@ export default function AdminDashboard() {
                               className="flex-1 border-2"
                               onClick={() => {
                                 setSelectedClassForModal(classItem);
-                                setShowNewMemberModal(true);
+                                setShowClassDetailsModal(true);
                               }}
                             >
                               <Eye className="h-4 w-4 mr-1" />
@@ -4098,25 +4607,57 @@ export default function AdminDashboard() {
                               key={member.id}
                               className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
                             >
-                              <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-1">
-                                  <p className="font-semibold text-gray-900 text-lg">{member.name}</p>
-                                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                                    member.status === 'active' ? 'bg-green-100 text-green-700' :
-                                    member.status === 'expiring_soon' ? 'bg-yellow-100 text-yellow-700' :
-                                    'bg-red-100 text-red-700'
-                                  }`}>
-                                    {member.status.replace(/_/g, ' ')}
-                                  </span>
+                              <div className="flex items-center gap-4 flex-1">
+                                {/* Profile Photo */}
+                                <div className="h-14 w-14 rounded-full flex-shrink-0 overflow-hidden bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center">
+                                  {member.profileImage ? (
+                                    <Image
+                                      src={member.profileImage}
+                                      alt={member.name}
+                                      width={56}
+                                      height={56}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  ) : (
+                                    <span className="text-white font-bold text-xl">
+                                      {member.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                                    </span>
+                                  )}
                                 </div>
-                                <p className="text-sm text-gray-600">
-                                  <Phone className="inline h-3 w-3 mr-1" />
-                                  {member.phone}
-                                  <span className="mx-2">•</span>
-                                  <Mail className="inline h-3 w-3 mr-1" />
-                                  {member.email}
-                                </p>
-                                <p className="text-xs text-gray-500 mt-1 font-mono">ID: {member.qrCode?.slice(0, 20)}...</p>
+
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-3 mb-1">
+                                    <p className="font-semibold text-gray-900 text-lg">{member.name}</p>
+                                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                      member.status === 'active' ? 'bg-green-100 text-green-700' :
+                                      member.status === 'expiring_soon' ? 'bg-yellow-100 text-yellow-700' :
+                                      'bg-red-100 text-red-700'
+                                    }`}>
+                                      {member.status.replace(/_/g, ' ')}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-gray-600">
+                                    <Phone className="inline h-3 w-3 mr-1" />
+                                    {member.phone}
+                                    <span className="mx-2">•</span>
+                                    <Mail className="inline h-3 w-3 mr-1" />
+                                    {member.email}
+                                  </p>
+                                  <div className="flex items-center gap-3 mt-1">
+                                    <p className="text-xs text-gray-500 font-mono">ID: {member.qrCode?.slice(0, 20)}...</p>
+                                    {member.expiresAt && (
+                                      <span className={`text-xs font-medium ${
+                                        member.status === 'expired' ? 'text-red-600' :
+                                        member.status === 'expiring_soon' ? 'text-yellow-600' :
+                                        'text-green-600'
+                                      }`}>
+                                        <Clock className="inline h-3 w-3 mr-0.5" />
+                                        {member.status === 'expired' ? 'Expired: ' : 'Expires: '}
+                                        {new Date(member.expiresAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
                               <Button
                                 type="button"
@@ -4705,7 +5246,7 @@ export default function AdminDashboard() {
                           onClick={() => {
                             setAttendanceStartDate('');
                             setAttendanceEndDate('');
-                            fetchAttendanceHistory(); // Fetch default (last 30 days)
+                            fetchAttendanceHistory(); // Fetch all records
                           }}
                         >
                           Clear
@@ -5586,6 +6127,21 @@ export default function AdminDashboard() {
         {/* PAR-Q Tab */}
         {activeTab === 'parq' && <ParQManagement />}
 
+        {/* Day Pass Tab */}
+        {activeTab === 'daypass' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <DayPassManager
+              onSellDayPass={() => { fetchDayPassPrice(); setShowDayPassModal(true); }}
+              onUpgrade={openUpgradeModal}
+              isManager={user?.role === 'MANAGER' || user?.role === 'ADMIN'}
+              refreshTrigger={dayPassRefreshTrigger}
+            />
+          </motion.div>
+        )}
+
         {/* Subscriptions Tab */}
         {activeTab === 'subscriptions' && <AdminSubscriptionManager />}
 
@@ -6208,6 +6764,44 @@ export default function AdminDashboard() {
                 </div>
                 <div className="p-6 max-h-[70vh] overflow-y-auto">
                   <form onSubmit={handleRegisterMember} className="space-y-6">
+              
+              {/* Pending Registration Warning */}
+              {pendingRegistration && (
+                <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4 mb-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="h-6 w-6 text-yellow-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-yellow-900 mb-1">Mobile Money Payment Pending</h4>
+                      <p className="text-sm text-yellow-800 mb-2">
+                        A payment is pending for <strong>{pendingRegistration.email}</strong>
+                      </p>
+                      <div className="text-xs text-yellow-700 space-y-1 mb-3">
+                        <p>• Reference: {pendingRegistration.reference}</p>
+                        <p>• Time remaining: {pendingRegistration.timeRemaining} minutes</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => checkPendingStatus(pendingRegistration.email)}
+                          disabled={isCheckingStatus}
+                          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isCheckingStatus ? 'Checking...' : 'Check Status'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => cancelPendingRegistration(pendingRegistration.email)}
+                          disabled={isCancelling}
+                          className="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isCancelling ? 'Cancelling...' : 'Cancel & Register Again'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Basic Information */}
               <div className="border-b pb-4">
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Basic Information</h3>
@@ -6466,12 +7060,27 @@ export default function AdminDashboard() {
                       required
                       value={newMember.amountPaid}
                       onChange={(e) => setNewMember({ ...newMember, amountPaid: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 ${
+                        newMemberErrors.amountPaid ? 'border-red-500' : 'border-gray-300'
+                      }`}
                       placeholder="Enter amount received"
                       step="0.01"
+                      min="0"
                     />
+                    {newMemberErrors.amountPaid && (
+                      <p className="text-xs text-red-600 mt-1">{newMemberErrors.amountPaid}</p>
+                    )}
                     <p className="text-xs text-gray-500 mt-1">
-                      Registration: GH₵ 250 + Plan cost
+                      Expected: GH₵ {(() => {
+                        const planPrices: Record<string, number> = {
+                          'ONE_MONTH': 200,
+                          'THREE_MONTHS': 500,
+                          'ONE_YEAR': 1800
+                        };
+                        const regFee = 250;
+                        const planCost = planPrices[newMember.plan as keyof typeof planPrices] || 200;
+                        return (planCost + regFee).toFixed(2);
+                      })()} (Plan + Registration)
                     </p>
                   </div>
                   {newMember.paymentMethod === 'MOMO' && (
@@ -6526,11 +7135,87 @@ export default function AdminDashboard() {
   <div
     className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
     onClick={(e) => {
-      if (e.target === e.currentTarget && !dayPassSuccess) closeDayPassModal();
+      if (e.target === e.currentTarget && !dayPassSuccess && !dayPassPending) closeDayPassModal();
     }}
   >
     <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-      {dayPassSuccess && dayPassResult ? (
+      {dayPassPending && dayPassResult ? (
+        /* MoMo Pending State */
+        <>
+          <div className="p-6 border-b flex items-center justify-between bg-yellow-50">
+            <h2 className="text-2xl font-bold text-yellow-900">Awaiting Payment</h2>
+            <button onClick={closeDayPassModal} className="text-gray-400 hover:text-gray-600">
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+          <div className="p-6 space-y-4">
+            <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4 text-center">
+              <div className="flex justify-center mb-3">
+                <Loader2 className="h-12 w-12 text-yellow-600 animate-spin" />
+              </div>
+              <p className="text-lg font-semibold text-yellow-900">
+                Waiting for Mobile Money Payment
+              </p>
+              <p className="text-sm text-yellow-700 mt-1">
+                USSD prompt sent to {dayPassResult.phone}
+              </p>
+            </div>
+
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-gray-600">Customer</span>
+                <span className="font-medium">{dayPassResult.firstName} {dayPassResult.lastName}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-gray-600">Amount</span>
+                <span className="font-medium text-yellow-600">GH₵ {dayPassResult.price}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-gray-600">Provider</span>
+                <span className="font-medium">{dayPassResult.provider || 'Mobile Money'}</span>
+              </div>
+              <div className="flex justify-between py-2">
+                <span className="text-gray-600">Reference</span>
+                <span className="font-mono text-xs">{dayPassResult.reference}</span>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-800 font-medium mb-1">📱 Instructions for Customer:</p>
+              <ol className="text-xs text-blue-700 space-y-1 ml-4 list-decimal">
+                <li>Check your phone for USSD prompt</li>
+                <li>Enter your Mobile Money PIN</li>
+                <li>Confirm the payment</li>
+                <li>Wait for confirmation message</li>
+              </ol>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+              <Clock className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-700">
+                Payment will be automatically verified. This may take 10-30 seconds after customer completes the USSD prompt.
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button 
+                onClick={() => {
+                  closeDayPassModal();
+                  setActiveTab('receipts');
+                }}
+                variant="outline" 
+                className="flex-1"
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Check Receipts Tab
+              </Button>
+              <Button onClick={closeDayPassModal} className="flex-1 bg-gray-500 hover:bg-gray-600">
+                Close
+              </Button>
+            </div>
+          </div>
+        </>
+      ) : dayPassSuccess && dayPassResult ? (
         /* Day Pass Success */
         <>
           <div className="p-6 border-b flex items-center justify-between">
@@ -6540,6 +7225,18 @@ export default function AdminDashboard() {
             </button>
           </div>
           <div className="p-6 space-y-4">
+            {/* Late Purchase Warning */}
+            {dayPassResult.latePurchaseWarning && (
+              <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 flex items-start gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-800">Late Purchase Warning</p>
+                  <p className="text-xs text-amber-700 mt-0.5">{dayPassResult.latePurchaseWarning}</p>
+                  <p className="text-xs text-amber-600 mt-1">Pass expires at midnight tonight.</p>
+                </div>
+              </div>
+            )}
+
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
               <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-2" />
               <p className="text-lg font-semibold text-green-800">
@@ -6553,6 +7250,12 @@ export default function AdminDashboard() {
                 <span className="text-gray-600">Phone</span>
                 <span className="font-medium">{dayPassResult.phone}</span>
               </div>
+              {dayPassResult.email && !dayPassResult.email.includes('@gemfitness.local') && (
+                <div className="flex justify-between py-2 border-b">
+                  <span className="text-gray-600">Email</span>
+                  <span className="font-medium text-xs">{dayPassResult.email}</span>
+                </div>
+              )}
               <div className="flex justify-between py-2 border-b">
                 <span className="text-gray-600">Amount Paid</span>
                 <span className="font-medium text-green-600">GH₵ {dayPassResult.price}</span>
@@ -6565,10 +7268,16 @@ export default function AdminDashboard() {
                 <span className="text-gray-600">Valid Until</span>
                 <span className="font-medium">Today, Midnight</span>
               </div>
-              <div className="flex justify-between py-2">
+              <div className="flex justify-between py-2 border-b">
                 <span className="text-gray-600">Payment</span>
                 <span className="font-medium">{dayPassForm.paymentMethod}</span>
               </div>
+              {dayPassResult.emergencyContact && (
+                <div className="flex justify-between py-2">
+                  <span className="text-gray-600">Emergency Contact</span>
+                  <span className="font-medium text-xs">{dayPassResult.emergencyContact} • {dayPassResult.emergencyPhone}</span>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -6583,19 +7292,31 @@ export default function AdminDashboard() {
                 </Button>
                 {dayPassResult.transactionId && (
                   <Button 
-                    onClick={() => {
-                      closeDayPassModal();
-                      setActiveTab('receipts');
-                      // Optionally scroll to transaction
-                    }}
+                    asChild
                     variant="outline" 
                     className="flex-1 border-2 border-blue-500 text-blue-700 hover:bg-blue-50"
                   >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    View in Receipts
+                    <a
+                      href={`/api/payments/receipt/${dayPassResult.transactionId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      View Receipt
+                    </a>
                   </Button>
                 )}
               </div>
+              {/* Upgrade to Member Button */}
+              {dayPassResult.userId && (
+                <Button 
+                  onClick={() => dayPassResult.userId && openUpgradeModal(dayPassResult.userId)}
+                  className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg"
+                >
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Upgrade to Full Member
+                </Button>
+              )}
               <Button onClick={closeDayPassModal} className="w-full bg-orange-500 hover:bg-orange-600">
                 Done
               </Button>
@@ -6618,6 +7339,35 @@ export default function AdminDashboard() {
           </div>
           <div className="p-6">
             <form onSubmit={handleSellDayPass} className="space-y-4">
+              {/* Membership Suggestion Alert (for repeat customers) */}
+              {dayPassUsage && dayPassUsage.shouldSuggestMembership && (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-xl p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
+                      <TrendingUp className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-blue-900 text-sm mb-1">💡 Membership Suggestion</h4>
+                      <p className="text-sm text-blue-800 mb-2">{dayPassUsage.suggestMembershipReason}</p>
+                      <div className="flex items-center gap-4 text-xs bg-white/60 rounded-lg p-2.5 mb-2">
+                        <div>
+                          <span className="text-blue-600 font-medium">Visits this month:</span>
+                          <span className="ml-1.5 font-bold text-blue-900">{dayPassUsage.last30DaysPasses + 1}</span>
+                        </div>
+                        <div className="h-4 w-px bg-blue-300"></div>
+                        <div>
+                          <span className="text-blue-600 font-medium">Total spent:</span>
+                          <span className="ml-1.5 font-bold text-blue-900">GH₵{dayPassUsage.totalSpent + dayPassPrice}</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-blue-700 italic">
+                        💰 Suggest upgrading to save money on unlimited access
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Name */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -6654,12 +7404,29 @@ export default function AdminDashboard() {
                   required
                   value={dayPassForm.phone}
                   onChange={(e) => setDayPassForm({ ...dayPassForm, phone: e.target.value })}
+                  onBlur={(e) => checkDayPassVisitor(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   placeholder="024 123 4567"
                   pattern="[0-9\s\-\+\(\)]+"
                 />
                 <p className="text-xs text-gray-500 mt-1">Used to check for returning visitors</p>
                 {dayPassErrors.phone && <p className="text-xs text-red-600 mt-1">{dayPassErrors.phone}</p>}
+              </div>
+
+              {/* Email (optional - used for MoMo & receipts) */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Email <span className="text-gray-400 font-normal">(optional)</span></label>
+                <input
+                  type="email"
+                  value={dayPassForm.email}
+                  onChange={(e) => setDayPassForm({ ...dayPassForm, email: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="guest@example.com"
+                />
+                {dayPassForm.paymentMethod === 'MOMO' && (
+                  <p className="text-xs text-amber-600 mt-1">Recommended for MoMo payments &amp; receipt delivery</p>
+                )}
+                {dayPassErrors.email && <p className="text-xs text-red-600 mt-1">{dayPassErrors.email}</p>}
               </div>
 
               {/* Emergency Contact */}
@@ -6744,6 +7511,352 @@ export default function AdminDashboard() {
                   className="flex-1 bg-green-600 hover:bg-green-700"
                 >
                   {isProcessingDayPass ? 'Processing...' : `Sell Day Pass • GH₵ ${dayPassPrice}`}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </>
+      )}
+    </div>
+  </div>
+)}
+
+{/* Upgrade to Member Modal */}
+{showUpgradeModal && (
+  <div
+    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"
+    onClick={(e) => {
+      if (e.target === e.currentTarget && !upgradeSuccess) closeUpgradeModal();
+    }}
+  >
+    <div className="bg-white rounded-lg max-w-2xl w-full my-8 shadow-2xl">
+      {upgradeSuccess && upgradedMemberData ? (
+        /* Upgrade Success */
+        <>
+          <div className="p-6 border-b flex items-center justify-between bg-gradient-to-r from-purple-50 to-indigo-50">
+            <h2 className="text-2xl font-bold text-purple-900">Upgrade Successful! 🎉</h2>
+            <button onClick={closeUpgradeModal} className="text-gray-400 hover:text-gray-600">
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+          <div className="p-6 space-y-4">
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
+              <CheckCircle2 className="h-16 w-16 text-purple-500 mx-auto mb-3" />
+              <p className="text-xl font-semibold text-purple-900">
+                {upgradedMemberData.firstName} {upgradedMemberData.lastName}
+              </p>
+              <p className="text-sm text-purple-700">is now a full member!</p>
+            </div>
+
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-gray-600">Email</span>
+                <span className="font-medium">{upgradedMemberData.email}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-gray-600">Phone</span>
+                <span className="font-medium">{upgradedMemberData.phone}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-gray-600">Plan</span>
+                <span className="font-medium text-purple-700">{upgradedMemberData.planName}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-gray-600">Amount Paid</span>
+                <span className="font-medium text-green-600">GH₵ {upgradedMemberData.amountPaid}</span>
+              </div>
+              <div className="flex justify-between py-2">
+                <span className="text-gray-600">Reference</span>
+                <span className="font-mono text-xs">{upgradedMemberData.reference}</span>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-800">
+                ✅ <strong>Member can now:</strong> Access all gym facilities, attend classes, and check in using their QR code.
+              </p>
+            </div>
+
+            <Button onClick={closeUpgradeModal} className="w-full bg-purple-600 hover:bg-purple-700">
+              Done
+            </Button>
+          </div>
+        </>
+      ) : (
+        /* Upgrade Form */
+        <>
+          <div className="p-6 border-b bg-gradient-to-r from-purple-50 to-indigo-50">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-purple-900">Upgrade to Full Member</h2>
+                {upgradeUserData && (
+                  <p className="text-sm text-purple-700 mt-1">
+                    {upgradeUserData.firstName} {upgradeUserData.lastName} • {upgradeUserData.phone}
+                  </p>
+                )}
+              </div>
+              <button onClick={closeUpgradeModal} className="text-gray-400 hover:text-gray-600">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+          </div>
+          
+          <div className="p-6 max-h-[calc(100vh-200px)] overflow-y-auto">
+            <form onSubmit={handleUpgrade} className="space-y-5">
+              {/* Plan Selection */}
+              {upgradePlans && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Select Membership Plan *</label>
+                  <div className="grid grid-cols-1 gap-3">
+                    {Object.entries(upgradePlans).map(([key, plan]) => (
+                      <div
+                        key={key}
+                        onClick={() => setUpgradeFormData({ ...upgradeFormData, plan: key as 'ONE_MONTH' | 'THREE_MONTHS' | 'ONE_YEAR' })}
+                        className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                          upgradeFormData.plan === key
+                            ? 'border-purple-500 bg-purple-50'
+                            : 'border-gray-200 hover:border-purple-300'
+                        }`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                              upgradeFormData.plan === key ? 'border-purple-500' : 'border-gray-300'
+                            }`}>
+                              {upgradeFormData.plan === key && (
+                                <div className="w-3 h-3 rounded-full bg-purple-500" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-900">{plan.name}</p>
+                              <p className="text-xs text-gray-500">{plan.durationDays} days</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-2xl font-bold text-purple-700">GH₵ {plan.price}</p>
+                            <p className="text-xs text-gray-500">Full price</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Email (if needed) */}
+              {upgradeUserData?.needsEmail && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Email Address *</label>
+                  <input
+                    type="email"
+                    required
+                    value={upgradeFormData.email}
+                    onChange={(e) => setUpgradeFormData({ ...upgradeFormData, email: e.target.value })}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 ${upgradeErrors.email ? 'border-red-500' : 'border-gray-300'}`}
+                    placeholder="member@example.com"
+                  />
+                  {upgradeErrors.email && <p className="text-xs text-red-600 mt-1">{upgradeErrors.email}</p>}
+                </div>
+              )}
+
+              {/* Password */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Create Password *</label>
+                  <input
+                    type="password"
+                    required
+                    value={upgradeFormData.password}
+                    onChange={(e) => setUpgradeFormData({ ...upgradeFormData, password: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="Minimum 6 characters"
+                  />
+                  {upgradeErrors.password && <p className="text-xs text-red-600 mt-1">{upgradeErrors.password}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Confirm Password *</label>
+                  <input
+                    type="password"
+                    required
+                    value={upgradeFormData.confirmPassword}
+                    onChange={(e) => setUpgradeFormData({ ...upgradeFormData, confirmPassword: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="Re-enter password"
+                  />
+                  {upgradeErrors.confirmPassword && <p className="text-xs text-red-600 mt-1">{upgradeErrors.confirmPassword}</p>}
+                </div>
+              </div>
+
+              {/* Additional Info */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Date of Birth *</label>
+                  <input
+                    type="date"
+                    required
+                    value={upgradeFormData.dateOfBirth}
+                    onChange={(e) => setUpgradeFormData({ ...upgradeFormData, dateOfBirth: e.target.value })}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 ${upgradeErrors.dateOfBirth ? 'border-red-500' : 'border-gray-300'}`}
+                  />
+                  {upgradeErrors.dateOfBirth && <p className="text-xs text-red-600 mt-1">{upgradeErrors.dateOfBirth}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Address</label>
+                  <input
+                    type="text"
+                    value={upgradeFormData.address}
+                    onChange={(e) => setUpgradeFormData({ ...upgradeFormData, address: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+
+              {/* Emergency Contact */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Emergency Contact Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={upgradeFormData.emergencyContact}
+                    onChange={(e) => setUpgradeFormData({ ...upgradeFormData, emergencyContact: e.target.value })}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 ${upgradeErrors.emergencyContact ? 'border-red-500' : 'border-gray-300'}`}
+                    placeholder="Full name"
+                  />
+                  {upgradeErrors.emergencyContact && <p className="text-xs text-red-600 mt-1">{upgradeErrors.emergencyContact}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Emergency Contact Phone *</label>
+                  <input
+                    type="tel"
+                    required
+                    value={upgradeFormData.emergencyPhone}
+                    onChange={(e) => setUpgradeFormData({ ...upgradeFormData, emergencyPhone: e.target.value })}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 ${upgradeErrors.emergencyPhone ? 'border-red-500' : 'border-gray-300'}`}
+                    placeholder="Phone number"
+                  />
+                  {upgradeErrors.emergencyPhone && <p className="text-xs text-red-600 mt-1">{upgradeErrors.emergencyPhone}</p>}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Fitness Goals</label>
+                <textarea
+                  value={upgradeFormData.fitnessGoals}
+                  onChange={(e) => setUpgradeFormData({ ...upgradeFormData, fitnessGoals: e.target.value })}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="What do you want to achieve? (optional)"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Medical Conditions</label>
+                <textarea
+                  value={upgradeFormData.medicalConditions}
+                  onChange={(e) => setUpgradeFormData({ ...upgradeFormData, medicalConditions: e.target.value })}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="Any medical conditions, allergies, or medications? (optional)"
+                />
+              </div>
+
+              {/* PAR-Q */}
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-semibold mb-3">Physical Activity Readiness Questionnaire (PAR-Q)</h3>
+                <div className="space-y-2 text-sm">
+                  {[
+                    { key: 'hasHeartCondition', label: 'Do you have a heart condition?' },
+                    { key: 'hasChestPain', label: 'Do you feel chest pain during physical activity?' },
+                    { key: 'hasDizziness', label: 'Do you experience dizziness or loss of balance?' },
+                    { key: 'hasJointProblems', label: 'Do you have bone or joint problems?' },
+                    { key: 'takesMedication', label: 'Are you currently taking medication for blood pressure or heart?' },
+                    { key: 'hasOtherConditions', label: 'Do you have any other medical conditions?' },
+                  ].map((q) => (
+                    <label key={q.key} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={upgradeFormData[q.key as keyof typeof upgradeFormData] as boolean}
+                        onChange={(e) => setUpgradeFormData({ ...upgradeFormData, [q.key]: e.target.checked })}
+                        className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                      />
+                      <span>{q.label}</span>
+                    </label>
+                  ))}
+                </div>
+                {upgradeFormData.hasOtherConditions && (
+                  <div className="mt-3">
+                    <textarea
+                      value={upgradeFormData.otherConditionsDetails}
+                      onChange={(e) => setUpgradeFormData({ ...upgradeFormData, otherConditionsDetails: e.target.value })}
+                      rows={2}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      placeholder="Please provide details"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Payment */}
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-semibold mb-3">Payment</h3>
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <label className="flex items-center gap-2 p-3 border-2 rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="CASH"
+                      checked={upgradeFormData.paymentMethod === 'CASH'}
+                      onChange={(e) => setUpgradeFormData({ ...upgradeFormData, paymentMethod: e.target.value as 'CASH' | 'MOMO' })}
+                      className="w-4 h-4 text-purple-600"
+                    />
+                    <span className="font-medium">Cash</span>
+                  </label>
+                  <label className="flex items-center gap-2 p-3 border-2 rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="MOMO"
+                      checked={upgradeFormData.paymentMethod === 'MOMO'}
+                      onChange={(e) => setUpgradeFormData({ ...upgradeFormData, paymentMethod: e.target.value as 'CASH' | 'MOMO' })}
+                      className="w-4 h-4 text-purple-600"
+                    />
+                    <span className="font-medium">MTN MoMo</span>
+                  </label>
+                </div>
+                {upgradeFormData.paymentMethod === 'MOMO' && (
+                  <input
+                    type="text"
+                    value={upgradeFormData.momoReference}
+                    onChange={(e) => setUpgradeFormData({ ...upgradeFormData, momoReference: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="MoMo Reference (optional)"
+                  />
+                )}
+                {upgradePlans && (
+                  <div className="bg-purple-50 rounded-lg p-3 mt-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-purple-700">Total to Pay:</span>
+                      <span className="text-2xl font-bold text-purple-900">
+                        GH₵ {upgradePlans[upgradeFormData.plan].price}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Submit */}
+              <div className="flex gap-3 pt-2">
+                <Button type="button" variant="outline" onClick={closeUpgradeModal} className="flex-1">
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isProcessingUpgrade}
+                  className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                >
+                  {isProcessingUpgrade ? 'Processing...' : 'Complete Upgrade'}
                 </Button>
               </div>
             </form>
@@ -8971,29 +10084,30 @@ export default function AdminDashboard() {
                   />
                 </div>
               </div>
+              <div className="p-6 border-t flex gap-3">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setShowEditMemberModal(false);
+                    setSelectedMember(null);
+                    setMemberEditError(null);
+                    setEditMemberFieldErrors({});
+                  }}
+                  variant="outline"
+                  className="flex-1"
+                  disabled={isUpdatingMember}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 bg-orange-600 hover:bg-orange-700"
+                  disabled={isUpdatingMember}
+                >
+                  {isUpdatingMember ? 'Updating...' : 'Update Member'}
+                </Button>
+              </div>
             </form>
-            <div className="p-6 border-t flex gap-3">
-              <Button
-                type="button"
-                onClick={() => {
-                  setShowEditMemberModal(false);
-                  setSelectedMember(null);
-                  setMemberEditError(null);
-                }}
-                variant="outline"
-                className="flex-1"
-                disabled={isUpdatingMember}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleEditMember}
-                className="flex-1 bg-orange-600 hover:bg-orange-700"
-                disabled={isUpdatingMember}
-              >
-                {isUpdatingMember ? 'Updating...' : 'Update Member'}
-              </Button>
-            </div>
           </div>
         </div>
       )}
@@ -9054,6 +10168,18 @@ export default function AdminDashboard() {
         />
       )}
 
+      {/* Member Details Modal */}
+      {showMemberDetailsModal && selectedMember && (
+        <MemberDetailsModal
+          isOpen={showMemberDetailsModal}
+          onClose={() => {
+            setShowMemberDetailsModal(false);
+            setSelectedMember(null);
+          }}
+          member={selectedMember}
+        />
+      )}
+
       {/* Member Class History Modal */}
       {showMemberClassHistoryModal && selectedMember && (
         <MemberClassHistoryModal
@@ -9103,6 +10229,45 @@ export default function AdminDashboard() {
             instructor: selectedClassForModal.instructor,
             schedule: selectedClassForModal.schedule,
             duration: selectedClassForModal.duration,
+          }}
+        />
+      )}
+
+      {/* Class Details Modal */}
+      {showClassDetailsModal && selectedClassForModal && (
+        <ClassDetailsModal
+          isOpen={showClassDetailsModal}
+          onClose={() => {
+            setShowClassDetailsModal(false);
+            setSelectedClassForModal(null);
+          }}
+          classData={{
+            id: selectedClassForModal.id,
+            name: selectedClassForModal.name,
+            ...(selectedClassForModal.description !== undefined && { description: selectedClassForModal.description }),
+            type: selectedClassForModal.type,
+            instructor: selectedClassForModal.instructor,
+            duration: selectedClassForModal.duration,
+            maxCapacity: selectedClassForModal.maxCapacity,
+            enrolled: selectedClassForModal.enrolled,
+            schedule: selectedClassForModal.schedule,
+            ...(selectedClassForModal.color !== undefined && { color: selectedClassForModal.color }),
+            status: selectedClassForModal.status,
+            ...(selectedClassForModal.rating !== undefined && { rating: selectedClassForModal.rating }),
+            ...(selectedClassForModal.waitlistCount !== undefined && { waitlistCount: selectedClassForModal.waitlistCount }),
+            ...(selectedClassForModal.totalReviews !== undefined && { totalReviews: selectedClassForModal.totalReviews }),
+          }}
+          onManageEnrollments={() => {
+            setShowClassDetailsModal(false);
+            setShowClassEnrollmentModal(true);
+          }}
+          onViewAttendance={() => {
+            setShowClassDetailsModal(false);
+            setShowClassAttendanceModal(true);
+          }}
+          onEdit={() => {
+            setShowClassDetailsModal(false);
+            openClassModal(selectedClassForModal);
           }}
         />
       )}

@@ -15,7 +15,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { hash } from 'bcryptjs';
-import { $Enums } from '@prisma/client';
+import { $Enums, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { paystackService } from '@/lib/services/paystack';
@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
 
     const parsed = walkInRegistrationSchema.safeParse(body);
     if (!parsed.success) {
+      console.error('❌ Walk-in validation failed:', parsed.error.issues);
       return NextResponse.json({ 
         error: 'Validation failed', 
         details: parsed.error.issues 
@@ -93,6 +94,80 @@ export async function POST(request: NextRequest) {
     }
 
     const data = parsed.data;
+    console.log('✅ Walk-in registration validated:', {
+      name: `${data.firstName} ${data.lastName}`,
+      email: data.email,
+      phone: data.phone,
+      plan: data.plan,
+      paymentMethod: data.paymentMethod,
+      amountPaid: data.amountPaid
+    });
+
+    // Check for duplicate email/phone in User table
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: data.email },
+          { phone: data.phone }
+        ]
+      }
+    });
+
+    if (existingUser) {
+      const duplicateFields = [];
+      if (existingUser.email === data.email) duplicateFields.push('email');
+      if (existingUser.phone === data.phone) duplicateFields.push('phone');
+      
+      console.log('❌ Duplicate user found:', { fields: duplicateFields });
+      return NextResponse.json({ 
+        error: 'User already exists', 
+        fields: duplicateFields 
+      }, { status: 409 });
+    }
+
+    // Check for duplicate email in PendingRegistration table
+    const existingPending = await prisma.pendingRegistration.findFirst({
+      where: { email: data.email }
+    });
+
+    if (existingPending) {
+      const now = new Date();
+      let shouldDelete = false;
+
+      if (existingPending.expiresAt <= now) {
+        // Expired pending registration
+        shouldDelete = true;
+        console.log('🗑️ Deleting expired pending registration:', data.email);
+      } else if (existingPending.paymentStatus === 'success') {
+        // Marked as success but no user was created (orphaned from failed completeRegistration)
+        const userExists = await prisma.user.findFirst({
+          where: { email: data.email }
+        });
+        if (!userExists) {
+          shouldDelete = true;
+          console.log('🗑️ Deleting orphaned pending registration (success but no user):', data.email);
+        }
+      }
+
+      if (shouldDelete) {
+        await prisma.pendingRegistration.delete({
+          where: { id: existingPending.id }
+        });
+      } else {
+        // Still valid and active - block new registration
+        console.log('❌ Active pending registration exists for email:', data.email, {
+          status: existingPending.paymentStatus,
+          expiresAt: existingPending.expiresAt
+        });
+        return NextResponse.json({ 
+          error: 'Registration already in progress for this email', 
+          fields: ['email'],
+          message: existingPending.paymentStatus === 'pending' 
+            ? 'A mobile money payment is pending for this email. Please complete or wait for it to expire.'
+            : 'A registration is being processed for this email.'
+        }, { status: 409 });
+      }
+    }
 
     // Auto-generate password if not provided
     const password = data.password || `GYM${Math.random().toString(36).slice(-8).toUpperCase()}${Math.floor(Math.random() * 100)}`;
@@ -104,29 +179,73 @@ export async function POST(request: NextRequest) {
 
     // Handle payment based on method
     if (data.paymentMethod === 'CASH') {
+      console.log('💵 Processing CASH payment for walk-in registration');
       // CASH: Create pending registration marked as success
       const cashRef = paystackService.generateReference('CASH');
       
-      const pendingReg = await prisma.pendingRegistration.create({
-        data: {
-          ...data,
-          password: hashedPassword,
-          paymentReference: cashRef,
-          paymentStatus: 'success',
-          dateOfBirth: new Date(data.dateOfBirth),
-          registrationType: 'WALK_IN',
-          expiresAt,
-          address: data.address || '',
-          fitnessGoals: data.fitnessGoals || '',
-          medicalConditions: data.medicalConditions || '',
-          otherConditionsDetails: data.otherConditionsDetails || '',
-          momoReference: data.momoReference || null,
+      let pendingReg;
+      try {
+        pendingReg = await prisma.pendingRegistration.create({
+          data: {
+            firstName: data.firstName,
+            lastName: data.lastName,
+            email: data.email,
+            phone: data.phone,
+            dateOfBirth: new Date(data.dateOfBirth),
+            emergencyContact: data.emergencyContact,
+            emergencyPhone: data.emergencyPhone,
+            hasHeartCondition: data.hasHeartCondition,
+            hasChestPain: data.hasChestPain,
+            hasDizziness: data.hasDizziness,
+            hasJointProblems: data.hasJointProblems,
+            takesMedication: data.takesMedication,
+            hasOtherConditions: data.hasOtherConditions,
+            otherConditionsDetails: data.otherConditionsDetails || '',
+            plan: data.plan,
+            paymentMethod: data.paymentMethod,
+            amountPaid: data.amountPaid,
+            momoReference: data.momoReference || null,
+            address: data.address || '',
+            fitnessGoals: data.fitnessGoals || '',
+            medicalConditions: data.medicalConditions || '',
+            password: hashedPassword,
+            paymentReference: cashRef,
+            paymentStatus: 'success',
+            registrationType: 'WALK_IN',
+            expiresAt,
+          }
+        });
+      } catch (err: unknown) {
+        console.error('❌ Failed to create pending registration:', err);
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+          const target = (err.meta && (err.meta.target || err.meta['target'])) || ['email'];
+          return NextResponse.json({ 
+            error: 'Duplicate registration data', 
+            fields: Array.isArray(target) ? target : [target] 
+          }, { status: 409 });
         }
-      });
+        throw err;
+      }
 
       // Immediately complete registration for cash payments
-      const result = await completeRegistration(pendingReg.id);
+      let result;
+      try {
+        result = await completeRegistration(pendingReg.id);
+        console.log('✅ CASH walk-in registration completed:', {
+          userId: result.user.id,
+          reference: cashRef
+        });
+      } catch (completeError) {
+        // Clean up the pending registration so user can retry
+        console.error('❌ completeRegistration failed, cleaning up pending record:', completeError);
+        await prisma.pendingRegistration.delete({ where: { id: pendingReg.id } }).catch(() => {});
+        return NextResponse.json({
+          error: 'Registration failed during account creation',
+          message: completeError instanceof Error ? completeError.message : 'Unknown error'
+        }, { status: 500 });
+      }
 
+      
       return NextResponse.json({
         success: true,
         payment_method: 'CASH',
@@ -161,27 +280,55 @@ export async function POST(request: NextRequest) {
             member_name: `${data.firstName} ${data.lastName}`,
             plan: data.plan,
             registration_type: 'WALK_IN',
+            channel: 'walk_in_registration',
             staff_id: session.userId || 'unknown',
           }
         );
 
         // Create pending registration
-        const pendingReg = await prisma.pendingRegistration.create({
-          data: {
-            ...data,
-            password: hashedPassword,
-            paymentReference: momoRef,
-            paymentStatus: 'pending',
-            dateOfBirth: new Date(data.dateOfBirth),
-            registrationType: 'WALK_IN',
-            expiresAt,
-            address: data.address || '',
-            fitnessGoals: data.fitnessGoals || '',
-            medicalConditions: data.medicalConditions || '',
-            otherConditionsDetails: data.otherConditionsDetails || '',
-            momoReference: momoRef,
+        let pendingReg;
+        try {
+          pendingReg = await prisma.pendingRegistration.create({
+            data: {
+              firstName: data.firstName,
+              lastName: data.lastName,
+              email: data.email,
+              phone: data.phone,
+              dateOfBirth: new Date(data.dateOfBirth),
+              emergencyContact: data.emergencyContact,
+              emergencyPhone: data.emergencyPhone,
+              hasHeartCondition: data.hasHeartCondition,
+              hasChestPain: data.hasChestPain,
+              hasDizziness: data.hasDizziness,
+              hasJointProblems: data.hasJointProblems,
+              takesMedication: data.takesMedication,
+              hasOtherConditions: data.hasOtherConditions,
+              otherConditionsDetails: data.otherConditionsDetails || '',
+              plan: data.plan,
+              paymentMethod: data.paymentMethod,
+              amountPaid: data.amountPaid,
+              momoReference: momoRef,
+              address: data.address || '',
+              fitnessGoals: data.fitnessGoals || '',
+              medicalConditions: data.medicalConditions || '',
+              password: hashedPassword,
+              paymentReference: momoRef,
+              paymentStatus: 'pending',
+              registrationType: 'WALK_IN',
+              expiresAt,
+            }
+          });
+        } catch (err: unknown) {
+          console.error('❌ Failed to create pending registration:', err);
+          if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+            const target = (err.meta && (err.meta.target || err.meta['target'])) || ['email'];
+            return NextResponse.json({ 
+              error: 'Duplicate registration data', 
+              fields: Array.isArray(target) ? target : [target] 
+            }, { status: 409 });
           }
-        });
+          throw err;
+        }
 
         return NextResponse.json({
           success: true,
@@ -204,9 +351,13 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Walk-in registration error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error('Walk-in registration error details:', { message: errorMessage, stack: errorStack });
     return NextResponse.json({
       error: 'Registration failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: errorMessage,
+      details: errorStack?.split('\n').slice(0, 3).join(' ') || 'No stack trace'
     }, { status: 500 });
   }
 }
@@ -409,14 +560,15 @@ async function completeRegistration(pendingId: string) {
       'DAILY': 30,
       'ONE_MONTH': 200,
       'THREE_MONTHS': 500,
-      'ONE_YEAR': 2200
+      'ONE_YEAR': 1800
     };
 
     const planDurations: Record<string, number> = {
       'DAILY': 1,
-    'THREE_MONTHS': 90,
-    'ONE_YEAR': 365
-  };
+      'ONE_MONTH': 30,
+      'THREE_MONTHS': 90,
+      'ONE_YEAR': 365
+    };
 
   const amount = planPrices[pending.plan as keyof typeof planPrices];
   const duration = planDurations[pending.plan as keyof typeof planDurations];

@@ -293,7 +293,7 @@ export default function AboutPage() {
             className="text-center mt-12"
           >
             <Link href="/contact">
-              <Button className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-lg px-8 py-6">
+              <Button className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg px-8 py-6">
                 Schedule a Facility Tour
               </Button>
             </Link>
@@ -310,7 +310,7 @@ export default function AboutPage() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
               Our <span className="text-orange-500">Journey</span>
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
@@ -359,7 +359,7 @@ export default function AboutPage() {
             className="text-center mb-16"
           >
             <Award className="w-16 h-16 text-orange-500 mx-auto mb-6" />
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
               Awards & <span className="text-orange-500">Recognition</span>
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
@@ -403,7 +403,7 @@ export default function AboutPage() {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
             >
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
+              <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-6 tracking-tight">
                 Community <span className="text-orange-500">Impact</span>
               </h2>
               <p className="text-xl text-gray-700 mb-6">
@@ -455,7 +455,7 @@ export default function AboutPage() {
                   Be part of a gym that gives back. Every membership helps us support our community initiatives.
                 </p>
                 <Link href="/membership">
-                  <Button className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700">
+                  <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold">
                     Become a Member
                   </Button>
                 </Link>
@@ -474,7 +474,7 @@ export default function AboutPage() {
             viewport={{ once: true }}
           >
             <Building2 className="w-16 h-16 text-orange-500 mx-auto mb-6" />
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
               Experience GemFitness Yourself
             </h2>
             <p className="text-xl text-gray-700 mb-8">
@@ -482,7 +482,7 @@ export default function AboutPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/contact">
-                <Button className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-lg px-8 py-6">
+                <Button className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg px-8 py-6">
                   Schedule a Tour
                 </Button>
               </Link>

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import jsQR from 'jsqr';
 import { Camera, X, AlertCircle } from 'lucide-react';
 import { Button } from './ui/button';
 
@@ -14,83 +15,116 @@ export default function WebcamQRScanner({ onScan, onClose }: WebcamQRScannerProp
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
-  const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const hasScannedRef = useRef(false);
+  const scanFrameRef = useRef<(() => void) | null>(null);
 
-  const stopCamera = () => {
-    if (scanIntervalRef.current) {
-      clearInterval(scanIntervalRef.current);
+  const stopCamera = useCallback(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
     }
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
     }
     setIsScanning(false);
-  };
+  }, []);
 
-  const captureAndDecode = () => {
-    if (!videoRef.current || !canvasRef.current) return;
+  const scanFrame = useCallback(() => {
+    if (hasScannedRef.current) return;
+    if (!videoRef.current || !canvasRef.current) {
+      if (scanFrameRef.current) {
+        animationFrameRef.current = requestAnimationFrame(scanFrameRef.current);
+      }
+      return;
+    }
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
 
-    if (!context || video.readyState !== video.HAVE_ENOUGH_DATA) return;
+    if (!context || video.readyState !== video.HAVE_ENOUGH_DATA) {
+      if (scanFrameRef.current) {
+        animationFrameRef.current = requestAnimationFrame(scanFrameRef.current);
+      }
+      return;
+    }
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Try to detect QR code pattern in the image
-    // Note: This is a simplified approach. For production, use a library like jsQR
     const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-    const code = decodeQRFromImageData(imageData);
-    
-    if (code) {
-      stopCamera();
-      onScan(code);
+    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+      inversionAttempts: 'dontInvert',
+    });
+
+    if (code && code.data) {
+      // Accept both GYM|<token> and raw <token> formats
+      const fullQrPattern = /^GYM\|[A-Za-z0-9_-]{24}$/;
+      const tokenPattern = /^[A-Za-z0-9_-]{24}$/;
+      
+      let normalizedCode: string | null = null;
+      
+      if (fullQrPattern.test(code.data)) {
+        normalizedCode = code.data;
+      } else if (tokenPattern.test(code.data)) {
+        normalizedCode = `GYM|${code.data}`;
+      }
+      
+      if (normalizedCode) {
+        hasScannedRef.current = true;
+        stopCamera();
+        onScan(normalizedCode);
+        return;
+      }
     }
-  };
 
-  const startScanning = () => {
-    scanIntervalRef.current = setInterval(() => {
-      captureAndDecode();
-    }, 500); // Scan every 500ms
-  };
+    if (scanFrameRef.current) {
+      animationFrameRef.current = requestAnimationFrame(scanFrameRef.current);
+    }
+  }, [onScan, stopCamera]);
 
-  const startCamera = async () => {
+  // Store the scanFrame function in a ref so it can reference itself
+  useEffect(() => {
+    scanFrameRef.current = scanFrame;
+  }, [scanFrame]);
+
+  const startCamera = useCallback(async () => {
     try {
+      hasScannedRef.current = false;
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment' }
       });
-      
+
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        setStream(mediaStream);
+        streamRef.current = mediaStream;
         setIsScanning(true);
-        startScanning();
+
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play();
+          if (scanFrameRef.current) {
+            animationFrameRef.current = requestAnimationFrame(scanFrameRef.current);
+          }
+        };
       }
     } catch (err) {
       console.error('Camera access error:', err);
       setError('Cannot access camera. Please check permissions.');
     }
-  };
+  }, []);
 
   useEffect(() => {
     startCamera();
     return () => {
       stopCamera();
     };
+    // startCamera and stopCamera are stable refs from useCallback
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Simplified QR detection - looks for GYM|<token> pattern in pixel data
-  // In production, use jsQR library for proper QR decoding
-   
-  const decodeQRFromImageData = (_imageData: ImageData): string | null => {
-    // This is a placeholder. For real QR scanning, you'd need jsQR library
-    // For now, we'll return null and recommend using the barcode scanner method
-    return null;
-  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
@@ -159,10 +193,9 @@ export default function WebcamQRScanner({ onScan, onClose }: WebcamQRScannerProp
               </p>
             </div>
 
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-              <p className="text-xs text-yellow-800 text-center">
-                <AlertCircle className="inline h-3 w-3 mr-1" />
-                Note: For best results, use a USB barcode scanner or manual entry method
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <p className="text-xs text-gray-600 text-center">
+                Tip: Hold the QR code steady within the frame for best results
               </p>
             </div>
           </>

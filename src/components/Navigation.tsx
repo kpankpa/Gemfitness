@@ -11,9 +11,7 @@ const navLinks = [
   { href: '/', label: 'Home' },
   { href: '/classes', label: 'Classes' },
   { href: '/events', label: 'Events' },
-  { href: '/trainers', label: 'Trainers' },
   { href: '/membership', label: 'Membership' },
-  { href: '/success', label: 'Success Stories' },
   { href: '/about', label: 'About' },
   { href: '/contact', label: 'Contact' },
 ];

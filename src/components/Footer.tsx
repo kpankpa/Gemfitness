@@ -110,7 +110,7 @@ export default function Footer() {
               </li>
               <li className="flex items-center space-x-3 text-gray-400">
                 <Mail className="w-5 h-5 text-orange-500 flex-shrink-0" />
-                <span>info@gemfitness.com</span>
+                <span>info@gemfitness.fit</span>
               </li>
             </ul>
             <div className="mt-4">

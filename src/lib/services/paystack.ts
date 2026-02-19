@@ -50,12 +50,24 @@ export class PaystackService {
   private publicKey: string;
 
   constructor() {
-    this.secretKey = process.env.PAYSTACK_SECRET_KEY!;
-    this.publicKey = process.env.PAYSTACK_PUBLIC_KEY!;
+    this.secretKey = process.env.PAYSTACK_SECRET_KEY || '';
+    this.publicKey = process.env.PAYSTACK_PUBLIC_KEY || '';
+  }
 
-    if (!this.secretKey || !this.publicKey) {
-      throw new Error('Paystack keys are not configured');
+  private requireSecretKey() {
+    if (!this.secretKey) {
+      throw new Error('Paystack secret key is not configured');
     }
+  }
+
+  private requirePublicKey() {
+    if (!this.publicKey) {
+      throw new Error('Paystack public key is not configured');
+    }
+  }
+
+  isSecretConfigured(): boolean {
+    return Boolean(this.secretKey);
   }
 
   /**
@@ -63,6 +75,7 @@ export class PaystackService {
    */
   async initializePayment(paymentData: PaystackInitializePayment): Promise<PaystackResponse> {
     try {
+      this.requireSecretKey();
       const payload: Record<string, unknown> = {
         email: paymentData.email,
         amount: paymentData.amount,
@@ -201,6 +214,7 @@ export class PaystackService {
    */
   async verifyPayment(reference: string): Promise<PaystackResponse> {
     try {
+      this.requireSecretKey();
       const response = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
         method: 'GET',
         headers: {
@@ -227,6 +241,7 @@ export class PaystackService {
     to?: string;
   }): Promise<PaystackResponse> {
     try {
+      this.requireSecretKey();
       const queryParams = new URLSearchParams();
       if (params?.perPage) queryParams.append('perPage', params.perPage.toString());
       if (params?.page) queryParams.append('page', params.page.toString());
@@ -351,6 +366,7 @@ export class PaystackService {
     metadata?: Record<string, unknown>;
   }): Promise<PaystackResponse> {
     try {
+      this.requireSecretKey();
       const payload = {
         authorization_code: params.authorization_code,
         email: params.email,
@@ -387,6 +403,7 @@ export class PaystackService {
    * Get public key for frontend
    */
   getPublicKey(): string {
+    this.requirePublicKey();
     return this.publicKey;
   }
 }

@@ -5,10 +5,11 @@
  * Much simpler than full walk-in registration:
  * - Minimal info: name + phone + emergency contact
  * - No registration fee
- * - No PAR-Q, no QR code, no login password
+ * - QR code generated for check-in
  * - Subscription auto-expires at end of day (midnight)
  * - If same phone returns, reuses existing user record
  * - Supports Cash + MoMo payment
+ * - Late purchase protection (blocked after 11 PM)
  * 
  * Endpoints:
  * - POST /api/day-pass - Sell a day pass
@@ -23,14 +24,16 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { paystackService } from '@/lib/services/paystack';
 import { verifySessionForApi } from '@/lib/auth/dal';
-import { isAdmin } from '@/lib/auth/permissions';
+import { isAdminOrManager } from '@/lib/auth/permissions';
 import { PLAN_PRICING } from '@/lib/pricing';
+import { generateMemberQRCode } from '@/lib/qr/generator';
 
 // Day pass schema — minimal fields
 const dayPassSchema = z.object({
   firstName: z.string().min(2, 'First name required'),
   lastName: z.string().min(2, 'Last name required'),
   phone: z.string().min(7, 'Phone number required'),
+  email: z.string().email('Invalid email address').optional().or(z.literal('')),
   emergencyContact: z.string().min(2, 'Emergency contact name required'),
   emergencyPhone: z.string().min(7, 'Emergency contact phone required'),
   paymentMethod: z.enum(['CASH', 'MOMO']),
@@ -76,8 +79,8 @@ export async function PUT(request: NextRequest) {
     if (!session?.isAuth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    if (!isAdmin(session)) {
-      return NextResponse.json({ error: 'Admin only' }, { status: 403 });
+    if (!isAdminOrManager(session)) {
+      return NextResponse.json({ error: 'Manager access required' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -165,7 +168,28 @@ export async function POST(request: NextRequest) {
       where: { phone: data.phone },
     });
 
+    // Calculate 30 days ago for usage tracking
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const dayPassUsageData = {
+      totalPasses: 0,
+      last30DaysPasses: 0,
+      totalSpent: 0,
+      shouldSuggestMembership: false,
+      suggestMembershipReason: '',
+      potentialSavings: 0,
+    };
+
     if (user) {
+      console.log('🔄 Returning visitor:', {
+        userId: user.id,
+        name: `${user.firstName} ${user.lastName}`,
+        phone: user.phone,
+        currentEmail: user.email,
+        providedEmail: data.email,
+      });
+      
       // Existing user — check if they already have a DAILY subscription today (any status)
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const existingDayPass = await prisma.subscription.findFirst({
@@ -193,17 +217,96 @@ export async function POST(request: NextRequest) {
           },
         }, { status: 409 });
       }
+
+      // Track day pass usage history for membership conversion
+      const dayPassHistory = await prisma.subscription.findMany({
+        where: {
+          userId: user.id,
+          plan: 'DAILY',
+          startDate: { gte: thirtyDaysAgo },
+        },
+        orderBy: { startDate: 'desc' },
+      });
+
+      const allDayPasses = await prisma.subscription.count({
+        where: {
+          userId: user.id,
+          plan: 'DAILY',
+        },
+      });
+
+      dayPassUsageData.last30DaysPasses = dayPassHistory.length;
+      dayPassUsageData.totalPasses = allDayPasses;
+      dayPassUsageData.totalSpent = dayPassHistory.reduce((sum, sub) => sum + sub.amount, 0);
+
+      // Get monthly price for comparison
+      const monthlyPrice = PLAN_PRICING.ONE_MONTH.price; // 200 GHS
+
+      // Tiered membership suggestions
+      if (dayPassUsageData.last30DaysPasses >= 2) {
+        // They've bought 3+ day passes (including current purchase)
+        const totalIfContinue = (dayPassUsageData.last30DaysPasses + 1) * dayPassPrice;
+        
+        if (dayPassUsageData.last30DaysPasses >= 4) {
+          // 5+ visits in 30 days - strong recommendation
+          dayPassUsageData.shouldSuggestMembership = true;
+          dayPassUsageData.potentialSavings = totalIfContinue - monthlyPrice;
+          dayPassUsageData.suggestMembershipReason = `This will be visit #${dayPassUsageData.last30DaysPasses + 1} this month. A monthly membership (GH₵${monthlyPrice}) would save GH₵${Math.round(dayPassUsageData.potentialSavings)}.`;
+        } else if (dayPassUsageData.last30DaysPasses >= 2) {
+          // 3-4 visits - soft suggestion
+          dayPassUsageData.shouldSuggestMembership = true;
+          const potentialMonthlyValue = (30 / (dayPassUsageData.last30DaysPasses + 1)) * dayPassPrice * (dayPassUsageData.last30DaysPasses + 1);
+          dayPassUsageData.potentialSavings = potentialMonthlyValue > monthlyPrice ? potentialMonthlyValue - monthlyPrice : 0;
+          if (totalIfContinue > monthlyPrice * 0.5) {
+            dayPassUsageData.suggestMembershipReason = `This is visit #${dayPassUsageData.last30DaysPasses + 1}. At this rate, a monthly membership (GH₵${monthlyPrice}) offers better value!`;
+          } else {
+            dayPassUsageData.suggestMembershipReason = `This is visit #${dayPassUsageData.last30DaysPasses + 1}. Consider a monthly membership for unlimited access!`;
+          }
+        }
+      }
+
+      // Check for configurable hard limit (optional)
+      const maxDayPassSetting = await prisma.registrationFee.findUnique({
+        where: { type: 'MAX_DAY_PASSES_PER_MONTH' },
+      });
+
+      if (maxDayPassSetting && maxDayPassSetting.maxMembers && maxDayPassSetting.maxMembers > 0) {
+        const maxAllowed = maxDayPassSetting.maxMembers;
+        if (dayPassUsageData.last30DaysPasses >= maxAllowed) {
+          return NextResponse.json({
+            error: 'Day pass limit reached',
+            message: `Maximum ${maxAllowed} day passes per month. Please upgrade to a membership for continued access.`,
+            limitReached: true,
+            usage: dayPassUsageData,
+            suggestMembership: true,
+          }, { status: 403 });
+        }
+      }
     } else {
-      // New user — create minimal account (no email required, auto-generate)
-      const autoEmail = `daypass_${data.phone.replace(/\D/g, '')}@gemfitness.local`;
+      // New user — create minimal account
+      // Use provided email if valid, otherwise auto-generate placeholder
+      const phoneDigits = data.phone.replace(/\D/g, '');
+      const providedEmail = data.email?.trim() || '';
+      const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(providedEmail);
+      const userEmail = isValidEmail ? providedEmail : `daypass_${phoneDigits}@gemfitness.local`;
+      
       const autoPassword = `DAYPASS${Math.random().toString(36).slice(-8).toUpperCase()}`;
       const hashedPassword = await hash(autoPassword, 12);
+
+      console.log('👤 Creating new day pass user:', {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        phone: data.phone,
+        email: userEmail,
+        providedEmail,
+        isValidEmail,
+      });
 
       user = await prisma.user.create({
         data: {
           firstName: data.firstName,
           lastName: data.lastName,
-          email: autoEmail,
+          email: userEmail,
           phone: data.phone,
           password: hashedPassword,
           role: $Enums.UserRole.MEMBER,
@@ -217,37 +320,94 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Handle payment
+    // Late purchase validation - warn if after 8 PM, block if after 11 PM
+    const currentHour = now.getHours();
+    if (currentHour >= 23) {
+      return NextResponse.json({
+        error: 'Too late to purchase day pass',
+        message: 'Day passes cannot be purchased after 11 PM. Please return tomorrow.',
+      }, { status: 400 });
+    }
+    const isLatePurchase = currentHour >= 20; // After 8 PM
+
+    // Handle payment - wrapped in transaction for atomicity
     if (data.paymentMethod === 'CASH') {
       const cashRef = paystackService.generateReference('DAYPASS');
 
-      // Create DAILY subscription
-      const subscription = await prisma.subscription.create({
-        data: {
-          userId: user.id,
-          plan: 'DAILY',
-          amount: dayPassPrice,
-          startDate: now,
-          endDate: endOfDay,
-          status: 'ACTIVE',
-          registrationType: $Enums.RegistrationType.WALK_IN,
-          renewalStatus: 'NONE', // Day passes don't renew
-        },
+      // Use transaction to ensure atomicity (subscription + payment + check-in)
+      const result = await prisma.$transaction(async (tx) => {
+        // Update user info (emergency contact, and email if provided)
+        if (user && user.id) {
+          const providedEmail = data.email?.trim() || '';
+          const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(providedEmail);
+          const hasPlaceholderEmail = user.email.includes('@gemfitness.local');
+          
+          // Update data object
+          const updateData: {
+            firstName: string;
+            lastName: string;
+            emergencyContact: string;
+            emergencyPhone: string;
+            email?: string;
+          } = {
+            firstName: data.firstName,
+            lastName: data.lastName,
+            emergencyContact: data.emergencyContact,
+            emergencyPhone: data.emergencyPhone,
+          };
+          
+          // Only update email if: user has placeholder email AND valid email provided
+          // OR if the provided email is different and valid
+          if (isValidEmail && (hasPlaceholderEmail || providedEmail !== user.email)) {
+            updateData.email = providedEmail;
+            console.log('📧 Updating user email from', user.email, 'to', providedEmail);
+          }
+          
+          await tx.user.update({
+            where: { id: user.id },
+            data: updateData,
+          });
+        }
+
+        // Generate QR code for day pass user
+        const qrData = await generateMemberQRCode();
+        await tx.user.update({
+          where: { id: user.id },
+          data: { qrCode: qrData.token },
+        });
+
+        // Create DAILY subscription
+        const subscription = await tx.subscription.create({
+          data: {
+            userId: user.id,
+            plan: 'DAILY',
+            amount: dayPassPrice,
+            startDate: now,
+            endDate: endOfDay,
+            status: 'ACTIVE',
+            registrationType: $Enums.RegistrationType.WALK_IN,
+            renewalStatus: 'NONE', // Day passes don't renew
+          },
+        });
+
+        // Create payment record
+        await tx.payment.create({
+          data: {
+            subscriptionId: subscription.id,
+            amount: amountPaid,
+            paymentMethod: 'CASH',
+            paymentDate: now,
+            reference: cashRef,
+            status: 'SUCCESS',
+          },
+        });
+
+        return { subscription };
       });
 
-      // Create payment record
-      await prisma.payment.create({
-        data: {
-          subscriptionId: subscription.id,
-          amount: amountPaid,
-          paymentMethod: 'CASH',
-          paymentDate: now,
-          reference: cashRef,
-          status: 'SUCCESS',
-        },
-      });
+      const subscription = result.subscription;
 
-      // Create payment transaction
+      // Continue transaction flow (outside of $transaction for webhook compatibility)
       const paymentTransaction = await prisma.paymentTransaction.create({
         data: {
           userId: user.id,
@@ -263,9 +423,13 @@ export async function POST(request: NextRequest) {
             plan: 'DAILY',
             registrationType: 'WALK_IN',
             dayPassPrice,
+            amountPaid,
+            discount: amountPaid !== dayPassPrice ? dayPassPrice - amountPaid : 0,
             processedAt: now.toISOString(),
             staffProcessed: true,
             staffId: session.userId || 'unknown',
+            latePurchase: isLatePurchase,
+            purchaseHour: currentHour,
           },
           paidAt: now,
         },
@@ -305,26 +469,100 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      // Fetch updated user to ensure we have the latest data
+      const updatedUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          email: true,
+          emergencyContact: true,
+          emergencyPhone: true,
+          qrCode: true,
+        },
+      });
+
+      console.log('✅ Day pass created successfully:', {
+        userId: user.id,
+        name: `${updatedUser?.firstName} ${updatedUser?.lastName}`,
+        email: updatedUser?.email,
+        phone: updatedUser?.phone,
+        reference: cashRef,
+      });
+
       return NextResponse.json({
         success: true,
         payment_method: 'CASH',
         reference: cashRef,
         transactionId: paymentTransaction.id,
+        usage: dayPassUsageData,
         dayPass: {
-          userId: user.id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          phone: user.phone,
+          userId: updatedUser?.id || user.id,
+          firstName: updatedUser?.firstName || user.firstName,
+          lastName: updatedUser?.lastName || user.lastName,
+          phone: updatedUser?.phone || user.phone,
+          email: updatedUser?.email || user.email,
+          emergencyContact: updatedUser?.emergencyContact,
+          emergencyPhone: updatedUser?.emergencyPhone,
+          qrCode: updatedUser?.qrCode || '',
           subscriptionId: subscription.id,
           price: dayPassPrice,
           amountPaid,
           expiresAt: endOfDay.toISOString(),
           checkedIn: true,
+          latePurchaseWarning: isLatePurchase ? 'Day pass purchased after 8 PM - limited hours remaining' : undefined,
         },
       });
     } else {
       // MOMO payment
-      const autoEmail = user.email || `daypass_${data.phone.replace(/\D/g, '')}@gemfitness.local`;
+      if (!paystackService.isSecretConfigured()) {
+        return NextResponse.json({
+          error: 'Mobile money payments are not configured',
+          message: 'Set PAYSTACK_SECRET_KEY to enable MoMo payments',
+        }, { status: 503 });
+      }
+
+      // Update user info for returning users
+      if (user && user.id) {
+        const providedEmail = data.email?.trim() || '';
+        const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(providedEmail);
+        const hasPlaceholderEmail = user.email.includes('@gemfitness.local');
+        
+        const updateData: {
+          firstName: string;
+          lastName: string;
+          emergencyContact: string;
+          emergencyPhone: string;
+          email?: string;
+        } = {
+          firstName: data.firstName,
+          lastName: data.lastName,
+          emergencyContact: data.emergencyContact,
+          emergencyPhone: data.emergencyPhone,
+        };
+        
+        // Update email if valid and either replacing placeholder or changing to new email
+        if (isValidEmail && (hasPlaceholderEmail || providedEmail !== user.email)) {
+          updateData.email = providedEmail;
+          console.log('📧 [MoMo] Updating user email from', user.email, 'to', providedEmail);
+        }
+        
+        await prisma.user.update({
+          where: { id: user.id },
+          data: updateData,
+        });
+      }
+
+      // Get email for payment initialization
+      const formEmail = data.email?.trim() || '';
+      const emailCandidate = formEmail || user.email || '';
+      const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailCandidate);
+      const phoneDigits = data.phone.replace(/\D/g, '');
+      const autoEmail = isValidEmail
+        ? emailCandidate
+        : `daypass_${phoneDigits || 'guest'}@gemfitness.com`;
       const formattedPhone = paystackService.formatPhoneNumber(data.phone);
       const provider = paystackService.detectMoMoProvider(formattedPhone);
 
@@ -371,8 +609,26 @@ export async function POST(request: NextRequest) {
               firstName: data.firstName,
               lastName: data.lastName,
               staffId: session.userId || 'unknown',
+              latePurchase: isLatePurchase,
+              purchaseHour: currentHour,
+              emergencyContact: data.emergencyContact,
+              emergencyPhone: data.emergencyPhone,
             },
           },
+        });
+
+        // Fetch updated user to get latest email
+        const updatedUser = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { email: true, emergencyContact: true, emergencyPhone: true },
+        });
+
+        console.log('✅ MoMo day pass initiated:', {
+          userId: user.id,
+          name: `${data.firstName} ${data.lastName}`,
+          email: updatedUser?.email,
+          reference: momoRef,
+          provider,
         });
 
         return NextResponse.json({
@@ -382,11 +638,16 @@ export async function POST(request: NextRequest) {
           message: 'USSD prompt sent to customer phone',
           status: 'pending',
           provider: provider.toUpperCase(),
+          latePurchaseWarning: isLatePurchase ? 'Day pass purchased after 8 PM - limited hours remaining' : undefined,
+          usage: dayPassUsageData,
           dayPass: {
             userId: user.id,
             firstName: data.firstName,
             lastName: data.lastName,
             phone: data.phone,
+            email: updatedUser?.email || user.email,
+            emergencyContact: updatedUser?.emergencyContact,
+            emergencyPhone: updatedUser?.emergencyPhone,
             price: dayPassPrice,
           },
         });

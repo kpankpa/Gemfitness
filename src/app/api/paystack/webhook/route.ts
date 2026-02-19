@@ -153,7 +153,7 @@ async function handleChargeSuccess(data: Record<string, unknown>) {
     const channel = (metadata as Record<string, unknown>)?.channel as string | undefined;
 
     // Case 1: Walk-in MoMo registration - complete from pending
-    if (channel === 'walk_in_registration') {
+    if (channel === 'walk_in_registration' || registration_type === 'WALK_IN') {
       await handleWalkInRegistrationPayment(reference);
       return;
     }
@@ -581,38 +581,67 @@ async function handleDayPassMoMoPayment(reference: string, metadata: Record<stri
     const now = new Date();
     const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
-    // Create DAILY subscription
-    const subscription = await prisma.subscription.create({
-      data: {
-        userId,
-        plan: 'DAILY',
-        amount: dayPassPrice,
-        startDate: now,
-        endDate: endOfDay,
-        status: 'ACTIVE',
-        registrationType: 'WALK_IN',
-        renewalStatus: 'NONE',
-      },
+    // Use transaction for atomicity
+    const result = await prisma.$transaction(async (tx) => {
+      // Generate QR code for day pass user (if not exists)
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: { qrCode: true },
+      });
+
+      if (!user?.qrCode) {
+        const qrData = await generateMemberQRCode();
+        await tx.user.update({
+          where: { id: userId },
+          data: { qrCode: qrData.token },
+        });
+      }
+
+      // Create DAILY subscription
+      const subscription = await tx.subscription.create({
+        data: {
+          userId,
+          plan: 'DAILY',
+          amount: dayPassPrice,
+          startDate: now,
+          endDate: endOfDay,
+          status: 'ACTIVE',
+          registrationType: 'WALK_IN',
+          renewalStatus: 'NONE',
+        },
+      });
+
+      // Create payment record
+      await tx.payment.create({
+        data: {
+          subscriptionId: subscription.id,
+          amount: dayPassPrice,
+          paymentMethod: 'MOMO',
+          paymentDate: now,
+          reference,
+          status: 'SUCCESS',
+        },
+      });
+
+      // Auto check-in
+      await tx.checkIn.create({
+        data: {
+          userId,
+          checkInTime: now,
+          method: 'manual',
+          notes: 'Day pass (MoMo) - auto checked in',
+        },
+      });
+
+      return { subscription };
     });
 
-    // Create payment record
-    await prisma.payment.create({
-      data: {
-        subscriptionId: subscription.id,
-        amount: dayPassPrice,
-        paymentMethod: 'MOMO',
-        paymentDate: now,
-        reference,
-        status: 'SUCCESS',
-      },
-    });
-
-    // Update pending transaction to success
+    // Update pending transaction to success (outside transaction for webhook handler compatibility)
     const updatedTx = await prisma.paymentTransaction.update({
       where: { id: pendingTx.id },
       data: {
         status: 'success',
-        relatedEntityId: subscription.id,
+        relatedEntityId: result.subscription.id,
         relatedEntityType: 'subscription',
         paidAt: now,
       },
@@ -641,17 +670,7 @@ async function handleDayPassMoMoPayment(reference: string, metadata: Record<stri
       }
     }
 
-    // Auto check-in
-    await prisma.checkIn.create({
-      data: {
-        userId,
-        checkInTime: now,
-        method: 'manual',
-        notes: 'Day pass (MoMo) - auto checked in',
-      },
-    });
-
-    logger.info('✅ Day pass MoMo payment completed', { reference, userId, subscriptionId: subscription.id });
+    logger.info('✅ Day pass MoMo payment completed', { reference, userId, subscriptionId: result.subscription.id });
   } catch (error) {
     logger.error('❌ Day pass MoMo payment error:', { reference, error });
   }
@@ -758,7 +777,7 @@ async function handleWalkInRegistrationPayment(reference: string) {
       'DAILY': 30,
       'ONE_MONTH': 200,
       'THREE_MONTHS': 500,
-      'ONE_YEAR': 2200
+      'ONE_YEAR': 1800
     };
 
     const planDurations: Record<string, number> = {

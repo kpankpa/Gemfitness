@@ -27,10 +27,10 @@ export async function GET(_request: NextRequest) {
     const gymSettings = {
       name: 'GemFitness Tema',
       slogan: 'Transform Your Body, Transform Your Life',
-      email: 'info@gemfitness.com',
-      phone: '+233 XX XXX XXXX',
-      address: 'Tema, Greater Accra Region, Ghana',
-      website: 'www.gemfitness.com',
+      email: 'info@gemfitness.fit',
+      phone: '+233 249003832',
+      address: 'Gbetsile, Tema, Greater Accra Region, Ghana',
+      website: 'www.gemfitness.fit',
       timezone: 'Africa/Accra',
       currency: 'GHS',
       operatingHours: {

@@ -142,7 +142,7 @@ export default function MembershipPage() {
               </div>
             </div>
             <Link href="/signup?plan=quarterly">
-              <Button className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-lg px-8 py-6 whitespace-nowrap">
+              <Button className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg px-8 py-6 whitespace-nowrap">
                 Join Now
               </Button>
             </Link>
@@ -159,7 +159,7 @@ export default function MembershipPage() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
               Membership <span className="text-orange-500">Plans</span>
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
@@ -195,7 +195,7 @@ export default function MembershipPage() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
               Member <span className="text-orange-500">Perks</span>
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
@@ -254,7 +254,7 @@ export default function MembershipPage() {
               </ul>
               <div className="mt-8">
                 <Link href="/contact">
-                  <Button className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-lg px-8 py-6">
+                  <Button className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg px-8 py-6">
                     Request Corporate Quote
                   </Button>
                 </Link>
@@ -309,7 +309,7 @@ export default function MembershipPage() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
               Frequently Asked <span className="text-orange-500">Questions</span>
             </h2>
             <p className="text-gray-600">
@@ -361,7 +361,7 @@ export default function MembershipPage() {
             viewport={{ once: true }}
           >
             <Star className="w-16 h-16 text-orange-500 mx-auto mb-6" />
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
               Ready to Transform Your Life?
             </h2>
             <p className="text-xl text-gray-700 mb-8">
@@ -369,7 +369,7 @@ export default function MembershipPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/signup?plan=quarterly">
-                <Button className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-lg px-8 py-6">
+                <Button className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg px-8 py-6">
                   Join Now
                 </Button>
               </Link>

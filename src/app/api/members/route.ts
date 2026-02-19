@@ -90,6 +90,8 @@ export async function GET(request: NextRequest) {
     const members = users.map(user => ({
       id: user.id,
       name: `${user.firstName} ${user.lastName}`,
+      firstName: user.firstName,
+      lastName: user.lastName,
       email: user.email,
       phone: user.phone,
       plan: user.subscriptions?.[0]?.plan || 'N/A',
@@ -99,7 +101,19 @@ export async function GET(request: NextRequest) {
       qrCode: user.qrCode ? `GYM|${user.qrCode}` : null,
       registrationPaid: user.registrationPaid,
       registrationType: user.registrationType,
-      totalCheckIns: 0
+      totalCheckIns: 0,
+      profileImage: user.profileImage || null,
+      // Additional personal information
+      dateOfBirth: user.dateOfBirth || null,
+      address: user.address || null,
+      emergencyContact: user.emergencyContact || null,
+      emergencyPhone: user.emergencyPhone || null,
+      fitnessGoals: user.fitnessGoals || null,
+      medicalConditions: user.medicalConditions || null,
+      // PAR-Q information
+      parqCompleted: user.parqCompleted || false,
+      parqCompletedAt: user.parqCompletedAt || null,
+      parqRiskLevel: user.parqRiskLevel || null,
     }));
 
     return NextResponse.json({ success: true, members, totalMembers: total, page, limit });

@@ -14,6 +14,8 @@ import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { extractTokenFromQR, validateQRCode } from '@/lib/qr/generator';
 import { rateLimit } from '@/lib/rateLimiter';
+import { verifySessionForApi } from '@/lib/auth/dal';
+import { isStaff } from '@/lib/auth/permissions';
 
 // GET /api/checkins - Get check-ins (today by default, or date range)
 export async function GET(request: NextRequest) {
@@ -23,11 +25,15 @@ export async function GET(request: NextRequest) {
     const limit = searchParams.get('limit');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const all = searchParams.get('all'); // When 'true', skip date filtering
     
     // Build date filter
     let dateFilter = {};
     
-    if (startDate || endDate) {
+    if (all === 'true') {
+      // No date filter - return all records
+      dateFilter = {};
+    } else if (startDate || endDate) {
       // Use provided date range
       dateFilter = {
         checkInTime: {
@@ -109,6 +115,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   console.log('🔍 /api/checkins POST endpoint hit');
   try {
+    // Require staff session (receptionist/admin/manager)
+    const session = await verifySessionForApi();
+    if (!session || !session.isAuth) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    if (!isStaff(session)) {
+      return NextResponse.json({ error: 'Forbidden — staff access required' }, { status: 403 });
+    }
+
     const body = await request.json();
     console.log('📋 Check-in request received - sanitized');
     const { userId, qrCode, method = 'qr', checkedBy, forceCheckIn = false } = body;
@@ -194,24 +209,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check profile picture requirement (only for members, staff can check in without)
-    if (user.role === 'MEMBER' && !forceCheckIn) {
-      const hasProfileImage = !!user.profileImage;
-
-      if (!hasProfileImage) {
-        return NextResponse.json(
-          {
-            error: 'Profile picture required',
-            message: 'Please upload a profile picture to check in. Contact reception for assistance.',
-            requiresProfilePicture: true,
-            memberName: `${user.firstName} ${user.lastName}`,
-            memberId: user.id
-          },
-          { status: 403 }
-        );
-      }
-    }
-
     // Check if member has active subscription
     const activeSubscription = user.subscriptions?.[0];
     console.log('📊 Active subscription check:', activeSubscription ? 'Found' : 'Not found');
@@ -220,6 +217,21 @@ export async function POST(request: NextRequest) {
       console.log('❌ No active subscription');
       return NextResponse.json(
         { error: 'Member does not have an active subscription' },
+        { status: 403 }
+      );
+    }
+
+    // Validate subscription hasn't expired (critical for day passes)
+    const now = new Date();
+    if (activeSubscription.endDate && activeSubscription.endDate < now) {
+      console.log('❌ Subscription expired:', activeSubscription.endDate);
+      return NextResponse.json(
+        { 
+          error: 'Subscription expired',
+          message: `Membership expired on ${activeSubscription.endDate.toLocaleDateString()}. Please renew to check in.`,
+          expired: true,
+          expiredDate: activeSubscription.endDate.toISOString(),
+        },
         { status: 403 }
       );
     }

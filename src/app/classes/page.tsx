@@ -195,7 +195,7 @@ export default function ClassesPage() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
               Explore Our <span className="text-orange-500">Class Types</span>
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto leading-relaxed">
@@ -284,7 +284,7 @@ export default function ClassesPage() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
               Weekly <span className="text-orange-500">Schedule</span>
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
@@ -353,7 +353,7 @@ export default function ClassesPage() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
               Class <span className="text-orange-500">Pricing</span>
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
@@ -440,7 +440,7 @@ export default function ClassesPage() {
             viewport={{ once: true }}
           >
             <Zap className="w-16 h-16 text-orange-500 mx-auto mb-6" />
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
               Ready to Start Your Fitness Journey?
             </h2>
             <p className="text-xl text-gray-700 mb-8">
@@ -448,7 +448,7 @@ export default function ClassesPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/membership">
-                <Button className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-lg px-8 py-6">
+                <Button className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg px-8 py-6">
                   View Membership Plans
                 </Button>
               </Link>

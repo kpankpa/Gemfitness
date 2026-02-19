@@ -22,6 +22,7 @@ import {
   Heart,
   FileText,
   Receipt,
+  Ticket,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -57,6 +58,7 @@ export default function AdminSidebar({
     { id: 'classes', label: 'Classes', icon: Dumbbell, show: true },
     { id: 'events', label: 'Events', icon: Calendar, show: true },
     { id: 'attendance', label: 'Attendance', icon: Activity, show: true },
+    { id: 'daypass', label: 'Day Pass', icon: Ticket, show: true },
     { id: 'parq', label: 'PAR-Q & Safety', icon: Heart, show: true },
     { id: 'payments', label: 'Payments', icon: CreditCard, show: isManager },
     { id: 'receipts', label: 'Receipts', icon: FileText, show: isManager },

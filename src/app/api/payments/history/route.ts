@@ -68,9 +68,15 @@ export async function GET(request: NextRequest) {
               lastName: true,
               email: true,
               subscriptions: {
-                where: { status: 'ACTIVE' },
-                select: { plan: true },
-                take: 1
+                // Include ALL subscriptions to find the one related to this transaction
+                // This is important for day passes which may have expired
+                select: { 
+                  id: true,
+                  plan: true, 
+                  status: true 
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 10
               }
             }
           }
@@ -83,24 +89,44 @@ export async function GET(request: NextRequest) {
     ]);
 
     // Format response
-    const formattedTransactions = transactions.map(transaction => ({
-      id: transaction.id,
-      reference: transaction.reference,
-      amount: transaction.amount,
-      currency: transaction.currency,
-      status: transaction.status,
-      paymentMethod: transaction.paymentMethod,
-      transactionType: transaction.transactionType,
-      paidAt: transaction.paidAt,
-      createdAt: transaction.createdAt,
-      member: transaction.user ? {
-        id: transaction.user.id,
-        name: `${transaction.user.firstName} ${transaction.user.lastName}`,
-        email: transaction.user.email,
-        plan: transaction.user.subscriptions[0]?.plan || 'Unknown'
-      } : null,
-      metadata: transaction.metadata
-    }));
+    const formattedTransactions = transactions.map(transaction => {
+      const metadata = (transaction.metadata || {}) as Record<string, unknown>;
+      const metaFirstName = typeof metadata.firstName === 'string' ? metadata.firstName : undefined;
+      const metaLastName = typeof metadata.lastName === 'string' ? metadata.lastName : undefined;
+      const metaFullName = typeof metadata.memberName === 'string' ? metadata.memberName : undefined;
+      const metaEmail = typeof metadata.email === 'string' ? metadata.email : undefined;
+      const metaPlan = typeof metadata.plan === 'string' ? metadata.plan : undefined;
+
+      const member = transaction.user
+        ? {
+            id: transaction.user.id,
+            name: `${transaction.user.firstName} ${transaction.user.lastName}`,
+            email: transaction.user.email,
+            plan: transaction.user.subscriptions[0]?.plan || metaPlan || 'Unknown'
+          }
+        : (metaFullName || metaFirstName || metaLastName || metaEmail || metaPlan)
+            ? {
+                id: typeof metadata.userId === 'string' ? metadata.userId : 'N/A',
+                name: (metaFullName || `${metaFirstName || ''} ${metaLastName || ''}`.trim() || 'N/A'),
+                email: metaEmail || 'N/A',
+                plan: metaPlan || 'Unknown'
+              }
+            : null;
+
+      return {
+        id: transaction.id,
+        reference: transaction.reference,
+        amount: transaction.amount,
+        currency: transaction.currency,
+        status: transaction.status,
+        paymentMethod: transaction.paymentMethod,
+        transactionType: transaction.transactionType,
+        paidAt: transaction.paidAt,
+        createdAt: transaction.createdAt,
+        member,
+        metadata: transaction.metadata
+      };
+    });
 
     // Calculate summary stats for the filtered period
     const summaryStats = await prisma.paymentTransaction.groupBy({

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { extractTokenFromQR, validateQRCode } from '@/lib/qr/generator';
 
 /**
  * Check if a member has completed their PAR-Q health screening
@@ -17,9 +18,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Find user by QR code
+    // Extract token from GYM|<token> format, or use raw value as fallback
+    let lookupValue = qrCode;
+    if (validateQRCode(qrCode)) {
+      const token = extractTokenFromQR(qrCode);
+      if (token) lookupValue = token;
+    }
+
+    // Find user by QR code token
     const user = await prisma.user.findUnique({
-      where: { qrCode },
+      where: { qrCode: lookupValue },
       select: {
         id: true,
         firstName: true,

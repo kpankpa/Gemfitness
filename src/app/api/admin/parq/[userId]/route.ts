@@ -40,7 +40,7 @@ const normalizeResponses = (input: Record<string, boolean>): ResponsesMap => {
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
     const session = await verifySessionForApi();
@@ -48,7 +48,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const userId = params.userId;
+    const { userId } = await params;
     if (!userId) {
       return NextResponse.json({ error: 'User ID required' }, { status: 400 });
     }
@@ -107,7 +107,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
     const session = await verifySessionForApi();
@@ -115,7 +115,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const userId = params.userId;
+    const { userId } = await params;
     if (!userId) {
       return NextResponse.json({ error: 'User ID required' }, { status: 400 });
     }

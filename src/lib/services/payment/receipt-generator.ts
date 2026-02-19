@@ -30,7 +30,6 @@ export class ReceiptGenerator {
               lastName: true,
               email: true,
               subscriptions: {
-                where: { status: 'ACTIVE' },
                 orderBy: { createdAt: 'desc' },
                 take: 1
               }
@@ -39,22 +38,40 @@ export class ReceiptGenerator {
         }
       });
 
-      if (!transaction || !transaction.user) {
-        throw new Error('Transaction or user not found');
+      if (!transaction) {
+        throw new Error('Transaction not found');
       }
 
-      const subscription = transaction.user.subscriptions[0];
+      const metadata = (transaction.metadata || {}) as Record<string, unknown>;
+      const getMetaString = (key: string) => {
+        const value = metadata[key];
+        return typeof value === 'string' ? value : undefined;
+      };
+
+      let subscription = transaction.user?.subscriptions[0];
+      if (!subscription && transaction.relatedEntityType === 'subscription' && transaction.relatedEntityId) {
+        subscription = await prisma.subscription.findUnique({
+          where: { id: transaction.relatedEntityId }
+        }) || undefined;
+      }
+
+      const paidAt = transaction.paidAt ?? transaction.createdAt;
+      const memberName = transaction.user
+        ? `${transaction.user.firstName} ${transaction.user.lastName}`
+        : (getMetaString('memberName') || 'Guest');
+      const memberEmail = transaction.user?.email || getMetaString('email') || 'N/A';
+      const planFromMetadata = getMetaString('plan') || getMetaString('membershipPlan');
       const receiptData: ReceiptData = {
         transactionId: transaction.id,
-        memberName: `${transaction.user.firstName} ${transaction.user.lastName}`,
-        memberEmail: transaction.user.email,
+        memberName,
+        memberEmail,
         amount: transaction.amount,
         currency: transaction.currency,
         paymentMethod: transaction.paymentMethod,
         reference: transaction.reference,
-        paidAt: transaction.paidAt!,
-        plan: subscription?.plan || 'Unknown',
-        subscriptionPeriod: this.getSubscriptionPeriod(subscription?.plan || 'ONE_MONTH', subscription?.startDate, subscription?.endDate)
+        paidAt,
+        plan: subscription?.plan || planFromMetadata || 'Unknown',
+        subscriptionPeriod: this.getSubscriptionPeriod(subscription?.plan || planFromMetadata || 'ONE_MONTH', subscription?.startDate, subscription?.endDate)
       };
 
       return this.generateReceiptHTML(receiptData);
@@ -141,7 +158,7 @@ export class ReceiptGenerator {
           
           <div class="footer">
             <p><strong>Thank you for choosing Gemfitness!</strong></p>
-            <p>Keep this receipt for your records. For any queries, contact us at info@gemfitness.com</p>
+            <p>Keep this receipt for your records. For any queries, contact us at info@gemfitness.fit</p>
             <p style="margin-top: 20px; font-size: 12px; color: #999;">
               Generated on ${new Date().toLocaleDateString('en-GB')} • Gemfitness Centre, Accra
             </p>
@@ -163,6 +180,7 @@ export class ReceiptGenerator {
 
   private static formatPlan(plan: string): string {
     switch (plan) {
+      case 'DAILY': return 'Day Pass';
       case 'ONE_MONTH': return '1 Month Membership';
       case 'THREE_MONTHS': return '3 Months Membership';
       case 'ONE_YEAR': return '1 Year Membership';

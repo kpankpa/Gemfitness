@@ -43,7 +43,7 @@ interface SessionInfo {
 // GET /api/subscriptions/[id] - Get subscription details
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySessionForApi();
@@ -51,7 +51,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const subscriptionId = params.id;
+    const { id: subscriptionId } = await params;
     const subscription = await prisma.subscription.findUnique({
       where: { id: subscriptionId },
       include: {
@@ -93,7 +93,7 @@ export async function GET(
 // POST /api/subscriptions/[id]/renew - Renew subscription
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySessionForApi();
@@ -102,7 +102,8 @@ export async function POST(
     }
 
     const action = request.nextUrl.searchParams.get('action');
-    const subscriptionId = params.id;
+    const resolvedParams = await params;
+    const subscriptionId = resolvedParams.id;
 
     if (action === 'renew') {
       return handleRenewal(request, subscriptionId, session);

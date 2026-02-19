@@ -187,7 +187,7 @@ export async function printRegistrationReceipt(data: ReceiptData) {
       <div class="header">GEMFITNESS CENTRE</div>
       <div class="subheader">Accra, Ghana</div>
       <div class="subheader">Tel: 059 893 4010</div>
-      <div class="subheader">Email: info@gemfitness.com</div>
+      <div class="subheader">Email: info@gemfitness.fit</div>
       
       <div class="divider-double"></div>
       
