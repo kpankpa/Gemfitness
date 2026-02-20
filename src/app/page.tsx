@@ -45,10 +45,10 @@ interface GymStats {
 
 // Sample data
 const trainers = [
-  { name: 'Instructor Fireman', specialty: 'Strength & Conditioning', experience: '8 years', motto: 'Push Your Limits', image: '/trainers/instructor_Fireman.jpeg' },
-  { name: 'instructor Alby', specialty: 'HIIT & Cardio', experience: '5 years', motto: 'Sweat is Just Fat Crying', image: '/trainers/instructor_Alby.jpeg' },
-  { name: 'Instructor Fred', specialty: 'Boxing & Combat', experience: '10 years', motto: 'Train Like a Champion', image: '/trainers/instructor_Fred.jpeg' },
-  { name: 'Official Energy', specialty: 'Dancing ', experience: '6 years', motto: 'Mind, Body, Spirit', image: '/trainers/official_energy.jpeg' },
+  { name: 'Instructor Fireman', specialty: 'Strength & Conditioning', image: '/trainers/instructor_Fireman.jpeg' },
+  { name: 'instructor Alby', specialty: 'HIIT & Cardio', image: '/trainers/instructor_Alby.jpeg' },
+  { name: 'Instructor Fred', specialty: 'Boxing & Combat', image: '/trainers/instructor_Fred.jpeg' },
+  { name: 'Official Energy', specialty: 'Dancing ', image: '/trainers/official_energy.jpeg' },
 ];
 
 
@@ -345,7 +345,7 @@ export default function HomePage() {
       {/* Value Props Section - Planet Fitness Inspired */}
       <section className="py-20 bg-white relative overflow-hidden">
         {/* Skewed background accent */}
-        <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-orange-50 to-transparent transform skew-x-12 origin-top-right" />
+        <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-gray-900/5 to-transparent transform skew-x-12 origin-top-right backdrop-blur-sm" />
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <motion.div
@@ -498,65 +498,48 @@ export default function HomePage() {
           </div>
 
           {/* Training Benefits */}
-          <div className="relative bg-white p-8 sm:p-12 lg:p-16 mb-20 overflow-hidden">
-            {/* Skewed background accent */}
-            <div className="absolute -left-20 top-0 w-1/3 h-full bg-gradient-to-r from-orange-50 to-transparent transform -skew-x-6" />
-            
-            <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center relative">
+          <div className="relative bg-white mb-20 overflow-hidden">
+            <div className="grid lg:grid-cols-2 items-stretch">
+              {/* Left: Text content */}
               <motion.div
                 initial={{ opacity: 0, x: -30 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6 }}
+                className="flex flex-col justify-center px-8 sm:px-12 lg:px-16 py-16 lg:py-24"
               >
-                <div className="mb-8">
-                  <h3 className="text-4xl sm:text-5xl lg:text-6xl font-black mb-6 text-gray-900 tracking-tight leading-tight">
-                    TRAINING<br />PROGRAMS
-                  </h3>
-                  {/* Orange accent underline */}
-                  <div className="w-24 h-1 bg-orange-500 mb-8" />
-                
-                  <p className="text-lg sm:text-xl text-gray-700 leading-relaxed">
-                    Got goals? We&apos;ll help you reach them. Whether it&apos;s Personal, Team or Performance Training, our certified instructors are here to help you succeed.
-                  </p>
-                </div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: 0.3, duration: 0.4, ease: "easeOut" }}
-                >
+                <h3 className="text-4xl sm:text-5xl lg:text-6xl font-black mb-6 text-gray-900 tracking-tight leading-tight">
+                  TRAINING<br />PROGRAMS
+                </h3>
+                <div className="w-24 h-1 bg-orange-500 mb-8" />
+                <p className="text-lg sm:text-xl text-gray-700 leading-relaxed mb-10 max-w-lg">
+                  Got goals? We&apos;ll help you reach them. Whether it&apos;s Personal, Team or Performance Training, our certified instructors are here to help you succeed.
+                </p>
+                <div>
                   <Button 
                     asChild 
                     size="lg" 
                     className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg px-8 py-3 transition-all duration-200"
                   >
-                    <Link href="/signup">Learn more about Training</Link>
+                    <Link href="/trainers">Learn more about Training</Link>
                   </Button>
-                </motion.div>
+                </div>
               </motion.div>
 
+              {/* Right: Image — bleeds to the edge */}
               <motion.div
-                initial={{ opacity: 0, x: 30 }}
-                whileInView={{ opacity: 1, x: 0 }}
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, ease: "easeOut" }}
-                className="relative h-[450px] lg:h-[550px]"
+                className="relative min-h-[400px] lg:min-h-[550px]"
               >
-                {/* Skewed background accent - positioned behind */}
-                <div className="absolute -inset-4 bg-gradient-to-br from-orange-500 to-red-500 transform rotate-3" />
-                
-                {/* Image container - on top */}
-                <div className="relative h-full overflow-hidden bg-white">
-                  <Image
-                    src="/images/why_choose_us.png"
-                    alt="Personal Training at GemFitness"
-                    fill
-                    className="object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-                </div>
+                <Image
+                  src="/images/why_choose_us.png"
+                  alt="Personal Training at GemFitness"
+                  fill
+                  className="object-cover"
+                />
               </motion.div>
             </div>
           </div>
@@ -576,48 +559,44 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
             {trainers.map((trainer, i) => (
               <motion.div
                 key={i}
-                initial={{ opacity: 0, scale: 0.95 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.08, duration: 0.4, ease: "easeOut" }}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.08, duration: 0.5, ease: "easeOut" }}
                 viewport={{ once: true }}
-                {...(!shouldReduceMotion ? { whileHover: { y: -4, transition: { duration: 0.2, ease: "easeOut" } } } : {})}
+                whileHover={{ y: -6, transition: { duration: 0.2, ease: "easeOut" } }}
+                className="group relative h-[400px] sm:h-[450px] overflow-hidden cursor-pointer"
               >
-                <Card className="h-full border border-gray-200 hover:border-orange-400 transition-all duration-200">
-                  <div className="aspect-[4/5] bg-gradient-to-br from-orange-50 to-orange-100 relative overflow-hidden group">
-                    <Image
-                      src={trainer.image}
-                      alt={trainer.name}
-                      width={600}
-                      height={750}
-                      className="object-cover object-[center_20%] w-full h-full"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        const parent = e.currentTarget.parentElement;
-                        if (parent) parent.classList.add('flex', 'items-center', 'justify-center');
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none" />
-                  </div>
-                  <CardHeader>
-                    <CardTitle className="text-xl text-gray-900">{trainer.name}</CardTitle>
-                    <CardDescription>
-                      <div className="text-orange-500 font-semibold mb-1">{trainer.specialty}</div>
-                      <div className="text-sm text-gray-700">{trainer.experience} experience</div>
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="italic text-gray-700">&ldquo;{trainer.motto}&rdquo;</p>
-                  </CardContent>
-                  <CardFooter>
-                    <Button asChild variant="outline" className="w-full border-2 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white font-semibold">
-                      <Link href="/signup">Book a Session</Link>
-                    </Button>
-                  </CardFooter>
-                </Card>
+                <div className="absolute inset-0">
+                  <Image
+                    src={trainer.image}
+                    alt={trainer.name}
+                    fill
+                    className="object-cover object-[center_20%] group-hover:scale-110 transition-transform duration-700"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      const parent = e.currentTarget.parentElement;
+                      if (parent) parent.classList.add('bg-gradient-to-br', 'from-orange-50', 'to-orange-100');
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                </div>
+
+                <div className="relative h-full flex flex-col justify-end p-6 sm:p-8">
+                  <h3 className="text-2xl sm:text-3xl font-black text-white mb-1">
+                    {trainer.name}
+                  </h3>
+                  <p className="text-orange-400 font-semibold text-sm mb-1">{trainer.specialty}</p>
+                  <Button
+                    className="bg-orange-500 hover:bg-orange-600 text-white font-bold w-fit group-hover:scale-105 transition-transform"
+                    asChild
+                  >
+                    <Link href="/signup">Book a Session</Link>
+                  </Button>
+                </div>
               </motion.div>
             ))}
           </div>
@@ -627,7 +606,7 @@ export default function HomePage() {
       {/* Features Section */}
       <section className="relative py-20 bg-neutral-50 overflow-hidden">
         {/* Skewed background accent */}
-        <div className="absolute bottom-0 right-0 w-2/5 h-3/4 bg-gradient-to-l from-orange-50 to-transparent transform skew-x-6" />
+        <div className="absolute bottom-0 right-0 w-2/5 h-3/4 bg-gradient-to-l from-gray-900/5 to-transparent transform skew-x-6 backdrop-blur-sm" />
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="text-center mb-16">

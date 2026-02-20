@@ -9,7 +9,7 @@ import {
   Send,
   Instagram,
   Facebook,
-  Twitter,
+
 } from 'lucide-react';
 import { useState } from 'react';
 import Link from 'next/link';
@@ -26,12 +26,12 @@ const contactInfo = [
   {
     icon: Phone,
     title: 'Call Us',
-    details: ['+233 (0) 123 456 789', 'WhatsApp Available'],
+    details: ['+233 24 900 3832', 'WhatsApp Available'],
   },
   {
     icon: Mail,
     title: 'Email Us',
-    details: ['info@gemfitness.com'],
+    details: ['info@gemfitness.fit'],
   },
   {
     icon: Clock,
@@ -41,9 +41,9 @@ const contactInfo = [
 ];
 
 const socialLinks = [
-  { icon: Instagram, url: '#', label: '@gemfitness_tema' },
-  { icon: Facebook, url: '#', label: 'GemFitness Ghana' },
-  { icon: Twitter, url: '#', label: '@GemFitnessTema' },
+  { icon: Instagram, url: 'https://www.instagram.com/gemfitness244/', label: '@gemfitness_tema' },
+  { icon: Facebook, url: 'https://www.facebook.com/gemfitness.centre/', label: 'GemFitness Ghana' },
+  
 ];
 
 export default function ContactPage() {

@@ -1563,3 +1563,8 @@
 {"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2026-02-16 17:36:23"}
 {"dateFilter":{},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2026-02-16 17:37:42"}
 {"level":"info","message":"Found 4 check-ins for today","service":"gemfitness","timestamp":"2026-02-16 17:37:42"}
+{"dateFilter":{"checkInTime":{"gte":"2026-02-20T00:00:00.000Z","lt":"2026-02-21T00:00:00.000Z"}},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2026-02-19 13:30:15"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2026-02-19 13:30:16"}
+{"level":"info","message":"User logged out","service":"gemfitness","timestamp":"2026-02-19 13:30:23","userId":"cmim96ft90005tpao07a5nf5y"}
+{"level":"info","message":"AUTH: LOGOUT","service":"gemfitness","timestamp":"2026-02-19 13:30:23","userId":"cmim96ft90005tpao07a5nf5y"}
+{"action":"logout","entityId":"cmim96ft90005tpao07a5nf5y","entityType":"User","level":"info","message":"Audit log created","service":"gemfitness","timestamp":"2026-02-19 13:30:23","userId":"cmim96ft90005tpao07a5nf5y"}
