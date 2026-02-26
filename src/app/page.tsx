@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Dumbbell,
   Users,
@@ -17,10 +17,12 @@ import {
   Plus,
   Minus,
   Sparkles,
+  Play,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { staggerContainer, fadeUp, ctaMicro } from '@/lib/animations';
 import { formatCurrency } from '@/lib/utils';
 
 // Type definitions
@@ -38,20 +40,6 @@ interface GymPlan {
   memberCount?: number;
 }
 
-interface GymStats {
-  totalActiveMembers?: number;
-  [key: string]: unknown;
-}
-
-// Sample data
-const trainers = [
-  { name: 'Instructor Fireman', specialty: 'Strength & Conditioning', image: '/trainers/instructor_Fireman.jpeg' },
-  { name: 'instructor Alby', specialty: 'HIIT & Cardio', image: '/trainers/instructor_Alby.jpeg' },
-  { name: 'Instructor Fred', specialty: 'Boxing & Combat', image: '/trainers/instructor_Fred.jpeg' },
-  { name: 'Official Energy', specialty: 'Dancing ', image: '/trainers/official_energy.jpeg' },
-];
-
-
 const faqs = [
   { q: 'What are your operating hours?', a: 'Monday-Friday: 5:00 AM - 10:00 PM, Saturday-Sunday: 7:00 AM - 8:00 PM' },
   { q: 'Do I need to book classes in advance?', a: 'Group classes require booking through your member dashboard. Open gym sessions are walk-in anytime.' },
@@ -67,13 +55,29 @@ export default function HomePage() {
   
   // Dynamic plans data
   const [plans, setPlans] = useState<GymPlan[]>([]);
-  const [gymStats, setGymStats] = useState<GymStats | null>(null);
   const [_successStories, setSuccessStories] = useState<Record<string, unknown>[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
   
-  const memberCount = gymStats?.totalActiveMembers || 500; // Dynamic member count
+  const memberCount = 200;
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isMuted, setIsMuted] = useState(true);
 
-  const shouldReduceMotion = useReducedMotion();
+  useEffect(() => {
+    const vid = videoRef.current;
+    if (vid) {
+      vid.muted = true;
+      vid.play().catch(() => {
+        // autoplay blocked — video stays paused, poster image shows
+      });
+    }
+  }, []);
+
+  const toggleMute = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = !videoRef.current.muted;
+      setIsMuted(videoRef.current.muted);
+    }
+  };
 
   useEffect(() => {
     const fetchPlansData = async () => {
@@ -82,7 +86,6 @@ export default function HomePage() {
         if (response.ok) {
           const data = await response.json();
           setPlans(data.plans || []);
-          setGymStats(data.gymStats || null);
           setSuccessStories(data.successStories || []);
         }
       } catch (error) {
@@ -99,134 +102,177 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Floating top-right CTA removed to avoid nav overlap on smaller screens */}
-      {/* Hero Section with Modern Light Design */}
+      {/* Hero Section with Modern Editorial Design */}
       <section className="relative min-h-[calc(100vh-5rem)] sm:min-h-[90vh] flex items-center overflow-hidden">
-        {/* Background Image */}
-        <div className="absolute inset-0">
-          <Image
-            src="/images/strength.png"
-            alt="Training at GemFitness"
-            fill
-            sizes="100vw"
-            className="object-cover"
-            priority
-          />
-          <div className="absolute inset-0 bg-black/30" />
+        {/* Background Video */}
+        <div className="absolute inset-0 bg-black">
+          <video
+            ref={videoRef}
+            autoPlay
+            muted
+            playsInline
+            preload="auto"
+            className="absolute inset-0 w-full h-full object-cover"
+            onTimeUpdate={() => {
+              if (videoRef.current && videoRef.current.currentTime >= 17) {
+                videoRef.current.currentTime = 0;
+                videoRef.current.play();
+              }
+            }}
+          >
+            <source src="/videos/Hero.mp4" type="video/mp4" />
+          </video>
+          {/* Dual Gradient Overlays */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/50 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30" />
         </div>
+
+        {/* Mute Toggle */}
+        <button
+          onClick={toggleMute}
+          aria-label={isMuted ? 'Unmute video' : 'Mute video'}
+          className="absolute top-4 right-4 z-20 flex items-center justify-center w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 text-white hover:bg-black/60 transition-all duration-200"
+        >
+          {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+        </button>
 
         {/* Content Overlay */}
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20 w-full">
           <div className="max-w-3xl">
             <motion.div
-              {...(!shouldReduceMotion ? { variants: staggerContainer, initial: 'hidden', animate: 'show' } : {})}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1 }}
             >
+              {/* Eyebrow Badge */}
               <motion.div
-                {...(!shouldReduceMotion ? { variants: fadeUp } : {})}
-                className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-full mb-6 font-semibold border border-white/30"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md text-white px-5 py-2.5 rounded-full mb-8 font-medium border border-white/20 text-sm tracking-wide"
               >
-                <Trophy className="h-5 w-5" />
+                <Trophy className="h-4 w-4 text-orange-400" />
                 <span>We&apos;re What We Eat!</span>
               </motion.div>
 
-              <motion.h1 {...(!shouldReduceMotion ? { variants: fadeUp } : {})} className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-4 sm:mb-6 leading-tight text-white">
-                Transform Your <span className="text-orange-400">Body & Mind</span> in Tema
+              {/* Main Headline - Editorial Style */}
+              <motion.h1 
+                initial={{ opacity: 0, y: 40 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.4 }}
+                className="mb-6 sm:mb-8"
+              >
+                <span 
+                  className="block text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-black text-white leading-[0.9] tracking-tight"
+                  style={{ textShadow: '0 4px 30px rgba(0,0,0,0.4)' }}
+                >
+                  Transform Your
+                </span>
+                <span 
+                  className="block text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-black leading-[0.9] tracking-tight bg-gradient-to-r from-orange-400 via-orange-300 to-yellow-300 bg-clip-text text-transparent mt-2"
+                  style={{ WebkitTextStroke: '1px rgba(255,255,255,0.05)' }}
+                >
+                  Body & Mind
+                </span>
+                <span 
+                  className="block text-2xl sm:text-3xl md:text-4xl font-bold text-white/90 mt-4 tracking-wide"
+                  style={{ textShadow: '0 2px 20px rgba(0,0,0,0.3)' }}
+                >
+                  in Tema
+                </span>
               </motion.h1>
 
-              <motion.p {...(!shouldReduceMotion ? { variants: fadeUp } : {})} className="text-base sm:text-lg md:text-xl text-white/90 mb-6 sm:mb-8 leading-relaxed max-w-2xl">
-                Join <strong className="text-orange-300 font-bold">{memberCount}+ members</strong> for expert coaching, modern equipment, and a supportive community built for real results.
+              {/* Subheadline */}
+              <motion.p 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.6 }}
+                className="text-base sm:text-lg md:text-xl text-white/80 font-light leading-relaxed mb-8 sm:mb-10 max-w-xl"
+                style={{ textShadow: '0 2px 10px rgba(0,0,0,0.3)' }}
+              >
+                Join <strong className="text-orange-300 font-semibold">{memberCount}+ members</strong> for expert coaching, modern equipment, and a supportive community built for real results.
               </motion.p>
 
-              <motion.div {...(!shouldReduceMotion ? { variants: fadeUp } : {})} className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-8 sm:mb-10">
-                <motion.div {...(!shouldReduceMotion ? { whileHover: ctaMicro.hover, whileTap: ctaMicro.tap } : {})} className="w-full sm:w-auto">
-                  <Button
-                    asChild
-                    size="lg"
-                    className="text-base sm:text-lg group bg-orange-500 hover:bg-orange-600 text-white font-semibold h-12 sm:h-14 px-6 sm:px-8 w-full sm:w-auto touch-manipulation shadow-2xl focus:outline-none focus:ring-4 focus:ring-orange-300"
-                  >
-                    <Link href="/signup?plan=quarterly">
+              {/* CTA Buttons */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.8 }}
+                className="flex flex-col sm:flex-row gap-4 mb-8 sm:mb-10"
+              >
+                {/* Primary Button */}
+                <Link href="/signup?plan=quarterly" className="group">
+                  <button className="relative w-full sm:w-auto inline-flex items-center justify-center gap-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold px-8 sm:px-10 py-4 sm:py-5 text-base sm:text-lg rounded-full overflow-hidden transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
+                    {/* Animated Shine Effect */}
+                    <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                    
+                    <span className="relative z-10 flex items-center gap-3">
+                      <Play className="w-5 h-5 fill-current" />
                       Join Now
-                      <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                    </Link>
-                  </Button>
-                </motion.div>
-                <motion.div {...(!shouldReduceMotion ? { whileHover: { scale: 1.02 } } : {})} className="w-full sm:w-auto">
-                  <Button asChild size="lg" variant="outline" className="text-base sm:text-lg border-2 border-white text-white hover:bg-white/20 font-semibold h-12 sm:h-14 px-6 sm:px-8 w-full sm:w-auto touch-manipulation">
-                    <Link href="#pricing">
-                      View Memberships
-                    </Link>
-                  </Button>
-                </motion.div>
+                      <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    </span>
+                    
+                    {/* Glow Effect */}
+                    <span className="absolute inset-0 rounded-full shadow-[0_0_40px_rgba(249,115,22,0.5)] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  </button>
+                </Link>
+
+                {/* Secondary Button - Glass Style */}
+                <Link href="#pricing" className="w-full sm:w-auto">
+                  <button className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white/10 backdrop-blur-md border border-white/30 text-white font-semibold px-8 sm:px-10 py-4 sm:py-5 text-base sm:text-lg rounded-full overflow-hidden transition-all duration-300 hover:bg-white/20 hover:border-white/50 hover:scale-[1.02] active:scale-[0.98]">
+                    View Memberships
+                  </button>
+                </Link>
               </motion.div>
 
-              <p className="text-sm sm:text-base text-white/80 mb-6">
-                Memberships from <span className="text-orange-300 font-bold ">GH₵200/month</span> • One-time registration fee {formatCurrency(250)}
-              </p>
+              {/* Price Note */}
+              <motion.p 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.6, delay: 1 }}
+                className="text-sm sm:text-base text-white/70 mb-8 font-light"
+              >
+                Memberships from <span className="text-orange-300 font-semibold">GH₵200/month</span> • One-time registration fee {formatCurrency(250)}
+              </motion.p>
 
               {/* Live Stats */}
-              <div className="grid grid-cols-3 gap-3 sm:gap-6 max-w-md">
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2, duration: 0.5, repeat: Infinity, repeatDelay: 3.5 }}
-                  whileHover={{ scale: 1.05, y: -4, transition: { duration: 0.2 } }}
-                  className="text-center bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-3 hover:border-white/40 hover:bg-white/20 transition-all cursor-pointer"
-                >
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 1.2 }}
+                className="grid grid-cols-3 gap-3 sm:gap-4 max-w-md"
+              >
+                {[
+                  { value: `${memberCount}+`, label: 'Active Members' },
+                  { value: '16', label: 'Hours Daily' },
+                  { value: '5★', label: 'Rated' },
+                ].map((stat) => (
                   <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.4, duration: 0.6, repeat: Infinity, repeatDelay: 3.5 }}
-                    className="text-2xl sm:text-3xl font-bold text-orange-300 mb-1"
+                    key={stat.label}
+                    whileHover={{ scale: 1.05, y: -4 }}
+                    transition={{ duration: 0.2 }}
+                    className="text-center bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 sm:p-4 hover:border-orange-400/30 hover:bg-white/10 transition-all cursor-pointer group"
                   >
-                    {memberCount}+
+                    <div 
+                      className="text-xl sm:text-2xl md:text-3xl font-black text-transparent bg-gradient-to-b from-orange-300 to-orange-400 bg-clip-text mb-1 group-hover:from-orange-200 group-hover:to-orange-300 transition-all"
+                    >
+                      {stat.value}
+                    </div>
+                    <div className="text-[10px] sm:text-xs text-white/70 font-medium uppercase tracking-wider">{stat.label}</div>
                   </motion.div>
-                  <div className="text-xs sm:text-sm text-white/90 font-medium">Active Members</div>
-                </motion.div>
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3, duration: 0.5, repeat: Infinity, repeatDelay: 3.5 }}
-                  whileHover={{ scale: 1.05, y: -4, transition: { duration: 0.2 } }}
-                  className="text-center bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-3 hover:border-white/40 hover:bg-white/20 transition-all cursor-pointer"
-                >
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.5, duration: 0.6, repeat: Infinity, repeatDelay: 3.5 }}
-                    className="text-2xl sm:text-3xl font-bold text-orange-300 mb-1"
-                  >
-                    16
-                  </motion.div>
-                  <div className="text-xs sm:text-sm text-white/90 font-medium">Hours Daily</div>
-                </motion.div>
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4, duration: 0.5, repeat: Infinity, repeatDelay: 3.5 }}
-                  whileHover={{ scale: 1.05, y: -4, transition: { duration: 0.2 } }}
-                  className="text-center bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-3 hover:border-white/40 hover:bg-white/20 transition-all cursor-pointer"
-                >
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.6, duration: 0.6, repeat: Infinity, repeatDelay: 3.5 }}
-                    className="text-2xl sm:text-3xl font-bold text-orange-300 mb-1"
-                  >
-                    5★
-                  </motion.div>
-                  <div className="text-xs sm:text-sm text-white/90 font-medium">Rated</div>
-                </motion.div>
-              </div>
+                ))}
+              </motion.div>
             </motion.div>
           </div>
         </div>
 
         {/* Scroll Indicator */}
         <motion.div
-          {...(!shouldReduceMotion ? { animate: { y: [0, 10, 0] }, transition: { duration: 1.5, repeat: Infinity } } : {})}
+          animate={{ y: [0, 10, 0] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
           className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10"
         >
-          <ChevronDown className="h-8 w-8 text-white/70" />
+          <ChevronDown className="h-8 w-8 text-white/50" />
         </motion.div>
 
         {/* Curved Bottom Border */}
@@ -544,62 +590,21 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Meet Our Trainers */}
-          <div className="text-center mb-12">
-            <motion.h3
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="text-3xl sm:text-4xl font-bold mb-4 text-gray-900"
+          {/* Meet Our Team CTA */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mt-4"
+          >
+            <Link
+              href="/trainers"
+              className="inline-flex items-center gap-2 text-orange-500 hover:text-orange-600 font-bold text-lg group"
             >
-              Meet Your <span className="text-orange-500">Expert Trainers</span>
-            </motion.h3>
-            <p className="text-lg text-gray-700 max-w-2xl mx-auto">
-              Certified professionals dedicated to your success.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
-            {trainers.map((trainer, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.08, duration: 0.5, ease: "easeOut" }}
-                viewport={{ once: true }}
-                whileHover={{ y: -6, transition: { duration: 0.2, ease: "easeOut" } }}
-                className="group relative h-[400px] sm:h-[450px] overflow-hidden cursor-pointer"
-              >
-                <div className="absolute inset-0">
-                  <Image
-                    src={trainer.image}
-                    alt={trainer.name}
-                    fill
-                    className="object-cover object-[center_20%] group-hover:scale-110 transition-transform duration-700"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      const parent = e.currentTarget.parentElement;
-                      if (parent) parent.classList.add('bg-gradient-to-br', 'from-orange-50', 'to-orange-100');
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                </div>
-
-                <div className="relative h-full flex flex-col justify-end p-6 sm:p-8">
-                  <h3 className="text-2xl sm:text-3xl font-black text-white mb-1">
-                    {trainer.name}
-                  </h3>
-                  <p className="text-orange-400 font-semibold text-sm mb-1">{trainer.specialty}</p>
-                  <Button
-                    className="bg-orange-500 hover:bg-orange-600 text-white font-bold w-fit group-hover:scale-105 transition-transform"
-                    asChild
-                  >
-                    <Link href="/signup">Book a Session</Link>
-                  </Button>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+              Meet Our Team
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </motion.div>
         </div>
       </section>
 
@@ -722,112 +727,86 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 mb-8">
+          {/* Most popular plan only */}
+          <div className="max-w-md mx-auto mb-8">
             {plansLoading ? (
-              <div className="col-span-full text-center py-8">
+              <div className="text-center py-8">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
                 <p className="mt-2 text-gray-700">Loading plans...</p>
               </div>
-            ) : (
-              plans.slice(0, 3).map((plan, i) => (
+            ) : (() => {
+              const popular = plans.find((p) => p.isPopular) ?? plans[0];
+              if (!popular) return null;
+              return (
                 <motion.div
-                  key={plan.id}
-                  initial={{ opacity: 0, y: 50 }}
+                  initial={{ opacity: 0, y: 40 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  transition={{ 
-                    delay: i * 0.15,
-                    duration: 0.5,
-                    type: "spring",
-                    stiffness: 100
-                  }}
-                  whileHover={{ 
-                    y: -12,
-                    transition: { duration: 0.3 }
-                  }}
-                  className="relative"
+                  transition={{ duration: 0.5, type: 'spring', stiffness: 100 }}
+                  whileHover={{ y: -8, transition: { duration: 0.3 } }}
+                  className="relative pt-6"
                 >
-                  {plan.isPopular && (
-                    <motion.div 
-                      className="absolute -top-5 left-1/2 -translate-x-1/2 z-20"
-                      initial={{ scale: 0.8, opacity: 0 }}
-                      whileInView={{ scale: 1, opacity: 1 }}
-                      transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
-                    >
-                      <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-orange-500 text-white text-sm font-bold px-6 py-2 rounded-full flex items-center space-x-2 shadow-lg animate-pulse">
-                        <Sparkles className="w-4 h-4" />
-                        <span>Most Popular</span>
-                      </div>
-                    </motion.div>
-                  )}
+                  <motion.div
+                    className="absolute -top-1 left-1/2 -translate-x-1/2 z-20"
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    whileInView={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+                  >
+                    <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-orange-500 text-white text-sm font-bold px-6 py-2 rounded-full flex items-center space-x-2 shadow-lg">
+                      <Sparkles className="w-4 h-4" />
+                      <span>Most Popular</span>
+                    </div>
+                  </motion.div>
 
-                  <Card className={`h-full relative overflow-hidden group transition-all duration-500 ${
-                    plan.isPopular
-                      ? 'border-2 border-orange-500 shadow-2xl shadow-orange-500/30 scale-105' 
-                      : 'border-2 border-gray-200 hover:border-orange-400 hover:shadow-xl hover:shadow-orange-500/20'
-                  }`}>
-                    {/* Gradient Background Effect */}
-                    <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 ${
-                      plan.isPopular
-                        ? 'bg-gradient-to-br from-orange-50 via-white to-orange-50' 
-                        : 'bg-gradient-to-br from-orange-50/50 via-white to-white'
-                    }`} />
-
-                    {plan.isPopular && (
-                      <>
-                        {/* Corner Accent */}
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-500/10 to-transparent rounded-bl-full z-0" />
-                      </>
-                    )}
+                  <Card className="relative overflow-hidden group transition-all duration-500 border-2 border-orange-500 shadow-2xl shadow-orange-500/20">
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-orange-50 via-white to-orange-50" />
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-500/10 to-transparent rounded-bl-full z-0" />
 
                     <CardHeader className="relative z-10">
-                      <CardTitle className="text-2xl text-gray-900">{plan.name}</CardTitle>
+                      <CardTitle className="text-2xl text-gray-900">{popular.name}</CardTitle>
                       <CardDescription>
                         <div className="text-3xl font-bold text-orange-600 mb-2">
-                          GH₵{plan.price}
-                          <span className="text-lg text-gray-700">/{plan.duration} {plan.durationUnit}</span>
+                          GH₵{popular.price}
+                          <span className="text-lg text-gray-700">/{popular.duration} {popular.durationUnit}</span>
                         </div>
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="relative z-10 flex-1">
+                    <CardContent className="relative z-10">
                       <ul className="space-y-3">
-                        {plan.features.slice(0, 5).map((feature: string, index: number) => (
+                        {popular.features.slice(0, 5).map((feature: string, index: number) => (
                           <li key={index} className="flex items-start space-x-3 text-sm text-gray-700">
                             <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
                             <span>{feature}</span>
                           </li>
                         ))}
-                        {plan.features.length > 5 && (
-                          <li className="text-sm text-gray-500">+{plan.features.length - 5} more features</li>
+                        {popular.features.length > 5 && (
+                          <li className="text-sm text-gray-500">+{popular.features.length - 5} more features</li>
                         )}
                       </ul>
-                      {plan.memberCount !== undefined && plan.memberCount > 0 && (
-                        <div className="mt-4 text-sm text-gray-700 flex items-center">
-                          <Users className="w-4 h-4 mr-1 text-orange-500" />
-                          {plan.memberCount} active members
-                        </div>
-                      )}
                     </CardContent>
                     <CardFooter className="relative z-10">
-                      <Link href={`/signup?plan=${plan.slug.toLowerCase()}`} className="w-full">
-                        <Button className={`w-full text-lg font-semibold py-3 transition-all duration-300 uppercase tracking-wide ${
-                          plan.isPopular
-                            ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white' 
-                            : 'bg-gray-900 hover:bg-gray-800 text-white'
-                        }`}>
-                          {plan.isPopular ? 'Get Started' : 'Choose Plan'}
+                      <Link href={`/signup?plan=${popular.slug.toLowerCase()}`} className="w-full">
+                        <Button className="w-full text-lg font-semibold py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white uppercase tracking-wide transition-all duration-300">
+                          Get Started
                         </Button>
                       </Link>
                     </CardFooter>
                   </Card>
                 </motion.div>
-              ))
-            )}
+              );
+            })()}
           </div>
 
-          <div className="text-center bg-primary/10 border border-primary/20 rounded-lg p-6">
-            <p className="text-neutral-700">
-              <strong>One-time registration fee:</strong> {formatCurrency(250)} (includes welcome kit & fitness assessment)
+          <div className="text-center space-y-3">
+            <Link
+              href="/membership"
+              className="inline-flex items-center gap-2 text-orange-500 hover:text-orange-600 font-bold text-lg group"
+            >
+              View all membership plans
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </Link>
+            <p className="text-sm text-gray-500">
+              One-time registration fee: {formatCurrency(250)} • Includes welcome kit &amp; fitness assessment
             </p>
           </div>
         </div>

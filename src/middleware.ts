@@ -50,7 +50,7 @@ export async function middleware(request: NextRequest) {
   console.log('🔍 Middleware invoked for:', path, 'Method:', request.method);
 
   // Allow Next.js internal routes immediately
-  if (path.startsWith('/_next') || path.startsWith('/static')) {
+  if (path.startsWith('/_next') || path.startsWith('/static') || path.startsWith('/videos/') || path.startsWith('/images/') || path.startsWith('/trainers/')) {
     return NextResponse.next();
   }
 
@@ -154,6 +154,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|mp4|webm|ogg|mp3|wav)$).*)',
   ],
 };

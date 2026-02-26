@@ -145,7 +145,7 @@ export default function PlanComparison({
                         </div>
                       )}
                       <Link href={`/signup?plan=${plan.slug.toLowerCase()}`}>
-                        <Button className={`w-full ${
+                        <Button className={`w-full text-white ${
                           plan.isPopular ? 'bg-orange-500 hover:bg-orange-600' : 'bg-gray-900 hover:bg-gray-800'
                         }`}>
                           Choose Plan
@@ -375,7 +375,7 @@ export default function PlanComparison({
 
                 {/* CTA Button */}
                 <Link href={`/signup?plan=${plan.slug.toLowerCase()}`} className="block">
-                  <Button className={`w-full text-lg py-6 font-semibold transition-all duration-300 ${
+                  <Button className={`w-full text-white text-lg py-6 font-semibold transition-all duration-300 ${
                     plan.isPopular && highlightPopular
                       ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-lg hover:shadow-xl' 
                       : 'bg-gray-900 hover:bg-gray-800'

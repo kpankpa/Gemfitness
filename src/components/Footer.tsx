@@ -85,11 +85,6 @@ export default function Footer() {
               </li>
               <li>
                 <a href="#" className="text-gray-400 hover:text-orange-500 transition-colors">
-                  Careers
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-gray-400 hover:text-orange-500 transition-colors">
                   Privacy Policy
                 </a>
               </li>

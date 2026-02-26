@@ -4,14 +4,12 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Check,
-  Star,
   Users,
   Clock,
   Heart,
   Zap,
   Calendar,
   Shield,
-  ArrowRight,
   TrendingUp,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -124,6 +122,7 @@ export default function MembershipPage() {
         subtitle="Membership"
         title="Choose Your Plan"
         description="Simple, flexible plans with no hidden fees and no long-term contracts. Start training today."
+        backgroundImage="/images/strength.jpg"
       />
 
       {/* Plans Section */}
@@ -200,75 +199,6 @@ export default function MembershipPage() {
                 </div>
               </motion.div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Personal Training Upsell */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-            >
-              <span className="text-orange-500 font-bold tracking-wide uppercase text-sm">Level Up</span>
-              <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-6 tracking-tight mt-2">
-                Add Personal <span className="text-orange-500">Training</span>
-              </h2>
-              <p className="text-lg text-gray-700 mb-6">
-                Get faster results with one-on-one coaching from our certified trainers. Available as an
-                add-on to any membership plan.
-              </p>
-              <ul className="space-y-3 mb-8">
-                {['Customized workout programs', 'Nutrition guidance', 'Progress tracking & accountability', 'Flexible scheduling'].map((item) => (
-                  <li key={item} className="flex items-center space-x-3">
-                    <Check className="w-5 h-5 text-orange-500 flex-shrink-0" />
-                    <span className="text-gray-700">{item}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link href="/trainers">
-                <Button className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg px-8 py-6">
-                  Meet Our Trainers <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </Link>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-            >
-              <Card className="bg-gray-900 text-white p-8 border-0">
-                <Star className="w-10 h-10 text-orange-500 mb-4" />
-                <h3 className="text-2xl font-bold mb-4">Personal Training Packages</h3>
-                <div className="space-y-4 mb-6">
-                  <div className="flex items-center justify-between py-3 border-b border-gray-700">
-                    <span className="text-gray-300">Single Session</span>
-                    <span className="font-bold text-orange-500">GH₵100</span>
-                  </div>
-                  <div className="flex items-center justify-between py-3 border-b border-gray-700">
-                    <span className="text-gray-300">5 Session Pack</span>
-                    <span className="font-bold text-orange-500">GH₵450</span>
-                  </div>
-                  <div className="flex items-center justify-between py-3 border-b border-gray-700">
-                    <span className="text-gray-300">10 Session Pack</span>
-                    <span className="font-bold text-orange-500">GH₵800</span>
-                  </div>
-                  <div className="flex items-center justify-between py-3">
-                    <span className="text-gray-300">Monthly Unlimited</span>
-                    <span className="font-bold text-orange-500">GH₵1,500</span>
-                  </div>
-                </div>
-                <Link href="/contact">
-                  <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold">
-                    Book a Free Consultation
-                  </Button>
-                </Link>
-              </Card>
-            </motion.div>
           </div>
         </div>
       </section>

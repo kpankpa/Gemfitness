@@ -64,6 +64,7 @@ export default function ContactPage() {
         subtitle="Contact Us"
         title="Get In Touch"
         description="Questions about membership, classes, or anything else? We'd love to hear from you."
+        backgroundImage="/images/training_at_gem.png"
       />
 
       {/* Contact Info + Form */}
