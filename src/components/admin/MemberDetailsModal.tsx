@@ -1,12 +1,13 @@
 'use client';
 
 import Image from 'next/image';
-import { X, Mail, Phone, Calendar, ShieldCheck, QrCode, MapPin, HeartPulse, User, CakeIcon } from 'lucide-react';
+import { X, Mail, Phone, Calendar, ShieldCheck, QrCode, MapPin, HeartPulse, User, CakeIcon, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { Member } from '@/types';
 
 interface MemberDetailsModalProps {
   isOpen: boolean;
+  isLoading?: boolean;
   onClose: () => void;
   member: Member;
 }
@@ -35,7 +36,7 @@ const formatDateTime = (value?: string | Date | null) => {
   });
 };
 
-export default function MemberDetailsModal({ isOpen, onClose, member }: MemberDetailsModalProps) {
+export default function MemberDetailsModal({ isOpen, isLoading = false, onClose, member }: MemberDetailsModalProps) {
   if (!isOpen) return null;
 
   const statusLabel = member.status.replace(/_/g, ' ');
@@ -66,13 +67,18 @@ export default function MemberDetailsModal({ isOpen, onClose, member }: MemberDe
               <p className="text-sm text-gray-600">{fullName}</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-            aria-label="Close"
-          >
-            <X className="h-6 w-6" />
-          </button>
+          <div className="flex items-center gap-3">
+            {isLoading && (
+              <Loader2 className="h-4 w-4 animate-spin text-orange-500" aria-label="Refreshing data" />
+            )}
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+              aria-label="Close"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
         </div>
 
         <div className="px-6 py-6 space-y-6">

@@ -59,10 +59,11 @@ export async function GET(
       },
       include: {
         subscriptions: {
-          orderBy: {
-            createdAt: 'desc'
-          },
+          orderBy: { endDate: 'desc' },
           take: 1
+        },
+        _count: {
+          select: { checkIns: true }
         }
       }
     });
@@ -71,7 +72,49 @@ export async function GET(
       return NextResponse.json({ error: 'Member not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, member });
+    // Normalize into the same shape as the members list endpoint
+    const now = new Date();
+    const sub = member.subscriptions?.[0];
+    const expiryDate = sub?.endDate ? new Date(sub.endDate) : null;
+    const daysUntilExpiry = expiryDate
+      ? (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      : null;
+    const status =
+      !sub ? 'expired'
+      : expiryDate && expiryDate > now
+        ? daysUntilExpiry !== null && daysUntilExpiry <= 3
+          ? 'expiring_soon'
+          : 'active'
+        : 'expired';
+
+    const formatted = {
+      id: member.id,
+      name: `${member.firstName} ${member.lastName}`,
+      firstName: member.firstName,
+      lastName: member.lastName,
+      email: member.email,
+      phone: member.phone,
+      plan: sub?.plan || 'N/A',
+      status,
+      expiresAt: expiryDate ? expiryDate.toISOString().split('T')[0] : null,
+      joinDate: member.createdAt.toISOString().split('T')[0],
+      qrCode: member.qrCode ? `GYM|${member.qrCode}` : null,
+      registrationPaid: member.registrationPaid,
+      registrationType: member.registrationType,
+      totalCheckIns: member._count.checkIns,
+      profileImage: member.profileImage || null,
+      dateOfBirth: member.dateOfBirth || null,
+      address: member.address || null,
+      emergencyContact: member.emergencyContact || null,
+      emergencyPhone: member.emergencyPhone || null,
+      fitnessGoals: member.fitnessGoals || null,
+      medicalConditions: member.medicalConditions || null,
+      parqCompleted: member.parqCompleted || false,
+      parqCompletedAt: member.parqCompletedAt || null,
+      parqRiskLevel: member.parqRiskLevel || null,
+    };
+
+    return NextResponse.json({ success: true, member: formatted });
   } catch (error) {
     console.error('Fetch member error:', error);
     return NextResponse.json({ error: 'Failed to fetch member' }, { status: 500 });

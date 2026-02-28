@@ -1568,3 +1568,38 @@
 {"level":"info","message":"User logged out","service":"gemfitness","timestamp":"2026-02-19 13:30:23","userId":"cmim96ft90005tpao07a5nf5y"}
 {"level":"info","message":"AUTH: LOGOUT","service":"gemfitness","timestamp":"2026-02-19 13:30:23","userId":"cmim96ft90005tpao07a5nf5y"}
 {"action":"logout","entityId":"cmim96ft90005tpao07a5nf5y","entityType":"User","level":"info","message":"Audit log created","service":"gemfitness","timestamp":"2026-02-19 13:30:23","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2026-02-25 22:37:54","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2026-02-25 22:37:54","userId":"cmim96ft90005tpao07a5nf5y"}
+{"action":"login","entityId":"cmim96ft90005tpao07a5nf5y","entityType":"User","level":"info","message":"Audit log created","service":"gemfitness","timestamp":"2026-02-25 22:37:54","userId":"cmim96ft90005tpao07a5nf5y"}
+{"dateFilter":{"checkInTime":{"gte":"2026-02-26T00:00:00.000Z","lt":"2026-02-27T00:00:00.000Z"}},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2026-02-25 22:38:07"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2026-02-25 22:38:08"}
+{"dateFilter":{},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2026-02-25 22:39:15"}
+{"level":"info","message":"Found 4 check-ins for today","service":"gemfitness","timestamp":"2026-02-25 22:39:15"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2026-02-25 22:49:31","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2026-02-25 22:49:31","userId":"cmim96ft90005tpao07a5nf5y"}
+{"action":"login","entityId":"cmim96ft90005tpao07a5nf5y","entityType":"User","level":"info","message":"Audit log created","service":"gemfitness","timestamp":"2026-02-25 22:49:31","userId":"cmim96ft90005tpao07a5nf5y"}
+{"dateFilter":{"checkInTime":{"gte":"2026-02-26T00:00:00.000Z","lt":"2026-02-27T00:00:00.000Z"}},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2026-02-25 22:49:39"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2026-02-25 22:49:39"}
+{"dateFilter":{"checkInTime":{"gte":"2026-02-26T00:00:00.000Z","lt":"2026-02-27T00:00:00.000Z"}},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2026-02-25 22:51:13"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2026-02-25 22:51:13"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2026-02-27 12:42:56","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2026-02-27 12:42:56","userId":"cmim96ft90005tpao07a5nf5y"}
+{"action":"login","entityId":"cmim96ft90005tpao07a5nf5y","entityType":"User","level":"info","message":"Audit log created","service":"gemfitness","timestamp":"2026-02-27 12:42:56","userId":"cmim96ft90005tpao07a5nf5y"}
+{"dateFilter":{"checkInTime":{"gte":"2026-02-28T00:00:00.000Z","lt":"2026-03-01T00:00:00.000Z"}},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2026-02-27 12:43:27"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2026-02-27 12:43:28"}
+{"dateFilter":{"checkInTime":{"gte":"2026-02-28T00:00:00.000Z","lt":"2026-03-01T00:00:00.000Z"}},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2026-02-27 12:52:08"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2026-02-27 12:52:08"}
+{"level":"info","message":"🔍 Environment check:","publicKeyPrefix":"pk_test_","publicKeyPresent":true,"secretKeyPrefix":"sk_test_","secretKeyPresent":true,"service":"gemfitness","timestamp":"2026-02-28 03:27:47"}
+{"amount":45000,"email":"georgetetteh@gmail.com","level":"info","manualRef":"TEST_1772292467630_U1ZOXXHVYDP","message":"🔄 Initializing payment:","reference":"TEST_1772292467630_U1ZOXXHVYDP","service":"gemfitness","timestamp":1772292467630}
+{"amountInKobo":4500000,"explicitCurrency":"GHS","finalReference":"TEST_1772292467630_U1ZOXXHVYDP","level":"info","message":"🔍 Debug payment currency:","service":"gemfitness","timestamp":"2026-02-28 03:27:48"}
+{"hasData":true,"level":"info","message":"Authorization URL created","service":"gemfitness","status":true,"timestamp":"2026-02-28 03:27:48"}
+{"authorization_url":"https://checkout.paystack.com/8yjhzu6jvtqwj9a","level":"info","message":"✅ Payment initialized:","reference":"TEST_1772292467630_U1ZOXXHVYDP","service":"gemfitness","timestamp":"2026-02-28 03:27:48"}
+{"level":"info","message":"🔍 Verifying payment:","reference":"TEST_1772292467630_U1ZOXXHVYDP","service":"gemfitness","timestamp":"2026-02-28 03:28:09"}
+{"amount":45000,"level":"info","message":"✅ Payment verified:","reference":"TEST_1772292467630_U1ZOXXHVYDP","service":"gemfitness","status":"success","timestamp":"2026-02-28 03:28:09"}
+{"apiKeyLength":36,"appName":"GemFitness","devMode":true,"fromEmail":"GemFitness <onboarding@resend.dev>","hasResendApiKey":true,"level":"info","message":"📧 Email service configuration:","modeStatus":"🔧 DEV MODE ENABLED - Emails will be logged to console only","service":"gemfitness","timestamp":"2026-02-28 03:28:10"}
+{"level":"info","message":"🔧 Running in DEV MODE - Resend client initialization skipped","service":"gemfitness","timestamp":"2026-02-28 03:28:10"}
+{"email":"georgetetteh@gmail.com","hasMetadata":true,"level":"info","message":"📧 Processing user creation from payment:","metadata":{"address":"Accra , Ghana","dateOfBirth":"2000-07-01","emergencyContact":"Prince Kpankpa","emergencyPhone":"0553466396","firstName":"George","fitnessGoals":"the build muscules","lastName":"Kpankpa","medicalConditions":"","parq_basic":{"hasChestPain":"true","hasDizziness":"false","hasHeartCondition":"false","hasJointProblems":"false","hasOtherConditions":"false","needsFollowUp":"true","otherConditionsDetails":"","takesMedication":"false"},"phone":"0240484848","plan":"monthly","referrer":"http://localhost:3000/","registration_type":"new_signup"},"paymentAmount":45000,"paymentReference":"TEST_1772292467630_U1ZOXXHVYDP","service":"gemfitness","timestamp":"2026-02-28 03:28:10"}
+{"email":"georgetetteh@gmail.com","existingEmail":"junior@gmail.com","level":"info","matchedBy":"phone","message":"User already exists:","service":"gemfitness","timestamp":"2026-02-28 03:28:10"}
+{"apiKeyPresent":true,"devMode":true,"firstName":"Junior","fromEmail":"GemFitness <onboarding@resend.dev>","level":"info","message":"📧 Attempting to send OTP email:","otpCode":"867938","service":"gemfitness","timestamp":"2026-02-28 03:28:10","to":"georgetetteh@gmail.com"}
+{"expiresIn":"15 minutes","firstName":"Junior","level":"info","message":"🔧 [DEV MODE] OTP Email would be sent:","otpCode":"867938","service":"gemfitness","subject":"867938 is your GemFitness verification code","timestamp":"2026-02-28 03:28:11","to":"georgetetteh@gmail.com"}
+{"level":"info","message":"OTP resent to existing user: georgetetteh@gmail.com","service":"gemfitness","timestamp":"2026-02-28 03:28:11"}

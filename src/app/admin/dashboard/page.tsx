@@ -705,6 +705,7 @@ export default function AdminDashboard() {
   const [showClassReviewsModal, setShowClassReviewsModal] = useState(false);
   const [showClassDetailsModal, setShowClassDetailsModal] = useState(false);
   const [showMemberDetailsModal, setShowMemberDetailsModal] = useState(false);
+  const [isFetchingMemberDetails, setIsFetchingMemberDetails] = useState(false);
   const [showBulkEmailModal, setShowBulkEmailModal] = useState(false);
   const [showMemberClassHistoryModal, setShowMemberClassHistoryModal] = useState(false);
   const [showClassEnrollmentModal, setShowClassEnrollmentModal] = useState(false);
@@ -2361,6 +2362,26 @@ export default function AdminDashboard() {
     setShowEditMemberModal(true);
   };
 
+  // Open view member details modal — fetches fresh data from the API
+  const openMemberDetailsModal = async (member: Member) => {
+    setSelectedMember(member); // Show immediately with existing list data
+    setShowMemberDetailsModal(true);
+    try {
+      setIsFetchingMemberDetails(true);
+      const response = await fetch(`/api/members/${member.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.member) {
+          setSelectedMember(data.member as Member);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch member details:', err);
+    } finally {
+      setIsFetchingMemberDetails(false);
+    }
+  };
+
   // Open delete member modal
   const openDeleteMemberModal = (member: Member) => {
     setSelectedMember(member);
@@ -3858,10 +3879,7 @@ export default function AdminDashboard() {
                               <Button 
                                 variant="ghost" 
                                 size="sm"
-                                onClick={() => { 
-                                  setSelectedMember(member as Member);
-                                  setShowMemberDetailsModal(true);
-                                }}
+                                onClick={() => openMemberDetailsModal(member as Member)}
                                 title="View member details"
                               >
                                 <Eye className="h-4 w-4" />
@@ -10172,6 +10190,7 @@ export default function AdminDashboard() {
       {showMemberDetailsModal && selectedMember && (
         <MemberDetailsModal
           isOpen={showMemberDetailsModal}
+          isLoading={isFetchingMemberDetails}
           onClose={() => {
             setShowMemberDetailsModal(false);
             setSelectedMember(null);

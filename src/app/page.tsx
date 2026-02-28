@@ -64,12 +64,17 @@ export default function HomePage() {
 
   useEffect(() => {
     const vid = videoRef.current;
-    if (vid) {
-      vid.muted = true;
-      vid.play().catch(() => {
-        // autoplay blocked — video stays paused, poster image shows
-      });
-    }
+    if (!vid) return;
+    vid.muted = true;
+    const playPromise = vid.play();
+    return () => {
+      if (playPromise !== undefined) {
+        // Wait for play() to settle before pausing — prevents AbortError
+        playPromise
+          .then(() => vid.pause())
+          .catch(() => { /* already aborted or blocked — ignore */ });
+      }
+    };
   }, []);
 
   const toggleMute = () => {
@@ -116,7 +121,7 @@ export default function HomePage() {
             onTimeUpdate={() => {
               if (videoRef.current && videoRef.current.currentTime >= 17) {
                 videoRef.current.currentTime = 0;
-                videoRef.current.play();
+                videoRef.current.play().catch(() => {});
               }
             }}
           >

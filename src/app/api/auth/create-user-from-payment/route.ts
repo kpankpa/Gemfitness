@@ -87,6 +87,8 @@ export async function POST(request: NextRequest) {
     }
 
     const { customer } = paymentData;
+    // Normalize email to lowercase to ensure consistent DB storage and lookups
+    customer.email = customer.email.toLowerCase().trim();
     const metadata = paymentData.metadata || {};
     
     logger.info('📧 Processing user creation from payment:', {

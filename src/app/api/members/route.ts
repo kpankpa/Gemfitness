@@ -83,6 +83,9 @@ export async function GET(request: NextRequest) {
         subscriptions: {
           orderBy: { endDate: 'desc' },
           take: 1
+        },
+        _count: {
+          select: { checkIns: true }
         }
       }
     });
@@ -101,7 +104,7 @@ export async function GET(request: NextRequest) {
       qrCode: user.qrCode ? `GYM|${user.qrCode}` : null,
       registrationPaid: user.registrationPaid,
       registrationType: user.registrationType,
-      totalCheckIns: 0,
+      totalCheckIns: user._count.checkIns,
       profileImage: user.profileImage || null,
       // Additional personal information
       dateOfBirth: user.dateOfBirth || null,
