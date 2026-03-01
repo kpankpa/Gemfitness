@@ -191,6 +191,20 @@ export default function SignupPage() {
         return;
       }
 
+      // ✅ Check email and phone uniqueness BEFORE initiating payment
+      const availabilityParams = new URLSearchParams();
+      if (formData.email) availabilityParams.set('email', formData.email);
+      if (formData.phone) availabilityParams.set('phone', formData.phone);
+
+      const availabilityRes = await fetch(`/api/auth/check-availability?${availabilityParams.toString()}`);
+      const availabilityData = await availabilityRes.json();
+
+      if (!availabilityRes.ok && availabilityData.available === false) {
+        setError(availabilityData.message || 'This email or phone number is already registered.');
+        setIsSubmitting(false);
+        return;
+      }
+
       // ✅ SECURITY: Store password in sessionStorage (NEVER send to third-party payment providers)
       // Password will be sent to backend after OTP verification
       sessionStorage.setItem('pendingPassword', formData.password);

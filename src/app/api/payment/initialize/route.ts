@@ -65,8 +65,10 @@ export async function POST(request: NextRequest) {
           currency: 'GHS', // Ghana Cedis
           metadata: {
             ...metadata,
+            // Keep the plan from form metadata; only fall back to body.plan or 'monthly'
+            // if neither was provided. Do NOT overwrite metadata.plan.
+            plan: metadata?.plan || plan || 'monthly',
             registration_type: 'new_signup',
-            plan: plan || 'monthly',
           },
           callback_url: callback_url || `${process.env.NEXTAUTH_URL}/payment/callback`,
           channels: ['card', 'bank', 'ussd', 'qr', 'mobile_money'],

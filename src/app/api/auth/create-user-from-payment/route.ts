@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
+import { RegistrationType } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { sendOTPEmail } from '@/lib/services/email/resend';
 import { hashPassword } from '@/lib/auth/passwords';
@@ -99,27 +100,15 @@ export async function POST(request: NextRequest) {
       paymentReference: reference
     });
     
-    // ✅ IDEMPOTENCY: Check if user already exists
+    // ✅ IDEMPOTENCY: Check if user already exists — match by EMAIL ONLY.
+    // Phone is NOT used for matching because two different people may share a
+    // phone number in test data, or a user may re-register with a new email
+    // but the same phone. Using phone here caused the wrong account to be
+    // returned, redirecting the new user to verify someone else's email.
     let existingUser;
     try {
-      const phoneToCheck = metadata.phone || customer.phone;
-      interface WhereCondition {
-        email?: string;
-        OR?: Array<{ email?: string; phone?: string }>;
-      }
-      const whereCondition: WhereCondition = { email: customer.email };
-      
-      // Only check phone if it's a valid phone number (not 'N/A' or empty)
-      if (phoneToCheck && phoneToCheck !== 'N/A' && phoneToCheck.trim() !== '') {
-        whereCondition.OR = [
-          { email: customer.email },
-          { phone: phoneToCheck }
-        ];
-        delete whereCondition.email; // Use OR condition instead
-      }
-      
       existingUser = await prisma.user.findFirst({
-        where: whereCondition
+        where: { email: { equals: customer.email, mode: 'insensitive' } },
       });
     } catch (dbError) {
       logger.error('❌ Database error checking for existing user:', { error: dbError });
@@ -165,28 +154,50 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      return NextResponse.json({ success: true, user: existingUser });
-    }
-
-    // Extract plan information from metadata or amount
-    let planId = 'basic-monthly';
-    let planName = 'Basic Monthly';
-    
-    // If metadata contains plan info, use it
-    if (paymentData.metadata?.planId) {
-      planId = paymentData.metadata.planId;
-      planName = paymentData.metadata.planName || planName;
-    } else {
-      // Otherwise, determine plan from amount
-      const amount = paymentData.amount / 100; // Convert from kobo to cedis
-      
-      if (amount >= 200) {
-        planId = 'premium-monthly';
-        planName = 'Premium Monthly';
-      } else if (amount >= 150) {
-        planId = 'standard-monthly';
-        planName = 'Standard Monthly';
+      // ✅ ALWAYS record payment even for existing users so it shows in admin
+      try {
+        const existingTx = await prisma.paymentTransaction.findUnique({ where: { reference } });
+        if (!existingTx) {
+          await prisma.paymentTransaction.create({
+            data: {
+              userId: existingUser.id,
+              reference,
+              amount: paymentData.amount / 100,
+              currency: 'GHS',
+              status: 'success',
+              paymentMethod: 'paystack',
+              transactionType: 'registration',
+              relatedEntityId: existingUser.id,
+              relatedEntityType: 'user',
+              paymentGatewayId: paymentData.id?.toString() || '',
+              paidAt: new Date(),
+              metadata: {
+                createdVia: 'existing-user-fallback',
+                customerEmail: customer.email,
+                matchedEmail: existingUser.email,
+              },
+            },
+          });
+          logger.info('✅ Payment transaction recorded for existing user:', { reference, userId: existingUser.id });
+        }
+      } catch (txErr) {
+        logger.error('⚠️ Failed to record payment for existing user (non-critical):', {
+          reference,
+          error: txErr instanceof Error ? txErr.message : 'unknown',
+        });
       }
+
+      // Return the ACTUAL stored email so the client redirects to the correct address
+      return NextResponse.json({
+        success: true,
+        user: {
+          id: existingUser.id,
+          email: existingUser.email,
+          firstName: existingUser.firstName,
+          lastName: existingUser.lastName,
+          emailVerified: existingUser.emailVerified,
+        },
+      });
     }
 
     // Extract user data from payment metadata
@@ -240,33 +251,47 @@ export async function POST(request: NextRequest) {
     const otpExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
     // ✅ TRANSACTION: Create user with subscription in one transaction
+    // If the requested phone is already taken by another user, fall back to a
+    // generated temp phone so the new account is still created correctly.
     let newUser;
     let subscriptionPlan;
     try {
-      newUser = await prisma.user.create({
-        data: {
-          email: customer.email,
-          firstName,
-          lastName,
-          phone,
-          dateOfBirth,
-          address,
-          emergencyContact,
-          emergencyPhone,
-          fitnessGoals,
-          medicalConditions,
-          password, // This should be hashed in production
-          role: 'MEMBER',
-          registrationPaid: true,
-          registrationType: 'SELF',
-          paymentReference: reference,
-          emailVerified: false,
-          otpCode,
-          otpExpiry,
-          otpAttempts: 0,
-          otpLastSent: new Date(),
+      const userData = {
+        email: customer.email,
+        firstName,
+        lastName,
+        phone,
+        dateOfBirth,
+        address,
+        emergencyContact,
+        emergencyPhone,
+        fitnessGoals,
+        medicalConditions,
+        password,
+        role: 'MEMBER' as const,
+        registrationPaid: true,
+        registrationType: RegistrationType.SELF,
+        paymentReference: reference,
+        emailVerified: false,
+        otpCode,
+        otpExpiry,
+        otpAttempts: 0,
+        otpLastSent: new Date(),
+      };
+
+      try {
+        newUser = await prisma.user.create({ data: userData });
+      } catch (firstTryError) {
+        // If phone caused a unique-constraint violation, retry with a temp phone
+        const msg = firstTryError instanceof Error ? firstTryError.message : '';
+        if (msg.includes('Unique constraint') && msg.toLowerCase().includes('phone')) {
+          logger.warn('⚠️ Phone already in use, retrying with generated phone:', { phone });
+          const tempPhone = `temp_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+          newUser = await prisma.user.create({ data: { ...userData, phone: tempPhone } });
+        } else {
+          throw firstTryError;
         }
-      });
+      }
     } catch (userCreateError) {
       logger.error('❌ Failed to create user:', { 
         email: customer.email, 
@@ -279,10 +304,32 @@ export async function POST(request: NextRequest) {
     }
 
     // Create subscription record
-    // ✅ PRICING FIX: Use centralized pricing instead of hardcoded values
-    const amountInCedis = paymentData.amount / 100; // Convert from kobo to cedis
+    // NOTE: paymentData.amount is already in cedis — the /api/payment/verify endpoint
+    // converts from kobo before returning, so do NOT divide by 100 again here.
+    const amountInCedis = paymentData.amount; // already in cedis from verify API
+
+    // Determine plan — prefer the plan name from form metadata, fall back to
+    // amount-based detection (subtracting the GHS 250 registration fee so the
+    // threshold comparison lines up with plan prices, not totals).
+    const REGISTRATION_FEE = 250;
+    const PLAN_MAP: Record<string, 'ONE_MONTH' | 'THREE_MONTHS' | 'ONE_YEAR'> = {
+      monthly: 'ONE_MONTH',
+      quarterly: 'THREE_MONTHS',
+      annual: 'ONE_YEAR',
+    };
+    const metaPlan = (metadata.plan as string | undefined)?.toLowerCase();
+
     try {
-      subscriptionPlan = determinePlanFromAmount(amountInCedis);
+      subscriptionPlan = metaPlan && PLAN_MAP[metaPlan]
+        ? PLAN_MAP[metaPlan]
+        : determinePlanFromAmount(Math.max(0, amountInCedis - REGISTRATION_FEE));
+
+      logger.info('📋 Subscription plan determined:', {
+        metaPlan,
+        amountInCedis,
+        subscriptionPlan,
+      });
+
       const planPricing = getPlanPricing(subscriptionPlan);
       const endDate = calculateEndDate(planPricing.durationDays);
 
@@ -337,7 +384,7 @@ export async function POST(request: NextRequest) {
         data: {
           userId: newUser.id,
           reference: reference,
-          amount: paymentData.amount / 100, // Convert from kobo to cedis
+          amount: amountInCedis, // already in cedis (no /100 needed)
           currency: 'GHS',
           status: 'success',
           paymentMethod: 'paystack',
@@ -348,8 +395,7 @@ export async function POST(request: NextRequest) {
           paidAt: new Date(),
           metadata: {
             createdVia: 'manual-fallback',
-            planId: planId,
-            planName: planName
+            plan: subscriptionPlan,
           },
         }
       });
@@ -368,7 +414,7 @@ export async function POST(request: NextRequest) {
       firstName: firstName,
       lastName: lastName,
       plan: subscriptionPlan,
-      amount: paymentData.amount / 100
+      amount: amountInCedis,
     });
 
     return NextResponse.json({
@@ -398,11 +444,21 @@ export async function POST(request: NextRequest) {
           email: paymentData?.customer?.email,
           reference: reference
         });
+        // Try to fetch the existing user so we can return their stored email
+        let existingEmail = paymentData?.customer?.email || '';
+        try {
+          const existing = await prisma.user.findFirst({
+            where: { email: { equals: existingEmail, mode: 'insensitive' } },
+            select: { email: true },
+          });
+          if (existing) existingEmail = existing.email;
+        } catch { /* ignore */ }
         return NextResponse.json(
           { 
             success: false, 
             message: 'A user with this email or phone number already exists. Please try logging in instead.',
-            error: 'DUPLICATE_USER'
+            error: 'DUPLICATE_USER',
+            user: { email: existingEmail },
           },
           { status: 409 }
         );

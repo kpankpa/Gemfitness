@@ -37,6 +37,7 @@ const publicApiRoutes = [
   '/api/auth/verify-otp',
   '/api/auth/resend-otp', 
   '/api/auth/skip-verification',
+  '/api/auth/check-availability',
   '/api/auth/create-user-from-payment',
   '/api/payment/initialize',
   '/api/payment/verify',

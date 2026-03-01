@@ -88,7 +88,9 @@ function PaymentSuccessContent() {
         
         if (createUserResponse.ok && createUserData.success) {
           console.log('User created successfully, redirecting to verification');
-          router.push(`/verify-email?email=${encodeURIComponent(verifyData.customer.email)}`);
+          // Use the email from the DB response (not Paystack) so it always matches the stored record
+          const emailForVerify = createUserData.user?.email || verifyData.customer.email;
+          router.push(`/verify-email?email=${encodeURIComponent(emailForVerify)}`);
           return;
         } else {
           // Handle errors properly - show to user, don't redirect
@@ -97,7 +99,8 @@ function PaymentSuccessContent() {
           // Special case: user already exists (duplicate)
           if (createUserData.error === 'DUPLICATE_USER') {
             console.log('User already exists, redirecting to verification');
-            router.push(`/verify-email?email=${encodeURIComponent(verifyData.customer.email)}`);
+            const emailForVerify = createUserData.user?.email || verifyData.customer.email;
+            router.push(`/verify-email?email=${encodeURIComponent(emailForVerify)}`);
             return;
           }
           
@@ -177,9 +180,11 @@ function PaymentSuccessContent() {
             const createUserData = await createUserResponse.json();
         
             if (createUserResponse.ok && createUserData.success) {
-              router.push(`/verify-email?email=${encodeURIComponent(paymentData.customer.email)}`);
+              const emailForVerify = createUserData.user?.email || paymentData.customer.email;
+              router.push(`/verify-email?email=${encodeURIComponent(emailForVerify)}`);
             } else if (createUserData.error === 'DUPLICATE_USER') {
-              router.push(`/verify-email?email=${encodeURIComponent(paymentData.customer.email)}`);
+              const emailForVerify = createUserData.user?.email || paymentData.customer.email;
+              router.push(`/verify-email?email=${encodeURIComponent(emailForVerify)}`);
             } else {
               setUserCreationError(
                 createUserData.message || 

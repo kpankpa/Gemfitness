@@ -216,8 +216,10 @@ export default function VerifyEmailPage() {
         sessionStorage.removeItem('pendingEmail');
         
         setSuccess(true);
+        // Skip-verification does not create a session, so redirect to login.
+        // The user's email is verified and password is set — they can log in normally.
         setTimeout(() => {
-          router.push('/dashboard/member');
+          router.push('/login?verified=true');
         }, 2000);
       } else {
         setError(data.error || 'Failed to skip verification');

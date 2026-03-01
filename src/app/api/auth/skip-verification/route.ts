@@ -22,9 +22,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find user by email (case-insensitive to handle any mixed-case stored emails)
+    // Normalize the incoming email
     const normalizedEmail = email.toLowerCase().trim();
-    const user = await prisma.user.findFirst({
+
+    console.log(`[skip-verification] Looking up email: "${normalizedEmail}" (raw input: "${email}")`);
+
+    // Try Prisma ORM first (case-insensitive)
+    let user = await prisma.user.findFirst({
       where: {
         email: {
           equals: normalizedEmail,
@@ -33,9 +37,23 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Fallback: raw SQL in case ORM mode:'insensitive' misses due to stored whitespace / encoding
     if (!user) {
+      console.log(`[skip-verification] ORM found nothing, trying raw SQL for: "${normalizedEmail}"`);
+      const rows = await prisma.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "users" WHERE LOWER(TRIM(email)) = LOWER(TRIM(${normalizedEmail})) LIMIT 1
+      `;
+      if (rows.length > 0) {
+        user = await prisma.user.findUnique({ where: { id: rows[0].id } });
+        console.log(`[skip-verification] Raw SQL found user id: ${rows[0].id}`);
+      }
+    }
+
+    if (!user) {
+      // Log all users with similar emails for diagnosis
+      console.log(`[skip-verification] User not found for email: "${normalizedEmail}"`);
       return NextResponse.json(
-        { error: 'User not found' },
+        { error: `User not found for email: ${normalizedEmail}` },
         { status: 404 }
       );
     }

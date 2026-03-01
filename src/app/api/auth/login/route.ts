@@ -21,10 +21,12 @@ export async function POST(request: NextRequest) {
     }
 
     const { email, password } = validationResult.data;
+    // Normalize email so login works regardless of the case the user types
+    const normalizedEmail = email.toLowerCase().trim();
 
     // Find user
-    const user = await prisma.user.findUnique({
-      where: { email },
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
       include: {
         subscriptions: {
           where: { status: 'ACTIVE' },
