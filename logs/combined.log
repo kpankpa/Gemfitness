@@ -1693,3 +1693,22 @@
 {"email":"georgetetteh@gmail.com","level":"info","message":"✅ User logged in successfully","role":"MEMBER","service":"gemfitness","timestamp":"2026-02-28 13:26:05","userId":"cmm72imku0005tpcsmyadpgc2"}
 {"email":"georgetetteh@gmail.com","level":"info","message":"AUTH: LOGIN","role":"MEMBER","service":"gemfitness","timestamp":"2026-02-28 13:26:05","userId":"cmm72imku0005tpcsmyadpgc2"}
 {"action":"login","entityId":"cmm72imku0005tpcsmyadpgc2","entityType":"User","level":"info","message":"Audit log created","service":"gemfitness","timestamp":"2026-02-28 13:26:05","userId":"cmm72imku0005tpcsmyadpgc2"}
+{"email":"georgetetteh@gmail.com","level":"warn","message":"Login attempt with incorrect password","service":"gemfitness","timestamp":"2026-03-02 01:57:56","userId":"cmm72imku0005tpcsmyadpgc2"}
+{"action":"login_failed","entityId":"cmm72imku0005tpcsmyadpgc2","entityType":"User","level":"info","message":"Audit log created","service":"gemfitness","timestamp":"2026-03-02 01:57:56","userId":"cmm72imku0005tpcsmyadpgc2"}
+{"email":"georgetetteh@gmail.com","level":"info","message":"✅ User logged in successfully","role":"MEMBER","service":"gemfitness","timestamp":"2026-03-02 01:58:31","userId":"cmm72imku0005tpcsmyadpgc2"}
+{"email":"georgetetteh@gmail.com","level":"info","message":"AUTH: LOGIN","role":"MEMBER","service":"gemfitness","timestamp":"2026-03-02 01:58:31","userId":"cmm72imku0005tpcsmyadpgc2"}
+{"action":"login","entityId":"cmm72imku0005tpcsmyadpgc2","entityType":"User","level":"info","message":"Audit log created","service":"gemfitness","timestamp":"2026-03-02 01:58:31","userId":"cmm72imku0005tpcsmyadpgc2"}
+{"level":"info","message":"User logged out","service":"gemfitness","timestamp":"2026-03-02 02:06:27","userId":"cmm72imku0005tpcsmyadpgc2"}
+{"level":"info","message":"AUTH: LOGOUT","service":"gemfitness","timestamp":"2026-03-02 02:06:27","userId":"cmm72imku0005tpcsmyadpgc2"}
+{"action":"logout","entityId":"cmm72imku0005tpcsmyadpgc2","entityType":"User","level":"info","message":"Audit log created","service":"gemfitness","timestamp":"2026-03-02 02:06:27","userId":"cmm72imku0005tpcsmyadpgc2"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2026-03-02 02:07:50","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2026-03-02 02:07:50","userId":"cmim96ft90005tpao07a5nf5y"}
+{"action":"login","entityId":"cmim96ft90005tpao07a5nf5y","entityType":"User","level":"info","message":"Audit log created","service":"gemfitness","timestamp":"2026-03-02 02:07:50","userId":"cmim96ft90005tpao07a5nf5y"}
+{"dateFilter":{"checkInTime":{"gte":"2026-03-02T00:00:00.000Z","lt":"2026-03-03T00:00:00.000Z"}},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2026-03-02 02:08:04"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2026-03-02 02:08:06"}
+{"dateFilter":{"checkInTime":{"gte":"2026-03-02T00:00:00.000Z","lt":"2026-03-03T00:00:00.000Z"}},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2026-03-02 02:26:32"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2026-03-02 02:26:32"}
+{"dateFilter":{"checkInTime":{"gte":"2026-03-02T00:00:00.000Z","lt":"2026-03-03T00:00:00.000Z"}},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2026-03-02 02:42:15"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2026-03-02 02:42:16"}
+{"level":"info","message":"📧 MOCK EMAIL: Sending email","messageId":"msg_1772462586487_a5gudvjbt","service":"gemfitness","subject":"⏰ Your Membership Expires in 0 Days | Renew Now","timestamp":"2026-03-02 02:43:06","to":"junior@gmail.com"}
+{"level":"info","message":"Manual renewal reminder sent to junior@gmail.com (0 days left)","service":"gemfitness","timestamp":"2026-03-02 02:43:06"}

@@ -78,46 +78,78 @@ export async function GET(request: NextRequest) {
     logger.info(`Auto-resumed ${autoResumeResult.processedCount} subscriptions`);
 
     // ============================================
-    // 3. SEND RENEWAL REMINDERS (3 DAYS BEFORE EXPIRY)
+    // 3. SEND RENEWAL REMINDERS (7 / 3 / 1 DAY MILESTONES)
     // ============================================
-    logger.info('📋 Phase 3: Sending renewal reminders...');
+    logger.info('📋 Phase 3: Sending multi-milestone renewal reminders...');
 
     const now = new Date();
-    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-    const subscriptionsWithinThreeDays = await prisma.subscription.findMany({
+    // Fetch all active subscriptions expiring within 7 days
+    const expiringSubscriptions = await prisma.subscription.findMany({
       where: {
-        AND: [
-          { status: 'ACTIVE' },
-          { endDate: { gte: now, lte: threeDaysFromNow } },
-          {
-            // Only send reminder if we haven't sent one recently
-            OR: [
-              { lastRenewalAttemptAt: null },
-              { lastRenewalAttemptAt: { lte: new Date(now.getTime() - 24 * 60 * 60 * 1000) } }
-            ]
-          }
-        ]
+        status: 'ACTIVE',
+        endDate: { gte: now, lte: sevenDaysFromNow },
       },
-      include: { user: true }
+      include: { user: true },
     });
 
-    for (const subscription of subscriptionsWithinThreeDays) {
-      const daysUntilExpiry = Math.ceil(
+    // Ordered ascending so .find() returns the nearest ceiling milestone (1 → 3 → 7)
+    const REMINDER_MILESTONES: readonly number[] = [1, 3, 7];
+
+    for (const subscription of expiringSubscriptions) {
+      const daysLeft = Math.ceil(
         (subscription.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
       );
 
-      await sendRenewalEmails.sendRenewalReminderEmail({
-        to: subscription.user.email,
-        firstName: subscription.user.firstName,
-        daysUntilExpiry,
-        amount: subscription.amount
+      // Determine which milestone this subscription falls under (pick closest ≥ daysLeft)
+      const targetMilestone = REMINDER_MILESTONES.find(m => daysLeft <= m) ?? null;
+
+      if (!targetMilestone) continue;
+
+      // Dedup: don't send the same milestone reminder if already sent within 23h
+      const alreadySent = await prisma.notification.findFirst({
+        where: {
+          userId: subscription.userId,
+          type: 'EXPIRY_WARNING',
+          subject: { contains: `cron-${targetMilestone}day` },
+          sentAt: { gte: new Date(now.getTime() - 23 * 60 * 60 * 1000) },
+        },
       });
 
-      stats.reminderseSent++;
+      if (alreadySent) {
+        logger.info(`⏭️  ${targetMilestone}-day reminder already sent to ${subscription.user.email}, skipping`);
+        continue;
+      }
+
+      // Send email
+      const emailResult = await sendRenewalEmails.sendRenewalReminderEmail({
+        to: subscription.user.email,
+        firstName: subscription.user.firstName,
+        daysUntilExpiry: daysLeft,
+        amount: subscription.amount,
+      });
+
+      if (emailResult.success) {
+        // Record notification to prevent duplicate sends
+        await prisma.notification.create({
+          data: {
+            userId: subscription.userId,
+            type: 'EXPIRY_WARNING',
+            subject: `cron-${targetMilestone}day renewal reminder`,
+            message: `Automated ${targetMilestone}-day renewal reminder sent to ${subscription.user.email}. ${daysLeft} days until expiry.`,
+            status: 'sent',
+            sentAt: now,
+          },
+        });
+        stats.reminderseSent++;
+        logger.info(`✅ Sent ${targetMilestone}-day reminder to ${subscription.user.email}`);
+      } else {
+        logger.warn(`❌ Failed to send reminder to ${subscription.user.email}: ${emailResult.error}`);
+      }
     }
 
-    logger.info(`Sent ${stats.reminderseSent} renewal reminders`);
+    logger.info(`Sent ${stats.reminderseSent} renewal reminders across 7/3/1-day milestones`);
 
     // ============================================
     // 4. CLEANUP: Mark EXPIRED subscriptions

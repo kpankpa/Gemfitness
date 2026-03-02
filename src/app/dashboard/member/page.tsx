@@ -8,7 +8,7 @@ import {
   TrendingUp, Clock, Target, Award, CalendarDays, CheckCircle2,
   Zap, Receipt, LayoutDashboard,
   Dumbbell, ShieldCheck, User, Mail, Phone, MapPin, Calendar,
-  RefreshCw, Settings, X, Check,
+  RefreshCw, Settings, X, Check, AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
@@ -401,6 +401,43 @@ export default function MemberDashboardPage() {
             onUploadClick={() => setShowProfileModal(true)}
           />
           <ParQBanner parqCompleted={authUser?.parqCompleted ?? false} firstName={firstName} />
+
+          {/* ── Expiry Warning Banner ──────────────────────────────────────── */}
+          {daysLeft > 0 && daysLeft <= 7 && (
+            <div className={`flex items-center gap-3 rounded-2xl p-3 border ${
+              daysLeft <= 1
+                ? 'bg-red-50 border-red-200'
+                : daysLeft <= 3
+                ? 'bg-orange-50 border-orange-200'
+                : 'bg-amber-50 border-amber-200'
+            }`}>
+              <AlertTriangle className={`h-5 w-5 flex-shrink-0 ${
+                daysLeft <= 1 ? 'text-red-500' : daysLeft <= 3 ? 'text-orange-500' : 'text-amber-500'
+              }`} />
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-black ${
+                  daysLeft <= 1 ? 'text-red-800' : daysLeft <= 3 ? 'text-orange-800' : 'text-amber-800'
+                }`}>
+                  {daysLeft === 1
+                    ? 'Your membership expires tomorrow!'
+                    : `Membership expires in ${daysLeft} days!`}
+                </p>
+                <p className={`text-xs mt-0.5 ${
+                  daysLeft <= 1 ? 'text-red-600' : daysLeft <= 3 ? 'text-orange-600' : 'text-amber-600'
+                }`}>
+                  Renew now to keep your access and maintain your streak.
+                </p>
+              </div>
+              <button
+                onClick={() => setTab('more')}
+                className={`flex-shrink-0 text-xs font-black px-3 py-2 rounded-xl text-white active:scale-95 transition-transform ${
+                  daysLeft <= 1 ? 'bg-red-500' : daysLeft <= 3 ? 'bg-orange-500' : 'bg-amber-500'
+                }`}
+              >
+                Renew
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ══════════════════════════ HOME ══════════════════════════════════ */}

@@ -57,10 +57,20 @@ export async function GET(request: NextRequest) {
         where.subscriptions = { some: { status: 'ACTIVE', endDate: { gte: now } } };
       } else if (status === 'expiring_soon') {
         const soon = new Date(now);
-        soon.setDate(soon.getDate() + 3);
+        soon.setDate(soon.getDate() + 7); // 7-day window matches analytics
         where.subscriptions = { some: { status: 'ACTIVE', endDate: { gte: now, lte: soon } } };
       } else if (status === 'expired') {
         where.subscriptions = { none: { status: 'ACTIVE', endDate: { gte: now } } };
+      } else if (status === 'expiring_or_expired') {
+        // Expiring within 7 days OR expired in the last 30 days
+        const soon = new Date(now);
+        soon.setDate(soon.getDate() + 7);
+        const thirtyDaysAgo = new Date(now);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        where.OR = [
+          { subscriptions: { some: { status: 'ACTIVE', endDate: { gte: now, lte: soon } } } },
+          { subscriptions: { some: { endDate: { gte: thirtyDaysAgo, lt: now } } } },
+        ];
       }
     }
     if (planParam) {
@@ -98,7 +108,7 @@ export async function GET(request: NextRequest) {
       email: user.email,
       phone: user.phone,
       plan: user.subscriptions?.[0]?.plan || 'N/A',
-      status: user.subscriptions?.[0] ? (new Date(user.subscriptions[0].endDate) > now ? ( (new Date(user.subscriptions[0].endDate).getTime() - now.getTime())/(1000*60*60*24) <=3 ? 'expiring_soon' : 'active') : 'expired') : 'expired',
+      status: user.subscriptions?.[0] ? (new Date(user.subscriptions[0].endDate) > now ? ( (new Date(user.subscriptions[0].endDate).getTime() - now.getTime())/(1000*60*60*24) <= 7 ? 'expiring_soon' : 'active') : 'expired') : 'expired',
       expiresAt: user.subscriptions?.[0]?.endDate ? user.subscriptions[0].endDate.toISOString().split('T')[0] : null,
       joinDate: user.createdAt.toISOString().split('T')[0],
       qrCode: user.qrCode ? `GYM|${user.qrCode}` : null,

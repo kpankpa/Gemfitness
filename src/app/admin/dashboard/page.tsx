@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -543,11 +543,69 @@ export default function AdminDashboard() {
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
 
+  // Expiring / expired members for the Overview card (fetched independently)
+  const [expiringMembers, setExpiringMembers] = useState<Member[]>([]);
+  const [isLoadingExpiring, setIsLoadingExpiring] = useState(false);
+
+  const fetchExpiringMembers = useCallback(async () => {
+    if (isLoadingExpiring) return;
+    setIsLoadingExpiring(true);
+    try {
+      const res = await fetch('/api/members?status=expiring_or_expired&limit=100&page=1');
+      if (!res.ok) throw new Error('Failed to fetch expiring members');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.members)) {
+        // Sort: expiring_soon first (ascending days left), then expired (most recently expired first)
+        const sorted = (data.members as Member[]).sort((a, b) => {
+          const aDate = a.expiresAt ? new Date(a.expiresAt).getTime() : 0;
+          const bDate = b.expiresAt ? new Date(b.expiresAt).getTime() : 0;
+          if (a.status === 'expiring_soon' && b.status !== 'expiring_soon') return -1;
+          if (a.status !== 'expiring_soon' && b.status === 'expiring_soon') return 1;
+          if (a.status === 'expiring_soon') return aDate - bDate; // soonest first
+          return bDate - aDate; // most recently expired first
+        });
+        setExpiringMembers(sorted);
+      }
+    } catch (err) {
+      console.error('fetchExpiringMembers error:', err);
+    } finally {
+      setIsLoadingExpiring(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Renewal reminder state (per member)
+  const [reminderSending, setReminderSending] = useState<Record<string, boolean>>({});
+  const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
+
   const { push: pushToast } = useToast();
 
   // Helper function for toast notifications
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     pushToast(message, type);
+  };
+
+  // Send renewal reminder email to a specific member
+  const handleSendRenewalReminder = async (memberId: string, memberName: string) => {
+    setReminderSending(prev => ({ ...prev, [memberId]: true }));
+    try {
+      const response = await fetch(`/api/members/${memberId}/send-renewal-reminder`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setReminderSent(prev => ({ ...prev, [memberId]: true }));
+        showToast(`Renewal reminder sent to ${memberName}`, 'success');
+      } else if (response.status === 429) {
+        showToast(data.error || 'A reminder was already sent recently.', 'info');
+      } else {
+        showToast(data.error || 'Failed to send reminder', 'error');
+      }
+    } catch {
+      showToast('Network error — failed to send reminder', 'error');
+    } finally {
+      setReminderSending(prev => ({ ...prev, [memberId]: false }));
+    }
   };
 
   // Check pending registration status
@@ -1041,6 +1099,7 @@ export default function AdminDashboard() {
     // Load initial data
     console.log('✅ Loading dashboard data...');
     fetchMembers(1, 20);
+    fetchExpiringMembers();
     fetchCheckIns();
     fetchStats();
     fetchAnalytics();
@@ -3522,89 +3581,201 @@ export default function AdminDashboard() {
 
             {/* Recent Activity & Alerts */}
             <div className="grid lg:grid-cols-2 gap-6">
-              {/* Expiring Soon Alert */}
-              {analytics?.expiringSoon > 0 ? (
-                <Card className="border-2 border-yellow-200 bg-yellow-50">
-                  <CardHeader>
+
+              {/* ── Membership Alerts ─────────────────────────────────────── */}
+              <Card className="border-2 border-gray-100">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                      <CardTitle className="text-lg sm:text-xl text-yellow-900">Expiring Soon</CardTitle>
+                      <div className="h-9 w-9 rounded-lg bg-amber-50 flex items-center justify-center">
+                        <AlertTriangle className="h-5 w-5 text-amber-500" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg sm:text-xl">Membership Alerts</CardTitle>
+                        <CardDescription>
+                          {isLoadingExpiring ? 'Loading…' :
+                            expiringMembers.length === 0
+                              ? 'All memberships are healthy'
+                              : (() => {
+                                  const expiring = expiringMembers.filter(m => m.status === 'expiring_soon').length;
+                                  const expired  = expiringMembers.filter(m => m.status === 'expired').length;
+                                  const parts = [];
+                                  if (expiring) parts.push(`${expiring} expiring within 7 days`);
+                                  if (expired)  parts.push(`${expired} recently expired`);
+                                  return parts.join(' · ');
+                                })()
+                          }
+                        </CardDescription>
+                      </div>
                     </div>
-                    <CardDescription className="text-yellow-700">{analytics?.expiringSoon} memberships expiring in 3 days</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {members.filter(m => m.status === 'expiring_soon').slice(0, 3).map((member) => (
-                        <div key={member.id} className="flex items-center justify-between p-3 bg-white rounded-lg">
-                          <div className="flex-1">
-                            <p className="font-semibold text-gray-900 text-sm sm:text-base">{member.name}</p>
-                            <p className="text-xs text-gray-500">Expires: {member.expiresAt}</p>
-                          </div>
-                          <Button size="sm" variant="outline" className="border-orange-500 text-orange-600 hover:bg-orange-50">
-                            Contact
-                          </Button>
-                        </div>
+                    <button
+                      onClick={fetchExpiringMembers}
+                      className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+                      title="Refresh"
+                    >
+                      {isLoadingExpiring
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : <History className="h-4 w-4" />
+                      }
+                    </button>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {isLoadingExpiring ? (
+                    <div className="space-y-2">
+                      {[...Array(3)].map((_, i) => (
+                        <div key={i} className="h-16 bg-gray-100 rounded-lg animate-pulse" />
                       ))}
                     </div>
-                    {members.filter(m => m.status === 'expiring_soon').length > 3 && (
-                      <Button variant="outline" className="w-full mt-4 border-2" onClick={() => setActiveTab('members')}>
-                        View All Expiring
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card className="border-2 border-green-200 bg-green-50">
-                  <CardHeader>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      <CardTitle className="text-lg sm:text-xl text-green-900">All Good!</CardTitle>
+                  ) : expiringMembers.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Trophy className="h-10 w-10 text-green-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-500">All active memberships valid for 7+ days</p>
                     </div>
-                    <CardDescription className="text-green-700">No memberships expiring soon</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-center py-6">
-                      <Trophy className="h-12 w-12 text-green-500 mx-auto mb-3" />
-                      <p className="text-green-800 text-sm">All active memberships are valid for more than 3 days</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+                  ) : (
+                    <>
+                      <div className="space-y-2">
+                        {expiringMembers.slice(0, 6).map((member) => {
+                          const expDate   = member.expiresAt ? new Date(member.expiresAt) : null;
+                          const diffMs    = expDate ? expDate.getTime() - Date.now() : 0;
+                          const daysUntil = expDate ? Math.ceil(diffMs / 86400000) : 0;
+                          const isExpired = member.status === 'expired';
+                          const isSending = reminderSending[member.id];
+                          const isSent    = reminderSent[member.id];
 
-              {/* Today's Check-Ins */}
+                          // Left-border colour for status (keeps rows clean white)
+                          const borderColor = isExpired
+                            ? 'border-l-red-400'
+                            : daysUntil <= 1
+                            ? 'border-l-orange-400'
+                            : daysUntil <= 3
+                            ? 'border-l-amber-400'
+                            : 'border-l-yellow-300';
+
+                          const badgeStyle = isExpired
+                            ? 'bg-red-50 text-red-600'
+                            : daysUntil <= 1
+                            ? 'bg-orange-50 text-orange-600'
+                            : daysUntil <= 3
+                            ? 'bg-amber-50 text-amber-600'
+                            : 'bg-yellow-50 text-yellow-700';
+
+                          const badgeText = isExpired
+                            ? `Expired ${Math.abs(daysUntil)}d ago`
+                            : daysUntil === 0
+                            ? 'Expires today'
+                            : `${daysUntil}d left`;
+
+                          return (
+                            <div
+                              key={member.id}
+                              className={`flex items-start justify-between gap-3 p-3 bg-gray-50 rounded-lg border-l-4 ${borderColor}`}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="font-semibold text-gray-900 text-sm">{member.name}</p>
+                                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${badgeStyle}`}>
+                                    {badgeText}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1 truncate">
+                                  <Mail className="h-3 w-3 flex-shrink-0" />
+                                  <span className="truncate">{member.email}</span>
+                                </p>
+                                <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                                  <span className="text-xs text-gray-400 flex items-center gap-1">
+                                    <Phone className="h-3 w-3 flex-shrink-0" />
+                                    {member.phone || '—'}
+                                  </span>
+                                  <span className="text-xs text-gray-400">
+                                    {member.plan?.replace(/_/g, ' ') || 'N/A'}
+                                  </span>
+                                  <span className="text-xs text-gray-400">
+                                    {isExpired ? 'Expired' : 'Expires'} {member.expiresAt}
+                                  </span>
+                                </div>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={isSending || isSent}
+                                onClick={() => handleSendRenewalReminder(member.id, member.name)}
+                                className={`flex-shrink-0 flex items-center gap-1.5 h-8 text-xs ${
+                                  isSent
+                                    ? 'border-green-400 text-green-600 bg-green-50'
+                                    : 'border-gray-300 text-gray-600 hover:border-orange-400 hover:text-orange-600'
+                                }`}
+                              >
+                                {isSending
+                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  : isSent
+                                  ? <CheckCircle2 className="h-3.5 w-3.5" />
+                                  : <Send className="h-3.5 w-3.5" />
+                                }
+                                {isSent ? 'Sent' : 'Contact'}
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {expiringMembers.length > 6 && (
+                        <Button
+                          variant="outline"
+                          className="w-full mt-3 border-2"
+                          onClick={() => setActiveTab('members')}
+                        >
+                          View All {expiringMembers.length} Members
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* ── Today's Check-Ins ───────────────────────────────────────── */}
               <Card className="border-2 border-gray-100">
-                <CardHeader>
-                  <CardTitle className="text-lg sm:text-xl">Today&apos;s Check-Ins</CardTitle>
-                  <CardDescription>{analytics?.todayCheckIns || 0} check-ins today</CardDescription>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-9 w-9 rounded-lg bg-green-50 flex items-center justify-center">
+                      <Activity className="h-5 w-5 text-green-500" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg sm:text-xl">Today&apos;s Check-Ins</CardTitle>
+                      <CardDescription>{analytics?.todayCheckIns || 0} check-ins today</CardDescription>
+                    </div>
+                  </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-0">
                   {checkIns.length > 0 ? (
                     <>
-                      <div className="space-y-3">
-                        {checkIns.slice(0, 5).map((checkin) => (
-                          <div key={checkin.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="space-y-2">
+                        {checkIns.slice(0, 6).map((checkin) => (
+                          <div key={checkin.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border-l-4 border-l-green-300">
                             <div className="flex items-center gap-3">
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                                 checkin.method === 'qr' ? 'bg-green-100' : 'bg-blue-100'
                               }`}>
-                                {checkin.method === 'qr' ? <QrCode className="h-4 w-4 text-green-600" /> : <UserCheck className="h-4 w-4 text-blue-600" />}
+                                {checkin.method === 'qr'
+                                  ? <QrCode className="h-4 w-4 text-green-600" />
+                                  : <UserCheck className="h-4 w-4 text-blue-600" />
+                                }
                               </div>
                               <div>
-                                <p className="font-semibold text-gray-900 text-sm sm:text-base">{checkin.member}</p>
-                                <p className="text-xs text-gray-500">{checkin.time} • {checkin.method === 'qr' ? 'QR Scan' : 'Manual'}</p>
+                                <p className="font-semibold text-gray-900 text-sm">{checkin.member}</p>
+                                <p className="text-xs text-gray-500">{checkin.time} · {checkin.method === 'qr' ? 'QR Scan' : 'Manual'}</p>
                               </div>
                             </div>
-                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                            <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
                           </div>
                         ))}
                       </div>
-                      <Button onClick={() => setActiveTab('attendance')} variant="outline" className="w-full mt-4 border-2">
+                      <Button onClick={() => setActiveTab('attendance')} variant="outline" className="w-full mt-3 border-2">
                         View All Check-Ins
                       </Button>
                     </>
                   ) : (
                     <div className="text-center py-8">
-                      <Activity className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                      <Activity className="h-10 w-10 text-gray-300 mx-auto mb-2" />
                       <p className="text-gray-500 text-sm mb-4">No check-ins yet today</p>
                       <Button onClick={() => setActiveTab('checkin')} className="bg-orange-500 hover:bg-orange-600">
                         <QrCode className="h-4 w-4 mr-2" />
@@ -3634,7 +3805,7 @@ export default function AdminDashboard() {
                             </div>
                             <div>
                               <p className="font-semibold text-gray-900 text-sm sm:text-base">{member.name}</p>
-                              <p className="text-xs text-gray-500">{member.phone} • {member.plan}</p>
+                              <p className="text-xs text-gray-500">{member.phone} • {member.plan?.replace(/_/g, ' ')}</p>
                             </div>
                           </div>
                           <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
