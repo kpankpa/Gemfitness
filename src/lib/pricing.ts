@@ -36,21 +36,6 @@ export function getPlanPricing(plan: MembershipPlan) {
 }
 
 /**
- * Map payment amount (in cedis) to membership plan
- * Used when payment metadata doesn't specify the plan
- */
-export function determinePlanFromAmount(amountInCedis: number): MembershipPlan {
-  if (amountInCedis >= PLAN_PRICING.ONE_YEAR.price - 50) {
-    return 'ONE_YEAR';
-  } else if (amountInCedis >= PLAN_PRICING.THREE_MONTHS.price - 50) {
-    return 'THREE_MONTHS';
-  } else if (amountInCedis >= PLAN_PRICING.ONE_MONTH.price - 50) {
-    return 'ONE_MONTH';
-  }
-  return 'DAILY';
-}
-
-/**
  * Calculate subscription end date from duration
  */
 export function calculateEndDate(durationDays: number): Date {
@@ -59,14 +44,3 @@ export function calculateEndDate(durationDays: number): Date {
   return endDate;
 }
 
-/**
- * Validate payment amount matches plan
- */
-export function validatePaymentAmount(
-  amountInCedis: number,
-  expectedPlan: MembershipPlan,
-  tolerance = 100 // Allow ±100 cedis tolerance for rounding
-): boolean {
-  const expectedPrice = PLAN_PRICING[expectedPlan].price;
-  return Math.abs(amountInCedis - expectedPrice) <= tolerance;
-}

@@ -4,7 +4,7 @@ import { RegistrationType } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { sendOTPEmail } from '@/lib/services/email/resend';
 import { hashPassword } from '@/lib/auth/passwords';
-import { getPlanPricing, determinePlanFromAmount, calculateEndDate } from '@/lib/pricing';
+import { getPlanPricing, calculateEndDate } from '@/lib/pricing';
 import { logger } from '@/lib/logger';
 
 interface PaymentData {
@@ -308,10 +308,9 @@ export async function POST(request: NextRequest) {
     // converts from kobo before returning, so do NOT divide by 100 again here.
     const amountInCedis = paymentData.amount; // already in cedis from verify API
 
-    // Determine plan — prefer the plan name from form metadata, fall back to
-    // amount-based detection (subtracting the GHS 250 registration fee so the
-    // threshold comparison lines up with plan prices, not totals).
-    const REGISTRATION_FEE = 250;
+    // Determine plan from metadata (always set by the signup form).
+    // Free first month: endDate is always 30 days regardless of plan.
+    // subscription.amount stores the plan price so renewals charge the correct amount.
     const PLAN_MAP: Record<string, 'ONE_MONTH' | 'THREE_MONTHS' | 'ONE_YEAR'> = {
       monthly: 'ONE_MONTH',
       quarterly: 'THREE_MONTHS',
@@ -320,9 +319,7 @@ export async function POST(request: NextRequest) {
     const metaPlan = (metadata.plan as string | undefined)?.toLowerCase();
 
     try {
-      subscriptionPlan = metaPlan && PLAN_MAP[metaPlan]
-        ? PLAN_MAP[metaPlan]
-        : determinePlanFromAmount(Math.max(0, amountInCedis - REGISTRATION_FEE));
+      subscriptionPlan = (metaPlan && PLAN_MAP[metaPlan]) ? PLAN_MAP[metaPlan] : 'ONE_MONTH';
 
       logger.info('📋 Subscription plan determined:', {
         metaPlan,
@@ -331,7 +328,8 @@ export async function POST(request: NextRequest) {
       });
 
       const planPricing = getPlanPricing(subscriptionPlan);
-      const endDate = calculateEndDate(planPricing.durationDays);
+      // Free first month: 30-day free period, plan price stored for future renewals.
+      const endDate = calculateEndDate(30);
 
       await prisma.subscription.create({
         data: {
@@ -340,7 +338,7 @@ export async function POST(request: NextRequest) {
           status: 'ACTIVE',
           startDate: new Date(),
           endDate: endDate,
-          amount: amountInCedis,
+          amount: planPricing.price, // plan price for correct renewal charges
           registrationType: 'SELF'
         }
       });

@@ -141,7 +141,6 @@ export default function SignupPage() {
 
   const plan = membershipPlans[selectedPlan as keyof typeof membershipPlans];
   const registrationFee = 250;
-  const total = plan.price + registrationFee;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -218,7 +217,7 @@ export default function SignupPage() {
         },
         body: JSON.stringify({
           email: formData.email,
-          amount: total * 100, // Convert to kobo
+          amount: registrationFee, // Free first month: only registration fee charged upfront
           metadata: {
             firstName: formData.firstName,
             lastName: formData.lastName,
@@ -753,16 +752,23 @@ export default function SignupPage() {
                   <div className="space-y-3">
                     <div className="flex justify-between text-gray-700">
                       <span>{plan.name} Membership</span>
-                      <span className="font-semibold">GH₵{plan.price}</span>
+                      <span className="font-semibold line-through text-gray-400">GH₵{plan.price}</span>
+                    </div>
+                    <div className="flex justify-between text-green-700 font-medium">
+                      <span>First Month</span>
+                      <span className="font-semibold">FREE 🎉</span>
                     </div>
                     <div className="flex justify-between text-gray-700">
                       <span>Registration Fee</span>
                       <span className="font-semibold">GH₵{registrationFee}</span>
                     </div>
                     <div className="border-t pt-3 flex justify-between text-lg font-bold text-gray-900">
-                      <span>Total</span>
-                      <span className="text-orange-500">GH₵{total}</span>
+                      <span>Today you pay</span>
+                      <span className="text-orange-500">GH₵{registrationFee}</span>
                     </div>
+                    <p className="text-xs text-gray-500 bg-gray-50 rounded-lg p-2">
+                      After your free 30 days, renew at GH₵{plan.price}/{plan.period}
+                    </p>
                   </div>
 
                   {plan.savings && (

@@ -82,6 +82,7 @@ import EventAnalyticsCards from '@/components/admin/EventAnalyticsCards';
 import EventCalendarView from '@/components/admin/EventCalendarView';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { PLAN_PRICING } from '@/lib/pricing';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -106,6 +107,12 @@ export default function AdminDashboard() {
   const { checkIns, stats: checkInStats, isCheckingIn, performCheckIn, fetchCheckIns, fetchStats } = useCheckIns();
   const { analytics, fetchAnalytics } = useAnalytics();
   const { paymentAnalytics, fetchPaymentAnalytics } = usePaymentAnalytics();
+
+  // Pricing constants — single source of truth
+  // Free first month: new members only pay the registration fee upfront.
+  // Their chosen plan price kicks in at first renewal (after 30 free days).
+  const REG_FEE = 250;
+  const getExpectedAmount = (_plan: string) => REG_FEE;
   
   // Classes and Events state
   const [classes, setClasses] = useState<Array<{
@@ -528,7 +535,7 @@ export default function AdminDashboard() {
     otherConditionsDetails: '',
     // Payment fields
     paymentMethod: 'CASH' as 'CASH' | 'MOMO',
-    amountPaid: '',
+    amountPaid: String(REG_FEE), // free first month: only registration fee due
     momoReference: '',
   });
   const [isRegistering, setIsRegistering] = useState(false);
@@ -2540,21 +2547,15 @@ export default function AdminDashboard() {
       // Auto-generate secure password if not provided
       const autoPassword = `GYM${Math.random().toString(36).slice(-8).toUpperCase()}${Math.floor(Math.random() * 100)}`;
       
-      // Calculate expected amount (Plan + Registration Fee)
-      const planPrices: Record<string, number> = {
-        'ONE_MONTH': 200,
-        'THREE_MONTHS': 500,
-        'ONE_YEAR': 1800
-      };
-      const regFee = 250;
-      const planCost = planPrices[newMember.plan as keyof typeof planPrices] || 200;
-      const expectedAmount = planCost + regFee;
+      // Free first month: only registration fee is collected upfront.
+      // The plan price applies at renewal after the 30-day free period.
+      const expectedAmount = REG_FEE;
       const actualAmount = parseFloat(newMember.amountPaid || '0');
       
       // Validate amount paid
       if (actualAmount < expectedAmount) {
-        setNewMemberErrors({ amountPaid: `Amount should be at least GH₵${expectedAmount} (Plan: GH₵${planCost} + Registration: GH₵${regFee})` });
-        pushToast(`Invalid amount. Expected: GH₵${expectedAmount}`, 'error');
+        setNewMemberErrors({ amountPaid: `Amount should be at least GH₵${expectedAmount} (Registration fee)` });
+        pushToast(`Invalid amount. Minimum: GH₵${expectedAmount}`, 'error');
         setIsRegistering(false);
         return;
       }
@@ -2689,11 +2690,12 @@ export default function AdminDashboard() {
     if (!registeredMemberData) return;
 
     const planDetails = {
-      'DAILY': { name: 'Day Pass', price: dayPassPrice, duration: '1 Day' },
-      'ONE_MONTH': { name: 'Monthly', price: 200, duration: '1 Month' },
-      'THREE_MONTHS': { name: 'Quarterly', price: 450, duration: '3 Months' },
-      'SIX_MONTHS': { name: 'Semi-Annual', price: 1000, duration: '6 Months' },
-      'TWELVE_MONTHS': { name: 'Annual', price: 2000, duration: '12 Months' },
+      'DAILY':        { name: 'Day Pass',      price: dayPassPrice,                   duration: '1 Day'   },
+      'ONE_MONTH':    { name: 'Monthly',        price: PLAN_PRICING.ONE_MONTH.price,   duration: '1 Month' },
+      'THREE_MONTHS': { name: 'Quarterly',      price: PLAN_PRICING.THREE_MONTHS.price, duration: '3 Months' },
+      'SIX_MONTHS':   { name: 'Semi-Annual',    price: 1000,                           duration: '6 Months' },
+      'ONE_YEAR':     { name: 'Annual',         price: PLAN_PRICING.ONE_YEAR.price,    duration: '1 Year'  },
+      'TWELVE_MONTHS':{ name: 'Annual',         price: PLAN_PRICING.ONE_YEAR.price,    duration: '1 Year'  },
     };
 
     const regFees = {
@@ -2702,7 +2704,8 @@ export default function AdminDashboard() {
       'FAMILY': 1000,
     };
 
-    const plan = planDetails[registeredMemberData.plan as keyof typeof planDetails];
+    const plan = planDetails[registeredMemberData.plan as keyof typeof planDetails]
+      ?? { name: registeredMemberData.plan?.replace(/_/g, ' ') ?? 'Membership', price: registeredMemberData.amountPaid ?? 0, duration: 'N/A' };
     const regFee = regFees[registeredMemberData.registrationType as keyof typeof regFees] || 250;
 
     const nextMonth = new Date();
@@ -2760,7 +2763,7 @@ export default function AdminDashboard() {
       hasOtherConditions: false,
       otherConditionsDetails: '',
       paymentMethod: 'CASH',
-      amountPaid: '',
+      amountPaid: String(REG_FEE),
       momoReference: '',
     });
   };
@@ -7217,12 +7220,19 @@ export default function AdminDashboard() {
                   <label className="block text-sm font-medium mb-1">Select Plan</label>
                   <select
                     value={newMember.plan}
-                    onChange={(e) => setNewMember({ ...newMember, plan: e.target.value })}
+                    onChange={(e) => {
+                      const plan = e.target.value;
+                      setNewMember({
+                        ...newMember,
+                        plan,
+                        amountPaid: String(getExpectedAmount(plan)),
+                      });
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                   >
-                    <option value="ONE_MONTH">1 Month - GH₵ 200</option>
-                    <option value="THREE_MONTHS">3 Months - GH₵ 500</option>
-                    <option value="ONE_YEAR">1 Year - GH₵ 2,200</option>
+                    <option value="ONE_MONTH">1 Month — GH₵ 200</option>
+                    <option value="THREE_MONTHS">3 Months — GH₵ 500</option>
+                    <option value="ONE_YEAR">1 Year — GH₵ 2,200</option>
                   </select>
                 </div>
               </div>
@@ -7239,20 +7249,30 @@ export default function AdminDashboard() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                     >
                       <option value="CASH">Cash</option>
-                      <option value="MOMO">Mobile Money (MoMo)</option>
+                      <option value="MOMO">Mobile Money (MoMo) — Paystack USSD</option>
                     </select>
                   </div>
+
+                  {/* Amount — locked for MoMo, editable for Cash */}
                   <div>
-                    <label className="block text-sm font-medium mb-1">Amount Paid (GH₵) *</label>
+                    <label className="block text-sm font-medium mb-1">Amount (GH₵) *</label>
                     <input
                       type="number"
                       required
-                      value={newMember.amountPaid}
-                      onChange={(e) => setNewMember({ ...newMember, amountPaid: e.target.value })}
+                      readOnly={newMember.paymentMethod === 'MOMO'}
+                      value={newMember.amountPaid || String(getExpectedAmount(newMember.plan))}
+                      onChange={(e) => {
+                        if (newMember.paymentMethod !== 'MOMO') {
+                          setNewMember({ ...newMember, amountPaid: e.target.value });
+                        }
+                      }}
                       className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 ${
-                        newMemberErrors.amountPaid ? 'border-red-500' : 'border-gray-300'
+                        newMemberErrors.amountPaid
+                          ? 'border-red-500'
+                          : newMember.paymentMethod === 'MOMO'
+                          ? 'border-amber-300 bg-amber-50 text-amber-900 cursor-not-allowed'
+                          : 'border-gray-300'
                       }`}
-                      placeholder="Enter amount received"
                       step="0.01"
                       min="0"
                     />
@@ -7260,30 +7280,11 @@ export default function AdminDashboard() {
                       <p className="text-xs text-red-600 mt-1">{newMemberErrors.amountPaid}</p>
                     )}
                     <p className="text-xs text-gray-500 mt-1">
-                      Expected: GH₵ {(() => {
-                        const planPrices: Record<string, number> = {
-                          'ONE_MONTH': 200,
-                          'THREE_MONTHS': 500,
-                          'ONE_YEAR': 1800
-                        };
-                        const regFee = 250;
-                        const planCost = planPrices[newMember.plan as keyof typeof planPrices] || 200;
-                        return (planCost + regFee).toFixed(2);
-                      })()} (Plan + Registration)
+                      Registration fee only — member gets <span className="font-semibold text-orange-600">30 days FREE</span>.
+                      First renewal: GH₵ {PLAN_PRICING[newMember.plan as keyof typeof PLAN_PRICING]?.price ?? 200} ({newMember.plan.replace(/_/g, ' ').toLowerCase()})
                     </p>
                   </div>
-                  {newMember.paymentMethod === 'MOMO' && (
-                    <div>
-                      <label className="block text-sm font-medium mb-1">MoMo Reference Number</label>
-                      <input
-                        type="text"
-                        value={newMember.momoReference}
-                        onChange={(e) => setNewMember({ ...newMember, momoReference: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                        placeholder="MoMo transaction reference"
-                      />
-                    </div>
-                  )}
+
                 </div>
               </div>
 

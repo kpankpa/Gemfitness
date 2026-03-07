@@ -1712,3 +1712,33 @@
 {"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2026-03-02 02:42:16"}
 {"level":"info","message":"📧 MOCK EMAIL: Sending email","messageId":"msg_1772462586487_a5gudvjbt","service":"gemfitness","subject":"⏰ Your Membership Expires in 0 Days | Renew Now","timestamp":"2026-03-02 02:43:06","to":"junior@gmail.com"}
 {"level":"info","message":"Manual renewal reminder sent to junior@gmail.com (0 days left)","service":"gemfitness","timestamp":"2026-03-02 02:43:06"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2026-03-05 12:48:01","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2026-03-05 12:48:01","userId":"cmim96ft90005tpao07a5nf5y"}
+{"action":"login","entityId":"cmim96ft90005tpao07a5nf5y","entityType":"User","level":"info","message":"Audit log created","service":"gemfitness","timestamp":"2026-03-05 12:48:01","userId":"cmim96ft90005tpao07a5nf5y"}
+{"dateFilter":{"checkInTime":{"gte":"2026-03-06T00:00:00.000Z","lt":"2026-03-07T00:00:00.000Z"}},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2026-03-05 12:48:12"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2026-03-05 12:48:13"}
+{"level":"info","message":"📧 MOCK EMAIL: Sending email","messageId":"msg_1772758101862_hby4hqjkh","service":"gemfitness","subject":"⏰ Your Membership Expires in 0 Days | Renew Now","timestamp":"2026-03-05 12:48:21","to":"junior@gmail.com"}
+{"level":"info","message":"Manual renewal reminder sent to junior@gmail.com (0 days left)","service":"gemfitness","timestamp":"2026-03-05 12:48:21"}
+{"dateFilter":{"checkInTime":{"gte":"2026-03-06T00:00:00.000Z","lt":"2026-03-07T00:00:00.000Z"}},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2026-03-05 12:48:38"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2026-03-05 12:48:38"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"✅ User logged in successfully","role":"ADMIN","service":"gemfitness","timestamp":"2026-03-06 11:18:48","userId":"cmim96ft90005tpao07a5nf5y"}
+{"email":"kaylonprince@gmail.com","level":"info","message":"AUTH: LOGIN","role":"ADMIN","service":"gemfitness","timestamp":"2026-03-06 11:18:48","userId":"cmim96ft90005tpao07a5nf5y"}
+{"action":"login","entityId":"cmim96ft90005tpao07a5nf5y","entityType":"User","level":"info","message":"Audit log created","service":"gemfitness","timestamp":"2026-03-06 11:18:48","userId":"cmim96ft90005tpao07a5nf5y"}
+{"dateFilter":{"checkInTime":{"gte":"2026-03-06T00:00:00.000Z","lt":"2026-03-07T00:00:00.000Z"}},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2026-03-06 11:19:01"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2026-03-06 11:19:02"}
+{"dateFilter":{"checkInTime":{"gte":"2026-03-06T00:00:00.000Z","lt":"2026-03-07T00:00:00.000Z"}},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2026-03-06 11:29:00"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2026-03-06 11:29:01"}
+{"dateFilter":{"checkInTime":{"gte":"2026-03-06T00:00:00.000Z","lt":"2026-03-07T00:00:00.000Z"}},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2026-03-06 11:29:21"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2026-03-06 11:29:21"}
+{"level":"info","message":"📧 MOCK EMAIL: Sending email","messageId":"msg_1772841229241_0cwf0ipf4","service":"gemfitness","subject":"Payment Receipt - CASH_20260306235348_9471D5BD56264263_45232400 | GemFitness","timestamp":"2026-03-06 11:53:49","to":"fiona@gmail.com"}
+{"email":"fiona@gmail.com","level":"info","message":"✅ Receipt email sent:","receiptGenerated":true,"reference":"CASH_20260306235348_9471D5BD56264263_45232400","service":"gemfitness","timestamp":"2026-03-06 11:53:49","transactionId":"cmmfjw6yq000ctpx0tor28mj1"}
+{"dateFilter":{"checkInTime":{"gte":"2026-03-07T00:00:00.000Z","lt":"2026-03-08T00:00:00.000Z"}},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2026-03-06 12:39:27"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2026-03-06 12:39:27"}
+{"dateFilter":{"checkInTime":{"gte":"2026-03-07T00:00:00.000Z","lt":"2026-03-08T00:00:00.000Z"}},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2026-03-06 12:41:30"}
+{"level":"info","message":"Found 0 check-ins for today","service":"gemfitness","timestamp":"2026-03-06 12:41:30"}
+{"dateFilter":{},"level":"info","limit":null,"message":"Fetching check-ins","service":"gemfitness","timestamp":"2026-03-06 12:45:05"}
+{"level":"info","message":"Found 4 check-ins for today","service":"gemfitness","timestamp":"2026-03-06 12:45:06"}
+{"level":"warn","message":"Trainer model not yet implemented in schema","service":"gemfitness","timestamp":"2026-03-06 13:04:38"}
+{"level":"info","message":"Generating overview report from Sun Mar 01 2026 12:00:00 GMT-1200 (GMT-12:00) to Fri Mar 06 2026 12:00:00 GMT-1200 (GMT-12:00)","service":"gemfitness","timestamp":"2026-03-06 13:04:43"}
+{"level":"info","message":"Generating overview report from Sun Mar 01 2026 12:00:00 GMT-1200 (GMT-12:00) to Fri Mar 06 2026 12:00:00 GMT-1200 (GMT-12:00)","service":"gemfitness","timestamp":"2026-03-06 13:04:44"}
+{"level":"info","message":"Generating attendance report from Sun Mar 01 2026 12:00:00 GMT-1200 (GMT-12:00) to Fri Mar 06 2026 12:00:00 GMT-1200 (GMT-12:00)","service":"gemfitness","timestamp":"2026-03-06 13:04:51"}

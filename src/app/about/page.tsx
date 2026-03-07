@@ -406,7 +406,7 @@ export default function AboutPage() {
               Our Motto Since 2015
             </p>
             <h2 className="text-4xl sm:text-5xl lg:text-7xl font-black text-white leading-tight tracking-tight">
-              &ldquo;We&apos;re What We Train!&rdquo;
+              &ldquo;We&apos;re What We Eat!&rdquo;
             </h2>
           </motion.div>
         </div>

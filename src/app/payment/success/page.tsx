@@ -134,8 +134,9 @@ function PaymentSuccessContent() {
     });
   };
 
+  // amount is already in cedis (converted by /api/payment/verify)
   const formatAmount = (amount: number) => {
-    return `GH₵${(amount / 100).toFixed(2)}`;
+    return `GH₵${amount.toFixed(2)}`;
   };
 
   if (loading) {

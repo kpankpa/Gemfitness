@@ -62,14 +62,12 @@ export async function GET(request: NextRequest) {
       } else if (status === 'expired') {
         where.subscriptions = { none: { status: 'ACTIVE', endDate: { gte: now } } };
       } else if (status === 'expiring_or_expired') {
-        // Expiring within 7 days OR expired in the last 30 days
+        // Expiring within 7 days OR has no active subscription (expired at any point)
         const soon = new Date(now);
         soon.setDate(soon.getDate() + 7);
-        const thirtyDaysAgo = new Date(now);
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         where.OR = [
           { subscriptions: { some: { status: 'ACTIVE', endDate: { gte: now, lte: soon } } } },
-          { subscriptions: { some: { endDate: { gte: thirtyDaysAgo, lt: now } } } },
+          { subscriptions: { none: { status: 'ACTIVE', endDate: { gte: now } } } },
         ];
       }
     }

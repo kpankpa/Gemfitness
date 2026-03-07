@@ -68,7 +68,11 @@ const faqs = [
   },
   {
     question: 'Is there a joining fee?',
-    answer: 'No joining fees. We keep it simple — just pick your plan and start training.',
+    answer: 'There is a one-time GH₵250 registration fee — and that is literally all you pay upfront. Your first 30 days are completely free.',
+  },
+  {
+    question: 'How does the free first month work?',
+    answer: 'Pay GH₵250 to register once and get full, unrestricted gym access for your first 30 days at no extra cost. After that, your chosen plan (GH₵200/month, GH₵500/quarter, or GH₵2,200/year) begins — renewable from your member dashboard or at the front desk.',
   },
   {
     question: 'Can I freeze my membership?',
@@ -84,7 +88,7 @@ const faqs = [
   },
   {
     question: 'Is there a trial period?',
-    answer: 'We offer flexible options to get you started. Visit us or contact us to learn more.',
+    answer: 'Yes — your first month IS the trial. You get 30 free days to experience everything GemFitness has to offer before any plan charges begin.',
   },
 ];
 

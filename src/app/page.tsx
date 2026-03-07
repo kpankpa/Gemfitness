@@ -41,6 +41,7 @@ interface GymPlan {
 }
 
 const faqs = [
+  { q: 'How does the free first month work?', a: 'Simply pay the one-time GH₵250 registration fee to join. Your first 30 days are completely free — no plan charge, full gym access. After 30 days, your chosen plan (Monthly, Quarterly, or Annual) kicks in automatically.' },
   { q: 'What are your operating hours?', a: 'Monday-Friday: 5:00 AM - 10:00 PM, Saturday-Sunday: 7:00 AM - 8:00 PM' },
   { q: 'Do I need to book classes in advance?', a: 'Group classes require booking through your member dashboard. Open gym sessions are walk-in anytime.' },
   { q: 'What is included in membership?', a: 'All memberships include full gym access, group classes, locker facility, showers, and basic fitness assessment.' },
@@ -237,7 +238,7 @@ export default function HomePage() {
                 transition={{ duration: 0.6, delay: 1 }}
                 className="text-sm sm:text-base text-white/70 mb-8 font-light"
               >
-                Memberships from <span className="text-orange-300 font-semibold">GH₵200/month</span> • One-time registration fee {formatCurrency(250)}
+                Pay <span className="text-orange-300 font-semibold">GH₵250 registration</span> once &mdash; your <span className="text-green-300 font-semibold">first month is free</span> • then from GH₵200/month
               </motion.p>
 
               {/* Live Stats */}
@@ -810,9 +811,11 @@ export default function HomePage() {
               View all membership plans
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
-            <p className="text-sm text-gray-500">
-              One-time registration fee: {formatCurrency(250)} • Includes welcome kit &amp; fitness assessment
-            </p>
+            <div className="inline-flex flex-col sm:flex-row items-center gap-2 bg-orange-50 border border-orange-200 rounded-full px-5 py-2 mt-1">
+              <span className="text-sm font-bold text-orange-600">🎉 First month FREE</span>
+              <span className="hidden sm:block text-orange-300">•</span>
+              <span className="text-sm text-gray-600">Pay only GH₵250 registration today &mdash; start training immediately</span>
+            </div>
           </div>
         </div>
       </section>
@@ -848,10 +851,20 @@ export default function HomePage() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="text-xl sm:text-2xl mb-10 text-white/95 font-medium leading-relaxed max-w-2xl mx-auto"
+            className="text-xl sm:text-2xl mb-6 text-white/95 font-medium leading-relaxed max-w-2xl mx-auto"
           >
             Join GemFitness today and become part of Ghana&apos;s most supportive fitness community.
           </motion.p>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.15 }}
+            className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm border border-white/30 rounded-full px-6 py-3 mb-10 text-white font-medium text-sm sm:text-base"
+          >
+            <CheckCircle className="w-5 h-5 text-green-300 flex-shrink-0" />
+            Pay GH₵250 registration &mdash; <span className="text-green-300 font-bold">first month completely free</span>
+          </motion.div>
 
           <motion.div 
             initial={{ opacity: 0, y: 20 }}

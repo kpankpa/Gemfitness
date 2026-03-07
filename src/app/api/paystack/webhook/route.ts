@@ -253,27 +253,26 @@ async function createNewUserFromPayment(paymentData: Record<string, unknown>) {
       throw new Error(`Invalid date of birth: ${metadata.date_of_birth}`);
     }
 
-    // ✅ VALIDATION: Ensure payment amount matches expected plan price
+    // ✅ VALIDATION: Ensure payment amount matches expected registration fee
+    // Free first month: new members pay only the registration fee (GH₵250) upfront.
+    // The plan price is stored on the subscription for renewal charges later.
     const planMap: Record<string, 'ONE_MONTH' | 'THREE_MONTHS' | 'ONE_YEAR'> = {
       monthly: 'ONE_MONTH',
       quarterly: 'THREE_MONTHS',
       annual: 'ONE_YEAR',
     };
-
     const dbPlan = planMap[metadata.plan] || 'ONE_MONTH';
-    const expectedPlanPricing = getPlanPricing(dbPlan);
-    
-    // Amount comes in kobo from Paystack, convert to cedis
+
+    const REGISTRATION_FEE = 250;
     const amountInCedis = amount;
-    if (Math.abs(amountInCedis - expectedPlanPricing.price) > 0.01) {
-      logger.error('⚠️ Payment amount mismatch:', {
+    if (Math.abs(amountInCedis - REGISTRATION_FEE) > 0.01) {
+      logger.warn('⚠️ Payment amount differs from registration fee:', {
         reference,
-        expectedAmount: expectedPlanPricing.price,
+        expectedAmount: REGISTRATION_FEE,
         receivedAmount: amountInCedis,
         plan: metadata.plan,
       });
-      // Log warning but continue - amount might be different due to fees or discounts
-      // This is a soft validation, don't throw
+      // Soft validation — continue processing; amount may differ for promotions/legacy payments
     }
 
     // ✅ IDEMPOTENCY CHECK: Prevent duplicate user creation from webhook replay
@@ -307,9 +306,11 @@ async function createNewUserFromPayment(paymentData: Record<string, unknown>) {
 
     // ✅ PRICING FIX: Use centralized pricing instead of hardcoded values
     const planPricing = getPlanPricing(dbPlan);
-    const planAmount = planPricing.price;
+    const planAmount = planPricing.price; // stored on subscription for future renewal charges
     const startDate = new Date();
-    const endDate = calculateEndDate(planPricing.durationDays);
+    // Free first month: all new online registrations get 30 days free regardless of plan.
+    // planAmount is stored on the subscription so renewal charges the correct plan price.
+    const endDate = calculateEndDate(30);
 
     // ✅ SECURITY FIX: Generate secure random password (metadata no longer contains password)
     // Password will be set by user during email verification

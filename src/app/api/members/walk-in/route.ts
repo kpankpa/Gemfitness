@@ -563,15 +563,7 @@ async function completeRegistration(pendingId: string) {
       'ONE_YEAR': 1800
     };
 
-    const planDurations: Record<string, number> = {
-      'DAILY': 1,
-      'ONE_MONTH': 30,
-      'THREE_MONTHS': 90,
-      'ONE_YEAR': 365
-    };
-
   const amount = planPrices[pending.plan as keyof typeof planPrices];
-  const duration = planDurations[pending.plan as keyof typeof planDurations];
 
   const startDate = new Date();
   let endDate: Date;
@@ -579,8 +571,10 @@ async function completeRegistration(pendingId: string) {
     // Day pass expires at end of day (midnight)
     endDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 23, 59, 59, 999);
   } else {
+    // Free first month: all new walk-in registrations get 30 days free regardless of plan.
+    // subscription.amount stores the plan price so renewals charge the correct amount.
     endDate = new Date();
-    endDate.setDate(endDate.getDate() + duration);
+    endDate.setDate(endDate.getDate() + 30);
   }
 
   const subscription = await prisma.subscription.create({
