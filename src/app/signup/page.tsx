@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useSearchParams } from 'next/navigation';
 import Script from 'next/script';
@@ -100,7 +100,7 @@ const membershipPlans = {
   },
 };
 
-export default function SignupPage() {
+function SignupPageContent() {
   const searchParams = useSearchParams();
   const planParam = searchParams.get('plan') || 'quarterly';
   const [selectedPlan, setSelectedPlan] = useState(planParam);
@@ -817,5 +817,13 @@ export default function SignupPage() {
       </div>
     </div>
     </>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50" />}>
+      <SignupPageContent />
+    </Suspense>
   );
 }
