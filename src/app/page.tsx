@@ -23,7 +23,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { formatCurrency } from '@/lib/utils';
 
 // Type definitions
 interface GymPlan {
@@ -59,7 +58,7 @@ export default function HomePage() {
   const [_successStories, setSuccessStories] = useState<Record<string, unknown>[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
   
-  const memberCount = 200;
+  const memberCount = 100;
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isMuted, setIsMuted] = useState(true);
 
@@ -812,7 +811,7 @@ export default function HomePage() {
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
             <div className="inline-flex flex-col sm:flex-row items-center gap-2 bg-orange-50 border border-orange-200 rounded-full px-5 py-2 mt-1">
-              <span className="text-sm font-bold text-orange-600">🎉 First month FREE</span>
+              <span className="text-sm font-bold text-orange-600"> First month FREE</span>
               <span className="hidden sm:block text-orange-300">•</span>
               <span className="text-sm text-gray-600">Pay only GH₵250 registration today &mdash; start training immediately</span>
             </div>

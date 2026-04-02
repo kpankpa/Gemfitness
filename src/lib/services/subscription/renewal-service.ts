@@ -243,7 +243,10 @@ export async function processSubscriptionRenewal(subscriptionId: string): Promis
       await prisma.subscription.update({
         where: { id: subscriptionId },
         data: {
-          status: subscription.status // Keep current status
+          status: subscription.status, // Keep current status
+          renewalAttemptsCount: renewalAttempt,
+          lastRenewalAttemptAt: new Date(),
+          lastRenewalFailureReason: failureReason
         }
       });
 
@@ -315,25 +318,10 @@ export async function getSubscriptionsDueForRenewal() {
     where: {
       AND: [
         { status: { not: 'CANCELLED' } },
-        { status: 'ACTIVE' },
+        { status: { in: ['ACTIVE', 'EXPIRED'] } },
         { plan: { not: 'DAILY' } }, // Day passes don't auto-renew
-        {
-          OR: [
-            // First renewal attempt
-            {
-              AND: [
-                { endDate: { lte: now } }
-              ]
-            },
-            // Retry after scheduled retry time
-            {
-              AND: [
-                { status: 'EXPIRED' },
-                { endDate: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } } // Within last 7 days
-              ]
-            }
-          ]
-        }
+        { endDate: { lte: now } },  // Subscription has expired or is due
+        { endDate: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } } // Within last 7 days (avoid processing very old ones)
       ]
     },
     include: { user: true }
@@ -456,7 +444,10 @@ export async function updatePaymentMethod(
   }
 
   if (subscription.userId !== userId) {
-    return { success: false, message: 'Unauthorized' };
+    const requestingUser = await prisma.user.findUnique({ where: { id: userId } });
+    if (requestingUser?.role !== 'ADMIN') {
+      return { success: false, message: 'Unauthorized' };
+    }
   }
 
   // Store authorization code for future charges

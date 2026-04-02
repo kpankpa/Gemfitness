@@ -5,11 +5,21 @@
  * Returns real-time check-in statistics
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { verifySessionForApi } from '@/lib/auth/dal';
+import { isStaff } from '@/lib/auth/permissions';
 
-export async function GET() {
+export async function GET(_request: NextRequest) {
   try {
+    const session = await verifySessionForApi();
+    if (!session || !session.isAuth) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    if (!isStaff(session)) {
+      return NextResponse.json({ error: 'Forbidden — staff access required' }, { status: 403 });
+    }
+
     const now = new Date();
     
     // midnight 

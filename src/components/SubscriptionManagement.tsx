@@ -444,7 +444,7 @@ export default function SubscriptionManagement({
               </div>
             )}
 
-            {subscription.status === 'ACTIVE' && daysUntilExpiry <= 7 && daysUntilExpiry > 0 && (
+            {subscription.status === 'ACTIVE' && (isAdmin || (daysUntilExpiry <= 7 && daysUntilExpiry > 0)) && (
               <div className="flex gap-2">
                 <Button onClick={handleRenew} disabled={loading} className="flex-1">
                   {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}

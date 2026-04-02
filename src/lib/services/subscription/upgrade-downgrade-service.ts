@@ -372,9 +372,9 @@ export function previewPlanChange(
 
   let message = '';
   if (proration.proratedAmount > 0) {
-    message = `You'll be charged GH₵${(proration.proratedAmount / 100).toFixed(2)} for the upgrade`;
+    message = `You'll be charged GH₵${proration.proratedAmount.toFixed(2)} for the upgrade`;
   } else if (proration.proratedAmount < 0) {
-    message = `You'll receive a credit of GH₵${(Math.abs(proration.proratedAmount) / 100).toFixed(2)}`;
+    message = `You'll receive a credit of GH₵${Math.abs(proration.proratedAmount).toFixed(2)}`;
   } else {
     message = 'No additional charge for this plan change';
   }

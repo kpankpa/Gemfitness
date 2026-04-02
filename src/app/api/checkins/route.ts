@@ -21,6 +21,14 @@ import { isStaff } from '@/lib/auth/permissions';
 export async function GET(request: NextRequest) {
   console.time('⏱️ TOTAL /api/checkins Request');
   try {
+    const session = await verifySessionForApi();
+    if (!session || !session.isAuth) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    if (!isStaff(session)) {
+      return NextResponse.json({ error: 'Forbidden — staff access required' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const limit = searchParams.get('limit');
     const startDate = searchParams.get('startDate');
