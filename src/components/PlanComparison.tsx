@@ -139,11 +139,6 @@ export default function PlanComparison({
                         GH₵{plan.price}
                         <span className="text-sm text-gray-600">/{plan.duration} {plan.durationUnit}</span>
                       </div>
-                      {plan.savings && plan.savings > 0 && (
-                        <div className="text-sm text-green-600 font-semibold">
-                          Save GH₵{plan.savings}
-                        </div>
-                      )}
                       <Link href={`/signup?plan=${plan.slug.toLowerCase()}`}>
                         <Button className={`w-full text-white ${
                           plan.isPopular ? 'bg-orange-500 hover:bg-orange-600' : 'bg-gray-900 hover:bg-gray-800'
@@ -202,26 +197,8 @@ export default function PlanComparison({
   // Grid View (Default)
   return (
     <div className={`space-y-6 ${className}`}>
-      {/* View Toggle */}
-      <div className="flex justify-center mb-8">
-        <div className="bg-gray-100 rounded-lg p-1 flex">
-          <button
-            onClick={() => setViewMode('grid')}
-            className="px-4 py-2 rounded-md text-sm font-medium transition-colors bg-white text-gray-900 shadow-sm"
-          >
-            Card View
-          </button>
-          <button
-            onClick={() => setViewMode('comparison')}
-            className="px-4 py-2 rounded-md text-sm font-medium transition-colors text-gray-600"
-          >
-            Compare Features
-          </button>
-        </div>
-      </div>
-
       {/* Plan Cards Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {plans.map((plan, index) => (
           <motion.div
             key={plan.id}
@@ -235,7 +212,7 @@ export default function PlanComparison({
               stiffness: 100
             }}
             whileHover={{ 
-              y: -12,
+              y: -6,
               transition: { duration: 0.3 }
             }}
             className={`relative ${plan.isPopular && highlightPopular ? 'lg:-mt-8' : ''}`}
@@ -272,11 +249,11 @@ export default function PlanComparison({
                 <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-yellow-500/10 to-transparent rounded-bl-full" />
               )}
 
-              <div className="p-8 relative z-10">
+              <div className="p-6 relative z-10">
                 {/* Header */}
                 <div className="text-center mb-6">
                   <motion.div 
-                    className={`w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br ${
+                    className={`w-16 h-16 mx-auto mb-3 rounded-xl bg-gradient-to-br ${
                       plan.isPopular ? 'from-orange-500 to-orange-600' : 
                       plan.isFeatured ? 'from-yellow-500 to-yellow-600' :
                       'from-gray-500 to-gray-600'
@@ -285,14 +262,14 @@ export default function PlanComparison({
                     transition={{ duration: 0.6 }}
                   >
                     {plan.isFeatured ? (
-                      <Crown className="w-10 h-10 text-white" />
+                      <Crown className="w-8 h-8 text-white" />
                     ) : plan.isPopular ? (
-                      <Star className="w-10 h-10 text-white" />
+                      <Star className="w-8 h-8 text-white" />
                     ) : (
-                      <Dumbbell className="w-10 h-10 text-white" />
+                      <Dumbbell className="w-8 h-8 text-white" />
                     )}
                   </motion.div>
-                  <h3 className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</h3>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">{plan.name}</h3>
                   <p className="text-gray-600 text-sm mb-4">{plan.description}</p>
                   <div className="mb-2 relative">
                     <motion.div
@@ -301,28 +278,18 @@ export default function PlanComparison({
                       transition={{ delay: 0.2 }}
                     >
                       {plan.originalPrice && plan.originalPrice > plan.price && (
-                        <span className="text-lg text-gray-500 line-through">
+                        <span className="text-base text-gray-500 line-through">
                           GH₵{plan.originalPrice}
                         </span>
                       )}
                       <div>
-                        <span className="text-5xl font-bold bg-gradient-to-r from-orange-500 to-orange-600 bg-clip-text text-transparent">
+                        <span className="text-4xl font-bold bg-gradient-to-r from-orange-500 to-orange-600 bg-clip-text text-transparent">
                           GH₵{plan.price}
                         </span>
-                        <span className="text-gray-600 text-lg">/{plan.duration} {plan.durationUnit}</span>
+                        <span className="text-gray-600 text-base">/{plan.duration} {plan.durationUnit}</span>
                       </div>
-                      {plan.savings && plan.savings > 0 && (
-                        <div className="mt-2 text-sm text-green-600 font-semibold">
-                          {plan.comparisonText}
-                        </div>
-                      )}
                     </motion.div>
                   </div>
-                  {plan.memberCount !== undefined && (
-                    <p className="text-sm text-gray-500">
-                      {plan.memberCount} active members
-                    </p>
-                  )}
                 </div>
 
                 {/* Divider */}
@@ -333,7 +300,7 @@ export default function PlanComparison({
                   <div className="mb-6">
                     <h4 className="font-semibold text-gray-900 mb-3">Why Choose This Plan:</h4>
                     <ul className="space-y-2">
-                      {plan.valuePropositions.slice(0, 3).map((value, i) => (
+                      {plan.valuePropositions.slice(0, 2).map((value, i) => (
                         <motion.li 
                           key={i}
                           initial={{ opacity: 0, x: -20 }}
@@ -353,7 +320,7 @@ export default function PlanComparison({
                 <div className="mb-6">
                   <h4 className="font-semibold text-gray-900 mb-3">What&apos;s Included:</h4>
                   <ul className="space-y-2">
-                    {plan.features.slice(0, showAllFeatures ? plan.features.length : 6).map((feature, i) => (
+                    {plan.features.slice(0, showAllFeatures ? plan.features.length : 5).map((feature, i) => (
                       <motion.li 
                         key={i}
                         initial={{ opacity: 0, x: -20 }}
@@ -365,9 +332,9 @@ export default function PlanComparison({
                         {feature}
                       </motion.li>
                     ))}
-                    {!showAllFeatures && plan.features.length > 6 && (
+                    {!showAllFeatures && plan.features.length > 5 && (
                       <li className="text-sm text-gray-500">
-                        +{plan.features.length - 6} more features
+                        +{plan.features.length - 5} more features
                       </li>
                     )}
                   </ul>
@@ -375,7 +342,7 @@ export default function PlanComparison({
 
                 {/* CTA Button */}
                 <Link href={`/signup?plan=${plan.slug.toLowerCase()}`} className="block">
-                  <Button className={`w-full text-white text-lg py-6 font-semibold transition-all duration-300 ${
+                  <Button className={`w-full text-white text-base py-4 font-semibold transition-all duration-300 ${
                     plan.isPopular && highlightPopular
                       ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-lg hover:shadow-xl' 
                       : 'bg-gray-900 hover:bg-gray-800'
