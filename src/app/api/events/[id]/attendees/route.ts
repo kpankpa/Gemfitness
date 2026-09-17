@@ -90,7 +90,9 @@ export async function GET(
         registeredAt: r.createdAt.toISOString(),
         status: r.status,
         ticketQRCode: ticketQRCode,
-        paymentStatus: event.isFree ? 'FREE' : 'PENDING' // TODO: Integrate payment tracking
+        paymentStatus: event.isFree
+          ? 'FREE'
+          : (r.paymentStatus || 'PENDING')
       };
     });
 

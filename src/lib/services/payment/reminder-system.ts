@@ -3,6 +3,7 @@
 
 import { prisma } from '@/lib/prisma';
 import logger from '@/lib/logger';
+import { sendEmail, sendExpiryReminderEmail } from '@/lib/services/email/mock';
 
 export class PaymentReminderSystem {
   // Check for upcoming subscription expirations and send reminders
@@ -77,20 +78,30 @@ export class PaymentReminderSystem {
       const daysRemaining = reminderType === '3_DAY_REMINDER' ? 3 : 1;
       const planPrice = this.getPlanPrice(subscription.plan);
       
+      const subject = `Membership Expires in ${daysRemaining} Day${daysRemaining > 1 ? 's' : ''}`;
+      const message = `Hi ${subscription.user.firstName},\n\nYour ${this.formatPlan(subscription.plan)} membership expires on ${subscription.endDate.toLocaleDateString('en-GB')}.\n\nRenewal Amount: GH₵ ${planPrice}\nPayment Methods: MTN MoMo (059 893 4010), Cash, or Card\n\nRenew now to avoid interruption to your fitness journey!\n\n${reminderType}`;
+
+      const emailResult = await sendExpiryReminderEmail(
+        subscription.user.email,
+        subscription.user.firstName,
+        daysRemaining
+      );
+
       await prisma.notification.create({
         data: {
           userId: subscription.user.id,
           type: 'EXPIRY_WARNING',
-          subject: `Membership Expires in ${daysRemaining} Day${daysRemaining > 1 ? 's' : ''}`,
-          message: `Hi ${subscription.user.firstName},\n\nYour ${this.formatPlan(subscription.plan)} membership expires on ${subscription.endDate.toLocaleDateString('en-GB')}.\n\nRenewal Amount: GH₵ ${planPrice}\nPayment Methods: MTN MoMo (059 893 4010), Cash, or Card\n\nRenew now to avoid interruption to your fitness journey!\n\n${reminderType}`,
-          status: 'pending'
-        }
+          subject,
+          message,
+          status: emailResult.success ? 'sent' : 'pending',
+        },
       });
 
       logger.info(`📧 ${reminderType} sent to:`, {
         userId: subscription.user.id,
         email: subscription.user.email,
-        expiryDate: subscription.endDate
+        expiryDate: subscription.endDate,
+        emailSuccess: emailResult.success,
       });
     }
   }
@@ -125,21 +136,30 @@ export class PaymentReminderSystem {
         data: { status: 'EXPIRED' }
       });
 
-      // Send expiration notification
+      const subject = 'Membership Expired - Renew Now';
+      const message = `Hi ${subscription.user.firstName},\n\nYour membership has expired. Please renew to continue accessing the gym.\n\nVisit the gym or contact us to renew your membership.\n\nWe look forward to seeing you back at Gemfitness!`;
+
+      const emailResult = await sendEmail({
+        to: subscription.user.email,
+        subject,
+        html: `<p>${message.replace(/\n/g, '<br/>')}</p>`,
+      });
+
       await prisma.notification.create({
         data: {
           userId: subscription.user.id,
           type: 'SUBSCRIPTION_EXPIRED',
-          subject: 'Membership Expired - Renew Now',
-          message: `Hi ${subscription.user.firstName},\n\nYour membership has expired. Please renew to continue accessing the gym.\n\nVisit the gym or contact us to renew your membership.\n\nWe look forward to seeing you back at Gemfitness!`,
-          status: 'pending'
-        }
+          subject,
+          message,
+          status: emailResult.success ? 'sent' : 'pending',
+        },
       });
 
       logger.info('🔴 Subscription expired:', {
         subscriptionId: subscription.id,
         userId: subscription.user.id,
-        expiredDate: subscription.endDate
+        expiredDate: subscription.endDate,
+        emailSuccess: emailResult.success,
       });
     }
   }
@@ -172,15 +192,23 @@ export class PaymentReminderSystem {
       const retryCount = (payment.metadata as any)?.retryCount || 0;
       
       if (retryCount < 3) {
-        // Send retry notification
+        const subject = 'Payment Failed - Please Try Again';
+        const message = `Hi ${payment.user!.firstName},\n\nYour payment of GH₵ ${payment.amount} failed (Reference: ${payment.reference}).\n\nPlease try again or use a different payment method.\n\nAttempt ${retryCount + 1} of 3`;
+
+        const emailResult = await sendEmail({
+          to: payment.user!.email,
+          subject,
+          html: `<p>${message.replace(/\n/g, '<br/>')}</p>`,
+        });
+
         await prisma.notification.create({
           data: {
             userId: payment.user!.id,
-            type: 'PAYMENT_SUCCESS', // Reusing type
-            subject: 'Payment Failed - Please Try Again',
-            message: `Hi ${payment.user!.firstName},\n\nYour payment of GH₵ ${payment.amount} failed (Reference: ${payment.reference}).\n\nPlease try again or use a different payment method.\n\nAttempt ${retryCount + 1} of 3`,
-            status: 'pending'
-          }
+            type: 'PAYMENT_FAILED',
+            subject,
+            message,
+            status: emailResult.success ? 'sent' : 'pending',
+          },
         });
 
         // Update retry count

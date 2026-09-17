@@ -1,3 +1,4 @@
+import { Resend } from 'resend';
 import logger from '@/lib/logger';
 
 export interface EmailData {
@@ -13,38 +14,101 @@ export interface EmailResponse {
   message?: string;
 }
 
+const DEV_MODE = process.env.SEND_EMAILS !== 'true';
+const FROM_EMAIL =
+  process.env.EMAIL_FROM ||
+  (process.env.NODE_ENV === 'production'
+    ? 'GemFitness <onboarding@resend.dev>'
+    : 'GemFitness <noreply@gemfitness.com>');
+
+let resendClient: Resend | null = null;
+
+function getResendClient(): Resend | null {
+  if (DEV_MODE) return null;
+  if (!process.env.RESEND_API_KEY) {
+    logger.error('RESEND_API_KEY is not set — cannot send email');
+    return null;
+  }
+  if (!resendClient) {
+    resendClient = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resendClient;
+}
+
 /**
- * Mock email sending using Resend
- * In production, this would call Resend API
+ * Send transactional email via Resend (or log in DEV_MODE when SEND_EMAILS !== 'true')
  */
 export async function sendEmail(data: EmailData): Promise<EmailResponse> {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 300));
+  const from = data.from || FROM_EMAIL;
 
-  const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  if (DEV_MODE) {
+    const messageId = `dev_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    logger.info('📧 [DEV MODE] Email would be sent', {
+      to: data.to,
+      subject: data.subject,
+      messageId,
+    });
+    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📧 EMAIL (DEV MODE — not sent via Resend)');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log(`To: ${data.to}`);
+    console.log(`Subject: ${data.subject}`);
+    console.log(`From: ${from}`);
+    console.log(`Message ID: ${messageId}`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    return {
+      success: true,
+      messageId,
+      message: 'DEV: Email logged successfully',
+    };
+  }
 
-  logger.info('📧 MOCK EMAIL: Sending email', {
-    to: data.to,
-    subject: data.subject,
-    messageId,
-  });
+  const client = getResendClient();
+  if (!client) {
+    return {
+      success: false,
+      messageId: '',
+      message: 'Email service not configured',
+    };
+  }
 
-  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('📧 MOCK EMAIL SENT');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log(`To: ${data.to}`);
-  console.log(`Subject: ${data.subject}`);
-  console.log(`From: ${data.from || 'noreply@gemfitness.com'}`);
-  console.log(`Message ID: ${messageId}`);
-  console.log('\nEmail Content:');
-  console.log(data.html);
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+  try {
+    const { data: result, error } = await client.emails.send({
+      from,
+      to: [data.to],
+      subject: data.subject,
+      html: data.html,
+    });
 
-  return {
-    success: true,
-    messageId,
-    message: 'MOCK: Email sent successfully',
-  };
+    if (error) {
+      logger.error('❌ Failed to send email:', error);
+      return {
+        success: false,
+        messageId: '',
+        message: error.message,
+      };
+    }
+
+    const messageId = result?.id || `msg_${Date.now()}`;
+    logger.info('✅ Email sent via Resend', {
+      to: data.to,
+      subject: data.subject,
+      messageId,
+    });
+
+    return {
+      success: true,
+      messageId,
+      message: 'Email sent successfully',
+    };
+  } catch (error) {
+    logger.error('❌ Error sending email:', error);
+    return {
+      success: false,
+      messageId: '',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
 }
 
 /**
@@ -162,7 +226,7 @@ export async function sendPasswordResetEmail(
   email: string,
   resetToken: string
 ): Promise<EmailResponse> {
-  const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`;
+  const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || ''}/reset-password?token=${resetToken}`;
 
   const html = `
     <!DOCTYPE html>

@@ -3,6 +3,7 @@
 
 import { prisma } from '@/lib/prisma';
 import logger from '@/lib/logger';
+import { sendEmail } from '@/lib/services/email/mock';
 
 interface ReceiptData {
   transactionId: string;
@@ -207,18 +208,28 @@ export class ReceiptEmailService {
         throw new Error('Transaction user not found');
       }
 
-      // TODO: Integrate with your email service (currently using mock)
-      // await emailService.send({
-      //   to: transaction.user.email,
-      //   subject: `Payment Receipt - ${transaction.reference}`,
-      //   html: receiptHTML
-      // });
+      const emailResult = await sendEmail({
+        to: transaction.user.email,
+        subject: `Payment Receipt - ${transaction.reference}`,
+        html: receiptHTML,
+        from: 'GemFitness Billing <billing@gemfitness.com>',
+      });
+
+      if (!emailResult.success) {
+        logger.error('❌ Receipt email failed to send:', {
+          transactionId,
+          email: transaction.user.email,
+          message: emailResult.message,
+        });
+        return false;
+      }
 
       logger.info('✅ Receipt email sent:', {
         transactionId,
         email: transaction.user.email,
         reference: transaction.reference,
-        receiptGenerated: receiptHTML.length > 0
+        messageId: emailResult.messageId,
+        receiptGenerated: receiptHTML.length > 0,
       });
 
       return true;

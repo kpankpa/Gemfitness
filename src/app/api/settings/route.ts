@@ -1,6 +1,76 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionForApi } from '@/lib/auth/dal';
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
+
+export const dynamic = 'force-dynamic';
+
+const DEFAULT_GYM_SETTINGS = {
+  name: 'GemFitness Tema',
+  slogan: 'Transform Your Body, Transform Your Life',
+  email: 'info@gemfitness.fit',
+  phone: '+233 249003832',
+  address: 'Gbetsile, Tema, Greater Accra Region, Ghana',
+  website: 'www.gemfitness.fit',
+  timezone: 'Africa/Accra',
+  currency: 'GHS',
+  operatingHours: {
+    monday: { open: '05:00', close: '22:00', closed: false },
+    tuesday: { open: '05:00', close: '22:00', closed: false },
+    wednesday: { open: '05:00', close: '22:00', closed: false },
+    thursday: { open: '05:00', close: '22:00', closed: false },
+    friday: { open: '05:00', close: '22:00', closed: false },
+    saturday: { open: '06:00', close: '20:00', closed: false },
+    sunday: { open: '07:00', close: '18:00', closed: false },
+  },
+};
+
+const DEFAULT_PAYMENT_SETTINGS = {
+  paystackPublicKey: process.env.PAYSTACK_PUBLIC_KEY || '',
+  paystackSecretKey: '',
+  testMode: process.env.PAYSTACK_TEST_MODE === 'true',
+  enabledMethods: ['cash', 'momo', 'card'],
+  currency: 'GHS',
+  autoRenewal: true,
+  gracePeriodDays: 7,
+};
+
+const DEFAULT_NOTIFICATION_SETTINGS = {
+  emailNotifications: true,
+  smsNotifications: false,
+  membershipExpiry: true,
+  paymentReminders: true,
+  classUpdates: true,
+  systemAlerts: true,
+};
+
+const DEFAULT_SECURITY_SETTINGS = {
+  sessionTimeout: 30,
+  twoFactorAuth: false,
+  passwordExpiry: 90,
+  maxLoginAttempts: 5,
+};
+
+type JsonRecord = Record<string, unknown>;
+
+async function getSettingValue(key: string): Promise<JsonRecord | null> {
+  try {
+    const row = await prisma.systemSetting.findUnique({ where: { key } });
+    if (!row) return null;
+    return (row.value as JsonRecord) || null;
+  } catch (error) {
+    console.warn(`Failed to read system setting "${key}":`, error);
+    return null;
+  }
+}
+
+async function upsertSetting(key: string, value: Prisma.InputJsonValue) {
+  await prisma.systemSetting.upsert({
+    where: { key },
+    create: { key, value },
+    update: { value },
+  });
+}
 
 /**
  * GET /api/settings
@@ -13,61 +83,44 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user has permission to view settings (only managers and admins)
     const user = await prisma.user.findUnique({
       where: { id: session.userId },
-      select: { role: true }
+      select: { role: true },
     });
 
     if (!user || !['ADMIN', 'MANAGER'].includes(user.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // For now, return default settings (in production, these would be stored in database)
-    const gymSettings = {
-      name: 'GemFitness Tema',
-      slogan: 'Transform Your Body, Transform Your Life',
-      email: 'info@gemfitness.fit',
-      phone: '+233 249003832',
-      address: 'Gbetsile, Tema, Greater Accra Region, Ghana',
-      website: 'www.gemfitness.fit',
-      timezone: 'Africa/Accra',
-      currency: 'GHS',
-      operatingHours: {
-        monday: { open: '05:00', close: '22:00', closed: false },
-        tuesday: { open: '05:00', close: '22:00', closed: false },
-        wednesday: { open: '05:00', close: '22:00', closed: false },
-        thursday: { open: '05:00', close: '22:00', closed: false },
-        friday: { open: '05:00', close: '22:00', closed: false },
-        saturday: { open: '06:00', close: '20:00', closed: false },
-        sunday: { open: '07:00', close: '18:00', closed: false },
-      },
-    };
+    const [storedGym, storedPayment, storedNotifications, storedSecurity] =
+      await Promise.all([
+        getSettingValue('gym'),
+        getSettingValue('payment'),
+        getSettingValue('notifications'),
+        getSettingValue('security'),
+      ]);
+
+    const gymSettings = { ...DEFAULT_GYM_SETTINGS, ...(storedGym || {}) };
 
     const paymentSettings = {
-      paystackPublicKey: process.env.PAYSTACK_PUBLIC_KEY || '',
-      paystackSecretKey: '', // Never send secret key to frontend
-      testMode: process.env.PAYSTACK_TEST_MODE === 'true',
-      enabledMethods: ['cash', 'momo', 'card'],
-      currency: 'GHS',
-      autoRenewal: true,
-      gracePeriodDays: 7,
+      ...DEFAULT_PAYMENT_SETTINGS,
+      ...(storedPayment || {}),
+      // Never expose secret key to the client; fall back to env public key when unset
+      paystackSecretKey: '',
+      paystackPublicKey:
+        (storedPayment?.paystackPublicKey as string) ||
+        process.env.PAYSTACK_PUBLIC_KEY ||
+        '',
     };
 
     const notificationSettings = {
-      emailNotifications: true,
-      smsNotifications: false,
-      membershipExpiry: true,
-      paymentReminders: true,
-      classUpdates: true,
-      systemAlerts: true,
+      ...DEFAULT_NOTIFICATION_SETTINGS,
+      ...(storedNotifications || {}),
     };
 
     const securitySettings = {
-      sessionTimeout: 30,
-      twoFactorAuth: false,
-      passwordExpiry: 90,
-      maxLoginAttempts: 5,
+      ...DEFAULT_SECURITY_SETTINGS,
+      ...(storedSecurity || {}),
     };
 
     return NextResponse.json({
@@ -77,7 +130,6 @@ export async function GET(_request: NextRequest) {
       notificationSettings,
       securitySettings,
     });
-
   } catch (error) {
     console.error('Error fetching settings:', error);
     return NextResponse.json(
@@ -98,10 +150,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user has permission to update settings (only managers and admins)
     const user = await prisma.user.findUnique({
       where: { id: session.userId },
-      select: { role: true, email: true, firstName: true, lastName: true }
+      select: { role: true, email: true, firstName: true, lastName: true },
     });
 
     if (!user || !['ADMIN', 'MANAGER'].includes(user.role)) {
@@ -109,9 +160,9 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { gymSettings, paymentSettings, notificationSettings, securitySettings } = body;
+    const { gymSettings, paymentSettings, notificationSettings, securitySettings } =
+      body;
 
-    // Validate required fields
     if (gymSettings) {
       if (!gymSettings.name || !gymSettings.email || !gymSettings.phone) {
         return NextResponse.json(
@@ -120,7 +171,6 @@ export async function PUT(request: NextRequest) {
         );
       }
 
-      // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(gymSettings.email)) {
         return NextResponse.json(
@@ -130,16 +180,11 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // Validate payment settings
     if (paymentSettings) {
-      if (!paymentSettings.testMode && !paymentSettings.paystackSecretKey) {
-        return NextResponse.json(
-          { error: 'Secret key required for live payment mode' },
-          { status: 400 }
-        );
-      }
-
-      if (paymentSettings.gracePeriodDays < 0 || paymentSettings.gracePeriodDays > 30) {
+      if (
+        paymentSettings.gracePeriodDays < 0 ||
+        paymentSettings.gracePeriodDays > 30
+      ) {
         return NextResponse.json(
           { error: 'Grace period must be between 0-30 days' },
           { status: 400 }
@@ -147,16 +192,21 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // Validate security settings
     if (securitySettings) {
-      if (securitySettings.sessionTimeout < 5 || securitySettings.sessionTimeout > 120) {
+      if (
+        securitySettings.sessionTimeout < 5 ||
+        securitySettings.sessionTimeout > 120
+      ) {
         return NextResponse.json(
           { error: 'Session timeout must be between 5-120 minutes' },
           { status: 400 }
         );
       }
 
-      if (securitySettings.maxLoginAttempts < 3 || securitySettings.maxLoginAttempts > 10) {
+      if (
+        securitySettings.maxLoginAttempts < 3 ||
+        securitySettings.maxLoginAttempts > 10
+      ) {
         return NextResponse.json(
           { error: 'Max login attempts must be between 3-10' },
           { status: 400 }
@@ -164,15 +214,29 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // In production, save settings to database
-    // For now, we'll just log the changes and return success
-    console.log('Settings updated by:', user.email);
-    console.log('Gym Settings:', gymSettings);
-    console.log('Payment Settings:', paymentSettings ? { ...paymentSettings, paystackSecretKey: '[REDACTED]' } : null);
-    console.log('Notification Settings:', notificationSettings);
-    console.log('Security Settings:', securitySettings);
+    if (gymSettings) {
+      await upsertSetting('gym', gymSettings as Prisma.InputJsonValue);
+    }
 
-    // Create audit log for settings update
+    if (paymentSettings) {
+      // Persist non-secret payment prefs; secret keys stay in env
+      const { paystackSecretKey: submittedSecret, ...safePayment } = paymentSettings;
+      await upsertSetting('payment', {
+        ...safePayment,
+        paystackSecretKeyConfigured: Boolean(
+          submittedSecret || process.env.PAYSTACK_SECRET_KEY
+        ),
+      } as Prisma.InputJsonValue);
+    }
+
+    if (notificationSettings) {
+      await upsertSetting('notifications', notificationSettings as Prisma.InputJsonValue);
+    }
+
+    if (securitySettings) {
+      await upsertSetting('security', securitySettings as Prisma.InputJsonValue);
+    }
+
     try {
       await prisma.auditLog.create({
         data: {
@@ -180,7 +244,8 @@ export async function PUT(request: NextRequest) {
           entityType: 'Settings',
           entityId: 'system',
           userId: session.userId,
-          userName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+          userName:
+            `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
           userEmail: user.email,
           changes: {
             gymSettings,
@@ -196,15 +261,12 @@ export async function PUT(request: NextRequest) {
       });
     } catch (auditError) {
       console.warn('Failed to create audit log:', auditError);
-      // Don't fail the request if audit log creation fails
     }
 
     return NextResponse.json({
       success: true,
       message: 'Settings saved successfully',
-      _note: 'Settings are currently stored in memory. Database persistence pending implementation.',
     });
-
   } catch (error) {
     console.error('Error updating settings:', error);
     return NextResponse.json(

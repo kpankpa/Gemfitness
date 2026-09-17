@@ -41,6 +41,10 @@ model User {
   // Secure Password Flow
   passwordSet Boolean @default(false) // True after user sets password via OTP verification
 
+  // Password Reset
+  resetToken       String?   @unique
+  resetTokenExpiry DateTime?
+
   // PAR-Q (Physical Activity Readiness Questionnaire) Fields
   parqCompleted   Boolean   @default(false)
   parqCompletedAt DateTime?
@@ -270,6 +274,7 @@ model Notification {
 enum NotificationType {
   WELCOME
   PAYMENT_SUCCESS
+  PAYMENT_FAILED
   EXPIRY_WARNING // 3 days before expiry
   SUBSCRIPTION_EXPIRED
   SUBSCRIPTION_RENEWED
@@ -838,6 +843,36 @@ model AuditLog {
   @@index([action, entityType])
   @@index([timestamp, action])
   @@map("audit_logs")
+}
+
+// System settings (gym, payment prefs, notifications, security) stored as JSON blobs by key
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique // gym, payment, notifications, security
+  value     Json
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@map("system_settings")
+}
+
+// Contact form submissions
+model ContactMessage {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String
+  phone     String?
+  subject   String
+  message   String
+  status    String   @default("new") // new, read, replied, archived
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([status])
+  @@index([createdAt])
+  @@map("contact_messages")
 }
 
 // Trainer model - Manage trainers/instructors

@@ -1,13 +1,23 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Users, Target, CheckCircle2, Heart, Video, Award, Sparkles, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 
+type TrainerCard = {
+  name: string;
+  specialty: string;
+  bio: string;
+  certifications: string[];
+  image: string;
+  imgClass: string;
+  imgBg: string;
+};
 
-const trainers = [
+const FALLBACK_TRAINERS: TrainerCard[] = [
   {
     name: 'Instructor Fireman',
     specialty: 'Strength & Conditioning',
@@ -46,7 +56,50 @@ const trainers = [
   },
 ];
 
+function mapApiTrainer(t: {
+  name: string;
+  specializations?: string[];
+  bio?: string | null;
+  certifications?: string[];
+  image?: string | null;
+}): TrainerCard {
+  const known = FALLBACK_TRAINERS.find(
+    (f) => f.name.toLowerCase() === t.name.toLowerCase()
+  );
+  return {
+    name: t.name,
+    specialty: t.specializations?.[0] || known?.specialty || 'Coach',
+    bio: t.bio || known?.bio || '',
+    certifications: t.certifications?.length
+      ? t.certifications
+      : known?.certifications || [],
+    image: t.image || known?.image || '/images/training_at_gem.png',
+    imgClass: known?.imgClass || 'object-cover object-top',
+    imgBg: known?.imgBg || '',
+  };
+}
+
 export default function OurTeamPage() {
+  const [trainers, setTrainers] = useState<TrainerCard[]>(FALLBACK_TRAINERS);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/public/trainers');
+        const data = await res.json();
+        if (!cancelled && data.success && Array.isArray(data.trainers) && data.trainers.length) {
+          setTrainers(data.trainers.map(mapApiTrainer));
+        }
+      } catch {
+        // Keep fallback trainers
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-white">
 

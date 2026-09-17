@@ -6709,7 +6709,26 @@ export default function AdminDashboard() {
 
                   {/* Test Connection */}
                   <div className="pt-4 border-t">
-                    <Button type="button" variant="outline" className="border-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="border-2"
+                      onClick={async () => {
+                        try {
+                          const res = await fetch('/api/settings/test-paystack', {
+                            method: 'POST',
+                          });
+                          const data = await res.json();
+                          if (res.ok && data.success) {
+                            showToast(data.message || 'Paystack connection successful', 'success');
+                          } else {
+                            showToast(data.error || 'Paystack connection failed', 'error');
+                          }
+                        } catch {
+                          showToast('Network error testing Paystack connection', 'error');
+                        }
+                      }}
+                    >
                       <Activity className="h-4 w-4 mr-2" />
                       Test Connection
                     </Button>
