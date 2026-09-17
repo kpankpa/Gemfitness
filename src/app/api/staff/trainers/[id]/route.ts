@@ -52,7 +52,7 @@ export async function GET(
         ...trainer,
         availability,
         classes: classes.classes,
-        totalHoursPerWeek: classes.totalHoursPerWeek,
+        totalHoursPerWeek: classes.schedule.totalHoursPerWeek,
       },
     });
   } catch (error) {

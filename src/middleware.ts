@@ -28,7 +28,10 @@ const publicRoutes = [
   '/success',
   '/payment/success',
   '/payment/failed',
+  '/payment/callback',
   '/verify-email',
+  '/forgot-password',
+  '/reset-password',
 ];
 
 // API routes that don't require authentication
@@ -39,11 +42,17 @@ const publicApiRoutes = [
   '/api/auth/skip-verification',
   '/api/auth/check-availability',
   '/api/auth/create-user-from-payment',
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
   '/api/payment/initialize',
   '/api/payment/verify',
+  '/api/paystack/webhook',
+  '/api/cron',
+  '/api/contact',
   '/api/public/classes', // Public class listing for landing page
   '/api/public/events',  // Public event listing for landing page
   '/api/public/plans',   // Public membership plans
+  '/api/public/trainers', // Public trainer listing for landing page
 ];
 
 export async function middleware(request: NextRequest) {

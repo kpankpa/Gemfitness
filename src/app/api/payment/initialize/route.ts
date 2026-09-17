@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
             plan: metadata?.plan || plan || 'monthly',
             registration_type: 'new_signup',
           },
-          callback_url: callback_url || `${process.env.NEXTAUTH_URL}/payment/callback`,
+          callback_url: callback_url || `${process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL}/payment/callback`,
           channels: ['card', 'bank', 'ussd', 'qr', 'mobile_money'],
         });
 

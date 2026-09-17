@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { Facebook, Instagram, Twitter, Youtube, MapPin, Phone, Mail } from 'lucide-react';
+import { Facebook, Instagram, MapPin, Phone, Mail } from 'lucide-react';
 
 export default function Footer() {
   return (
@@ -27,17 +27,23 @@ export default function Footer() {
               Transform your body, elevate your mind. We&apos;re What We Eat! Join Tema Gbestile&apos;s premier fitness destination.
             </p>
             <div className="flex space-x-4">
-              <a href="#" className="text-gray-400 hover:text-orange-500 transition-colors">
+              <a
+                href="https://www.facebook.com/gemfitness.centre/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-orange-500 transition-colors"
+                aria-label="Facebook"
+              >
                 <Facebook className="w-5 h-5" />
               </a>
-              <a href="#" className="text-gray-400 hover:text-orange-500 transition-colors">
+              <a
+                href="https://www.instagram.com/gemfitness244/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-orange-500 transition-colors"
+                aria-label="Instagram"
+              >
                 <Instagram className="w-5 h-5" />
-              </a>
-              <a href="#" className="text-gray-400 hover:text-orange-500 transition-colors">
-                <Twitter className="w-5 h-5" />
-              </a>
-              <a href="#" className="text-gray-400 hover:text-orange-500 transition-colors">
-                <Youtube className="w-5 h-5" />
               </a>
             </div>
           </div>
@@ -84,9 +90,14 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <a href="#" className="text-gray-400 hover:text-orange-500 transition-colors">
+                <Link href="/privacy" className="text-gray-400 hover:text-orange-500 transition-colors">
                   Privacy Policy
-                </a>
+                </Link>
+              </li>
+              <li>
+                <Link href="/terms" className="text-gray-400 hover:text-orange-500 transition-colors">
+                  Terms of Service
+                </Link>
               </li>
             </ul>
           </div>
