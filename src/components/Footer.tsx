@@ -24,7 +24,7 @@ export default function Footer() {
               </div>
             </div>
             <p className="text-gray-400 mb-4 leading-relaxed">
-              Transform your body, elevate your mind. We&apos;re What We Eat! Join Tema Gbestile&apos;s premier fitness destination.
+              Practical coaching, quality equipment, and group classes in Gbestile, Tema.
             </p>
             <div className="flex space-x-4">
               <a

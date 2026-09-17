@@ -331,7 +331,7 @@ export async function printRegistrationReceipt(data: ReceiptData) {
       <!-- Footer -->
       <div class="footer">
         <div style="font-weight: bold; margin-bottom: 4px;">THANK YOU FOR JOINING!</div>
-        <div>Your fitness journey starts here</div>
+        <div>Thank you for choosing GemFitness.</div>
         <div style="margin-top: 6px;">Visit: www.gemfitness.com</div>
         <div>WhatsApp: 059 893 4010</div>
         <div style="margin-top: 6px; font-size: 8px;">This is an official receipt</div>

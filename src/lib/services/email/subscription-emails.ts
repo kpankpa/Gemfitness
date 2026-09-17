@@ -121,7 +121,7 @@ export async function sendResumedEmail({
             <div class="content">
                 <p>Hi ${firstName},</p>
                 
-                <p>Great to see you again! Your GemFitness subscription has been resumed and you're ready to get back to your fitness journey!</p>
+                <p>Your GemFitness subscription has resumed, and your gym access is active again.</p>
                 
                 <div class="resume-badge">✓ Active</div>
                 
@@ -147,7 +147,7 @@ export async function sendResumedEmail({
                     <a href="https://gemfitness.app/classes" class="cta-button">Browse Classes</a>
                 </center>
                 
-                <p style="margin-top: 30px;">Missed you! Let's make this your best fitness journey yet.</p>
+                <p style="margin-top: 30px;">We look forward to seeing you at the gym.</p>
                 
                 <p>Best regards,<br>
                 <strong>The GemFitness Team</strong></p>

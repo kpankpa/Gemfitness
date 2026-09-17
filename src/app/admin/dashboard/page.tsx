@@ -108,7 +108,7 @@ export default function AdminDashboard() {
   const { analytics, fetchAnalytics } = useAnalytics();
   const { paymentAnalytics, fetchPaymentAnalytics } = usePaymentAnalytics();
 
-  // Pricing constants — single source of truth
+  // Shared pricing constants.
   // Free first month: new members only pay the registration fee upfront.
   // Their chosen plan price kicks in at first renewal (after 30 free days).
   const REG_FEE = 250;
@@ -609,7 +609,7 @@ export default function AdminDashboard() {
         showToast(data.error || 'Failed to send reminder', 'error');
       }
     } catch {
-      showToast('Network error — failed to send reminder', 'error');
+      showToast('Network error. The reminder was not sent.', 'error');
     } finally {
       setReminderSending(prev => ({ ...prev, [memberId]: false }));
     }
@@ -862,7 +862,7 @@ export default function AdminDashboard() {
   const [activeSettingsTab, setActiveSettingsTab] = useState<'general' | 'payment' | 'notifications' | 'security'>('general');
   const [gymSettings, setGymSettings] = useState({
     name: 'GemFitness Tema',
-    slogan: 'Transform Your Body, Transform Your Life',
+    slogan: 'We Are What We Eat',
     email: 'info@gemfitness.fit',
     phone: '+233 249003832',
     address: 'Gbetsile,Tema, Greater Accra Region, Ghana',
@@ -2428,7 +2428,7 @@ export default function AdminDashboard() {
     setShowEditMemberModal(true);
   };
 
-  // Open view member details modal — fetches fresh data from the API
+  // Open the member details modal with fresh API data.
   const openMemberDetailsModal = async (member: Member) => {
     setSelectedMember(member); // Show immediately with existing list data
     setShowMemberDetailsModal(true);
@@ -3688,7 +3688,7 @@ export default function AdminDashboard() {
                                 <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                                   <span className="text-xs text-gray-400 flex items-center gap-1">
                                     <Phone className="h-3 w-3 flex-shrink-0" />
-                                    {member.phone || '—'}
+                                    {member.phone || 'Not provided'}
                                   </span>
                                   <span className="text-xs text-gray-400">
                                     {member.plan?.replace(/_/g, ' ') || 'N/A'}
@@ -3899,10 +3899,10 @@ export default function AdminDashboard() {
                         {trainers.map((trainer) => (
                           <tr key={trainer.id} className="hover:bg-gray-50">
                             <td className="px-4 py-3 text-sm font-medium text-gray-900">{trainer.name}</td>
-                            <td className="px-4 py-3 text-sm text-gray-600">{trainer.email || '—'}</td>
-                            <td className="px-4 py-3 text-sm text-gray-600">{trainer.phone || '—'}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{trainer.email || 'Not provided'}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{trainer.phone || 'Not provided'}</td>
                             <td className="px-4 py-3 text-sm text-gray-600">
-                              {trainer.specializations?.length ? trainer.specializations.join(', ') : '—'}
+                              {trainer.specializations?.length ? trainer.specializations.join(', ') : 'Not provided'}
                             </td>
                             <td className="px-4 py-3">
                               <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
@@ -7249,9 +7249,9 @@ export default function AdminDashboard() {
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                   >
-                    <option value="ONE_MONTH">1 Month — GH₵ 200</option>
-                    <option value="THREE_MONTHS">3 Months — GH₵ 500</option>
-                    <option value="ONE_YEAR">1 Year — GH₵ 2,200</option>
+                    <option value="ONE_MONTH">1 Month: GH₵ 200</option>
+                    <option value="THREE_MONTHS">3 Months: GH₵ 500</option>
+                    <option value="ONE_YEAR">1 Year: GH₵ 2,200</option>
                   </select>
                 </div>
               </div>
@@ -7268,11 +7268,11 @@ export default function AdminDashboard() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                     >
                       <option value="CASH">Cash</option>
-                      <option value="MOMO">Mobile Money (MoMo) — Paystack USSD</option>
+                      <option value="MOMO">Mobile Money (MoMo), Paystack USSD</option>
                     </select>
                   </div>
 
-                  {/* Amount — locked for MoMo, editable for Cash */}
+                  {/* The amount is locked for MoMo and editable for cash payments. */}
                   <div>
                     <label className="block text-sm font-medium mb-1">Amount (GH₵) *</label>
                     <input
@@ -7299,7 +7299,7 @@ export default function AdminDashboard() {
                       <p className="text-xs text-red-600 mt-1">{newMemberErrors.amountPaid}</p>
                     )}
                     <p className="text-xs text-gray-500 mt-1">
-                      Registration fee only — member gets <span className="font-semibold text-orange-600">30 days FREE</span>.
+                      Registration fee only. The member gets <span className="font-semibold text-orange-600">30 days FREE</span>.
                       First renewal: GH₵ {PLAN_PRICING[newMember.plan as keyof typeof PLAN_PRICING]?.price ?? 200} ({newMember.plan.replace(/_/g, ' ').toLowerCase()})
                     </p>
                   </div>

@@ -217,7 +217,7 @@ function VerifyEmailPageContent() {
         
         setSuccess(true);
         // Skip-verification does not create a session, so redirect to login.
-        // The user's email is verified and password is set — they can log in normally.
+        // The user can log in after verifying the email and setting a password.
         setTimeout(() => {
           router.push('/login?verified=true');
         }, 2000);
@@ -415,7 +415,7 @@ function VerifyEmailPageContent() {
                 </>
               ) : (
                 <>
-                  🚀 Skip Verification
+                  Skip Verification
                 </>
               )}
             </button>

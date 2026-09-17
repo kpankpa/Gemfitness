@@ -24,7 +24,7 @@ const classCategories = [
     id: 'dance',
     title: 'DANCE & AEROBICS',
     image: '/images/dance_class.png',
-    description: 'Forget the gym — this feels like a party. Groove to the rhythm, let loose, and burn serious calories without watching the clock.',
+    description: 'Move to the rhythm in an energetic class that improves fitness while keeping the session enjoyable.',
   },
   {
     id: 'hiit',
@@ -233,7 +233,7 @@ export default function ClassesPage() {
             >
               <p className="text-lg text-gray-600 leading-relaxed">
                 Every session is a step toward the best version of yourself. Our trainers 
-                bring the energy, technique, and support you need — all you have to do is show up ready.
+                bring the energy, technique, and support you need. All you have to do is show up ready.
               </p>
             </motion.div>
           </div>
@@ -359,7 +359,7 @@ export default function ClassesPage() {
                 <span className="text-orange-500">Your results.</span>
               </h2>
               <p className="text-gray-500 leading-relaxed mb-6 text-[15px]">
-                Group classes build momentum — but personal sessions build real transformation.
+                Group classes build momentum. Personal sessions provide focused, individual coaching.
                 Work 1-on-1 with one of our expert coaches and get a programme designed entirely
                 around your body, your goals, and your timeline.
               </p>
@@ -371,7 +371,7 @@ export default function ClassesPage() {
               <div className="space-y-3 mb-10">
                 {[
                   'Customised workout programme built for your goals',
-                  'Flexible scheduling — book when it works for you',
+                  'Flexible scheduling. Book when it works for you.',
                   'Continuous form correction and technique coaching',
                   'Nutrition guidance alongside your training',
                   'Regular progress check-ins and plan adjustments',
@@ -416,7 +416,7 @@ export default function ClassesPage() {
               When We Train
             </h2>
             <p className="text-gray-500 max-w-xl text-[15px]">
-              Pick your time, own your hour. Sessions run daily — early risers and night owls welcome.
+              Choose a time that works for you. Sessions run daily for early risers and evening trainers.
             </p>
           </motion.div>
 
@@ -547,7 +547,7 @@ export default function ClassesPage() {
               Your First Class Awaits
             </h2>
             <p className="text-xl text-gray-400 mb-10 max-w-2xl mx-auto">
-              No experience needed. Just bring your energy — we&apos;ll handle the rest.
+              No experience is needed. Bring your energy, and we will guide you through the session.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/signup">

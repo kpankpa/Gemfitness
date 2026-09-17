@@ -1,8 +1,8 @@
 /**
  * DAY PASS LIST / MANAGEMENT API
  *
- * GET  /api/day-pass/list — List all day passes with filters
- * POST /api/day-pass/list — Admin: expire/void a day pass early
+ * GET /api/day-pass/list: List all day passes with filters.
+ * POST /api/day-pass/list: Allow an admin to expire or void a day pass early.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -17,7 +17,7 @@ import { verifySessionForApi } from '@/lib/auth/dal';
  *  - limit (default 20)
  *  - status: active | expired | all (default all)
  *  - search: name or phone
- *  - date: YYYY-MM-DD — filter by a specific day
+ *  - date: YYYY-MM-DD filters by a specific day.
  *  - startDate, endDate: date range
  *  - payment: cash | momo | all
  */
@@ -288,7 +288,7 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * POST /api/day-pass/list — Void / expire a day pass early
+ * POST /api/day-pass/list: Void or expire a day pass early.
  *
  * Body: { subscriptionId: string, action: 'void' }
  */

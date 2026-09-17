@@ -173,7 +173,7 @@ export const PLAN_FEATURES: PlanFeature[] = [
     categoryId: 'classes',
     description: 'Unlimited PT sessions with certified trainers',
     isHighlight: true,
-    valueProposition: 'Accelerate your fitness journey with expert guidance'
+    valueProposition: 'Get focused guidance from an experienced trainer'
   },
   
   // Wellness Features
@@ -229,7 +229,7 @@ export const PLAN_FEATURES: PlanFeature[] = [
     categoryId: 'amenities',
     description: 'Bring friends and family anytime',
     isHighlight: true,
-    valueProposition: 'Share the fitness journey with loved ones'
+    valueProposition: 'Train with family or friends'
   },
   {
     id: 'parking',
@@ -271,7 +271,7 @@ export const ENHANCED_PLAN_TEMPLATES: EnhancedPlan[] = [
     id: 'monthly',
     name: 'Monthly Essential',
     slug: 'ONE_MONTH',
-    description: 'Perfect for getting started on your fitness journey',
+    description: 'A practical option for new members',
     price: 200,
     duration: 1,
     durationUnit: 'months',
@@ -407,7 +407,7 @@ export const ENHANCED_PLAN_TEMPLATES: EnhancedPlan[] = [
     testimonials: [
       {
         name: 'Sarah K.',
-        quote: 'The quarterly plan gave me everything I needed to transform my health. The personal training session was a game-changer!',
+        quote: 'The quarterly plan gave me consistent gym access, and the personal training session helped me improve my routine.',
         plan: 'Quarterly Commitment',
         achievement: 'Lost 15kg in 3 months'
       }

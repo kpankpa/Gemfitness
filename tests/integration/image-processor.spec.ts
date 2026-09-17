@@ -14,8 +14,8 @@ describe('image processor', () => {
     expect(result).toHaveProperty('thumbPath');
 
     // Check files exist on disk
-    const imgStat = await fs.stat(`.${result.imagePath}`);
-    const thumbStat = await fs.stat(`.${result.thumbPath}`);
+    const imgStat = await fs.stat(`./public${result.imagePath}`);
+    const thumbStat = await fs.stat(`./public${result.thumbPath}`);
     expect(imgStat.size).toBeGreaterThan(0);
     expect(thumbStat.size).toBeGreaterThan(0);
   });

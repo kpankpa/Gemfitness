@@ -51,12 +51,12 @@ export async function POST(request: NextRequest) {
 
     const notifyResult = await sendEmail({
       to: gymInbox,
-      subject: `Contact: ${data.subject} — ${data.firstName} ${data.lastName}`,
+      subject: `Contact: ${data.subject} | ${data.firstName} ${data.lastName}`,
       html: `
         <h2>New contact form submission</h2>
         <p><strong>From:</strong> ${data.firstName} ${data.lastName}</p>
         <p><strong>Email:</strong> ${data.email}</p>
-        <p><strong>Phone:</strong> ${data.phone || '—'}</p>
+        <p><strong>Phone:</strong> ${data.phone || 'Not provided'}</p>
         <p><strong>Subject:</strong> ${data.subject}</p>
         <p><strong>Message:</strong></p>
         <p>${data.message.replace(/\n/g, '<br/>')}</p>
@@ -69,11 +69,11 @@ export async function POST(request: NextRequest) {
     // Confirmation to the sender
     await sendEmail({
       to: data.email,
-      subject: 'We received your message — GemFitness',
+      subject: 'We received your message | GemFitness',
       html: `
         <p>Hi ${data.firstName},</p>
         <p>Thanks for contacting GemFitness. We've received your message about <strong>${data.subject}</strong> and will get back to you within 24 hours.</p>
-        <p>— The GemFitness Team</p>
+        <p>The GemFitness Team</p>
       `,
     });
 

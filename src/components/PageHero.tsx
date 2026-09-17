@@ -30,12 +30,12 @@ export default function PageHero({
           className="object-cover"
           priority
         />
-        {/* Dual cinematic overlays — same as classes hero */}
+        {/* Layered contrast overlays */}
         <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30" />
       </div>
 
-      {/* Content — left-aligned editorial, same as classes hero */}
+      {/* Left-aligned hero content */}
       <div className="relative z-10 max-w-7xl mx-auto px-6 sm:px-12 lg:px-16 w-full">
         <motion.div
           initial={{ opacity: 0 }}
@@ -89,7 +89,7 @@ export default function PageHero({
         </motion.div>
       </div>
 
-      {/* Curved bottom — matches homepage & classes hero */}
+      {/* Curved lower edge */}
       <div className="absolute bottom-0 left-0 right-0 overflow-hidden leading-[0]">
         <svg
           viewBox="0 0 1440 80"

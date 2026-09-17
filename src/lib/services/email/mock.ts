@@ -26,7 +26,7 @@ let resendClient: Resend | null = null;
 function getResendClient(): Resend | null {
   if (DEV_MODE) return null;
   if (!process.env.RESEND_API_KEY) {
-    logger.error('RESEND_API_KEY is not set — cannot send email');
+    logger.error('RESEND_API_KEY is not set. Email cannot be sent.');
     return null;
   }
   if (!resendClient) {
@@ -49,7 +49,7 @@ export async function sendEmail(data: EmailData): Promise<EmailResponse> {
       messageId,
     });
     console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📧 EMAIL (DEV MODE — not sent via Resend)');
+    console.log('EMAIL: Development mode. Not sent through Resend.');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log(`To: ${data.to}`);
     console.log(`Subject: ${data.subject}`);
@@ -204,7 +204,7 @@ export async function sendExpiryReminderEmail(
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <h2>Hi ${firstName},</h2>
         <p>Your GemFitness membership will expire in <strong>${daysLeft} days</strong>.</p>
-        <p>Don't miss out on your fitness journey! Renew your membership to continue enjoying all the benefits.</p>
+        <p>Renew your membership to keep your gym access active.</p>
         <p>Visit your dashboard to renew or contact us for assistance.</p>
         <p><strong>The GemFitness Team</strong></p>
       </div>

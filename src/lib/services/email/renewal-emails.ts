@@ -63,7 +63,7 @@ export async function sendRenewalSuccessEmail({
             <div class="content">
                 <p>Hi ${firstName},</p>
                 
-                <p>Great news! Your GemFitness subscription has been successfully renewed. You're all set to continue your fitness journey! 🏋️</p>
+                <p>Your GemFitness subscription has been renewed successfully, and your gym access remains active.</p>
                 
                 <div class="success-badge">✓ Payment Confirmed</div>
                 

@@ -272,7 +272,7 @@ export default function MemberDashboardPage() {
   const profileImage = authUser?.profileImage ?? null;
   const memberSince  = dashData?.user.memberSince
     ? new Date(dashData.user.memberSince).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-    : '—';
+    : 'Not available';
 
   const activeSub = authUser?.subscriptions?.find(s => s.status === 'ACTIVE');
 
@@ -320,7 +320,7 @@ export default function MemberDashboardPage() {
     ? Math.max(0, (daysLeft / totalDays) * 100) : 0;
 
   const planLabel = (raw?: string) =>
-    PLAN_LABELS[raw?.replace(/ /g, '_') ?? ''] ?? raw ?? '—';
+    PLAN_LABELS[raw?.replace(/ /g, '_') ?? ''] ?? raw ?? 'Not available';
 
   // ── Loading skeleton ─────────────────────────────────────────────────────
 
@@ -465,7 +465,7 @@ export default function MemberDashboardPage() {
                 <div className="relative flex-shrink-0">
                   <RingProgress pct={ringPct} size={68} stroke={6} color={msC.ring} />
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-base font-black text-gray-900 leading-none">{daysLeft > 0 ? daysLeft : '—'}</span>
+                    <span className="text-base font-black text-gray-900 leading-none">{daysLeft > 0 ? daysLeft : 'Not available'}</span>
                     <span className="text-[9px] text-gray-500 font-semibold">days</span>
                   </div>
                 </div>
@@ -944,10 +944,10 @@ export default function MemberDashboardPage() {
               <p className="font-black text-gray-900 mb-4">Personal Info</p>
               <div className="divide-y divide-gray-50">
                 {[
-                  { icon: Mail,     label: 'Email',   val: dashData?.user.email ?? authUser?.email ?? '—' },
-                  { icon: Phone,    label: 'Phone',   val: dashData?.user.phone ?? authUser?.phone ?? '—' },
-                  { icon: Calendar, label: 'D.O.B',   val: authUser?.dateOfBirth ? new Date(authUser.dateOfBirth).toLocaleDateString() : '—' },
-                  { icon: MapPin,   label: 'Address', val: authUser?.address ?? '—' },
+                  { icon: Mail,     label: 'Email',   val: dashData?.user.email ?? authUser?.email ?? 'Not provided' },
+                  { icon: Phone,    label: 'Phone',   val: dashData?.user.phone ?? authUser?.phone ?? 'Not provided' },
+                  { icon: Calendar, label: 'D.O.B',   val: authUser?.dateOfBirth ? new Date(authUser.dateOfBirth).toLocaleDateString() : 'Not provided' },
+                  { icon: MapPin,   label: 'Address', val: authUser?.address ?? 'Not provided' },
                 ].map(({ icon: Icon, label, val }) => (
                   <div key={label} className="flex items-center gap-3 py-3">
                     <div className="w-9 h-9 bg-gray-50 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -971,7 +971,7 @@ export default function MemberDashboardPage() {
                   <div>
                     <p className={`text-sm font-black ${authUser?.parqCompleted ? 'text-green-700' : 'text-amber-700'}`}>PAR-Q Health Screening</p>
                     <p className={`text-xs ${authUser?.parqCompleted ? 'text-green-600' : 'text-amber-600'}`}>
-                      {authUser?.parqCompleted ? 'Completed ✓' : 'Pending — please complete'}
+                      {authUser?.parqCompleted ? 'Completed' : 'Pending. Please complete it.'}
                     </p>
                   </div>
                 </div>
@@ -1049,7 +1049,7 @@ export default function MemberDashboardPage() {
             ) : (
               <div className="py-8">
                 <QrCode className="w-16 h-16 text-gray-200 mx-auto mb-2" />
-                <p className="text-sm text-gray-400">QR not available — contact reception</p>
+                <p className="text-sm text-gray-400">QR code unavailable. Contact reception.</p>
               </div>
             )}
             <p className="text-sm font-black text-gray-900">{fullName}</p>

@@ -272,7 +272,7 @@ async function createNewUserFromPayment(paymentData: Record<string, unknown>) {
         receivedAmount: amountInCedis,
         plan: metadata.plan,
       });
-      // Soft validation — continue processing; amount may differ for promotions/legacy payments
+      // Continue processing because promotions or legacy payments may have different amounts.
     }
 
     // ✅ IDEMPOTENCY CHECK: Prevent duplicate user creation from webhook replay

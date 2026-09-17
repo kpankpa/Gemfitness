@@ -13,7 +13,7 @@ interface MemberDetailsModalProps {
 }
 
 const formatDate = (value?: string | Date | null) => {
-  if (!value) return '—';
+  if (!value) return 'Not provided';
   const date = typeof value === 'string' ? new Date(value) : value;
   if (Number.isNaN(date.getTime())) return String(value);
   return date.toLocaleDateString('en-US', {
@@ -24,7 +24,7 @@ const formatDate = (value?: string | Date | null) => {
 };
 
 const formatDateTime = (value?: string | Date | null) => {
-  if (!value) return '—';
+  if (!value) return 'Not provided';
   const date = typeof value === 'string' ? new Date(value) : value;
   if (Number.isNaN(date.getTime())) return String(value);
   return date.toLocaleDateString('en-US', {
@@ -88,24 +88,24 @@ export default function MemberDetailsModal({ isOpen, isLoading = false, onClose,
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-semibold text-gray-500">First Name</label>
-                <p className="text-sm text-gray-900">{member.firstName || '—'}</p>
+                <p className="text-sm text-gray-900">{member.firstName || 'Not provided'}</p>
               </div>
               <div>
                 <label className="text-xs font-semibold text-gray-500">Last Name</label>
-                <p className="text-sm text-gray-900">{member.lastName || '—'}</p>
+                <p className="text-sm text-gray-900">{member.lastName || 'Not provided'}</p>
               </div>
               <div>
                 <label className="text-xs font-semibold text-gray-500">Email</label>
                 <p className="text-sm text-gray-900 flex items-center gap-2">
                   <Mail className="h-4 w-4 text-gray-500" />
-                  {member.email || '—'}
+                  {member.email || 'Not provided'}
                 </p>
               </div>
               <div>
                 <label className="text-xs font-semibold text-gray-500">Phone</label>
                 <p className="text-sm text-gray-900 flex items-center gap-2">
                   <Phone className="h-4 w-4 text-gray-500" />
-                  {member.phone || '—'}
+                  {member.phone || 'Not provided'}
                 </p>
               </div>
               <div>
@@ -119,7 +119,7 @@ export default function MemberDetailsModal({ isOpen, isLoading = false, onClose,
                 <label className="text-xs font-semibold text-gray-500">Address</label>
                 <p className="text-sm text-gray-900 flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-gray-500" />
-                  {member.address || '—'}
+                  {member.address || 'Not provided'}
                 </p>
               </div>
             </div>
@@ -131,7 +131,7 @@ export default function MemberDetailsModal({ isOpen, isLoading = false, onClose,
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-semibold text-gray-500">Plan</label>
-                <p className="text-sm text-gray-900 font-medium">{member.plan || '—'}</p>
+                <p className="text-sm text-gray-900 font-medium">{member.plan || 'Not provided'}</p>
               </div>
               <div>
                 <label className="text-xs font-semibold text-gray-500">Status</label>
@@ -165,7 +165,7 @@ export default function MemberDetailsModal({ isOpen, isLoading = false, onClose,
                 <label className="text-xs font-semibold text-gray-500">QR Code</label>
                 <p className="text-sm text-gray-900 flex items-center gap-2 font-mono">
                   <QrCode className="h-4 w-4 text-gray-500" />
-                  {member.qrCode || '—'}
+                  {member.qrCode || 'Not provided'}
                 </p>
               </div>
             </div>
@@ -180,7 +180,7 @@ export default function MemberDetailsModal({ isOpen, isLoading = false, onClose,
                 <p className="text-sm text-gray-900">
                   {member.registrationType === 'SELF' ? 'Self Registration' :
                    member.registrationType === 'WALK_IN' ? 'Walk-in' :
-                   member.registrationType === 'ADMIN' ? 'Admin Registered' : '—'}
+                   member.registrationType === 'ADMIN' ? 'Admin Registered' : 'Not provided'}
                 </p>
               </div>
               <div>
@@ -198,13 +198,13 @@ export default function MemberDetailsModal({ isOpen, isLoading = false, onClose,
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-semibold text-gray-500">Contact Name</label>
-                <p className="text-sm text-gray-900">{member.emergencyContact || '—'}</p>
+                <p className="text-sm text-gray-900">{member.emergencyContact || 'Not provided'}</p>
               </div>
               <div>
                 <label className="text-xs font-semibold text-gray-500">Contact Phone</label>
                 <p className="text-sm text-gray-900 flex items-center gap-2">
                   <Phone className="h-4 w-4 text-gray-500" />
-                  {member.emergencyPhone || '—'}
+                  {member.emergencyPhone || 'Not provided'}
                 </p>
               </div>
             </div>
@@ -234,7 +234,7 @@ export default function MemberDetailsModal({ isOpen, isLoading = false, onClose,
                   member.parqRiskLevel === 'high' ? 'text-red-600' :
                   'text-gray-500'
                 }`}>
-                  {member.parqRiskLevel || '—'}
+                  {member.parqRiskLevel || 'Not provided'}
                 </p>
               </div>
               <div className="md:col-span-2">

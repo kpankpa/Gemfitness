@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
       paymentReference: reference
     });
     
-    // ✅ IDEMPOTENCY: Check if user already exists — match by EMAIL ONLY.
+    // Match by email to keep account creation idempotent.
     // Phone is NOT used for matching because two different people may share a
     // phone number in test data, or a user may re-register with a new email
     // but the same phone. Using phone here caused the wrong account to be
@@ -282,10 +282,35 @@ export async function POST(request: NextRequest) {
       try {
         newUser = await prisma.user.create({ data: userData });
       } catch (firstTryError) {
-        // If phone caused a unique-constraint violation, retry with a temp phone
         const msg = firstTryError instanceof Error ? firstTryError.message : '';
+
+        // Concurrent requests can race past findFirst; treat email conflicts as success.
+        if (msg.includes('Unique constraint') && msg.toLowerCase().includes('email')) {
+          const racedUser = await prisma.user.findFirst({
+            where: { email: { equals: customer.email, mode: 'insensitive' } },
+          });
+
+          if (racedUser) {
+            logger.info('User already created by concurrent request:', {
+              email: customer.email,
+              userId: racedUser.id,
+            });
+            return NextResponse.json({
+              success: true,
+              user: {
+                id: racedUser.id,
+                email: racedUser.email,
+                firstName: racedUser.firstName,
+                lastName: racedUser.lastName,
+                emailVerified: racedUser.emailVerified,
+              },
+            });
+          }
+        }
+
+        // If phone caused a unique-constraint violation, retry with a temp phone
         if (msg.includes('Unique constraint') && msg.toLowerCase().includes('phone')) {
-          logger.warn('⚠️ Phone already in use, retrying with generated phone:', { phone });
+          logger.warn('Phone already in use, retrying with generated phone:', { phone });
           const tempPhone = `temp_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
           newUser = await prisma.user.create({ data: { ...userData, phone: tempPhone } });
         } else {
@@ -304,7 +329,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create subscription record
-    // NOTE: paymentData.amount is already in cedis — the /api/payment/verify endpoint
+    // paymentData.amount is already in cedis because the payment verification endpoint
     // converts from kobo before returning, so do NOT divide by 100 again here.
     const amountInCedis = paymentData.amount; // already in cedis from verify API
 

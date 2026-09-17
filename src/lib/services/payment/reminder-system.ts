@@ -79,7 +79,7 @@ export class PaymentReminderSystem {
       const planPrice = this.getPlanPrice(subscription.plan);
       
       const subject = `Membership Expires in ${daysRemaining} Day${daysRemaining > 1 ? 's' : ''}`;
-      const message = `Hi ${subscription.user.firstName},\n\nYour ${this.formatPlan(subscription.plan)} membership expires on ${subscription.endDate.toLocaleDateString('en-GB')}.\n\nRenewal Amount: GH₵ ${planPrice}\nPayment Methods: MTN MoMo (059 893 4010), Cash, or Card\n\nRenew now to avoid interruption to your fitness journey!\n\n${reminderType}`;
+      const message = `Hi ${subscription.user.firstName},\n\nYour ${this.formatPlan(subscription.plan)} membership expires on ${subscription.endDate.toLocaleDateString('en-GB')}.\n\nRenewal Amount: GH₵ ${planPrice}\nPayment Methods: MTN MoMo (059 893 4010), Cash, or Card\n\nRenew now to avoid an interruption to your gym access.\n\n${reminderType}`;
 
       const emailResult = await sendExpiryReminderEmail(
         subscription.user.email,

@@ -142,7 +142,7 @@ export async function sendOTPEmail({ to, firstName, otpCode }: SendOTPEmailParam
           <tr>
             <td style="padding: 40px 40px 20px; text-align: center; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); border-radius: 12px 12px 0 0;">
               <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;">🏋️ ${APP_NAME}</h1>
-              <p style="margin: 10px 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">Your Fitness Journey Starts Here</p>
+              <p style="margin: 10px 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">Complete Your GemFitness Registration</p>
             </td>
           </tr>
           
@@ -162,7 +162,7 @@ export async function sendOTPEmail({ to, firstName, otpCode }: SendOTPEmailParam
               </div>
               
               <p style="margin: 0 0 15px; color: #4b5563; font-size: 14px; line-height: 1.6;">
-                Enter this code on the verification page to activate your account and start your fitness journey!
+                Enter this code on the verification page to activate your account.
               </p>
               
               <!-- Security Notice -->

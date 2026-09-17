@@ -9,7 +9,7 @@ const FALLBACK_TRAINERS = [
     id: 'fallback-fireman',
     name: 'Instructor Fireman',
     specializations: ['Strength & Conditioning'],
-    bio: "The original. The standard. Fireman doesn't coach — he ignites. Every session is a masterclass in what hard work actually looks like.",
+    bio: "The original. The standard. Fireman brings focus and intensity to every session. His coaching shows what consistent hard work looks like.",
     certifications: ['Strength Coach', 'Conditioning Specialist', 'Nutrition'],
     image: '/trainers/instructor_Fireman.jpeg',
     status: 'ACTIVE',
@@ -27,7 +27,7 @@ const FALLBACK_TRAINERS = [
     id: 'fallback-fred',
     name: 'Instructor Fred',
     specializations: ['Boxing & Combat'],
-    bio: 'In the ring or on the floor, Fred is relentless. He builds fighters — mentally and physically.',
+    bio: 'In the ring or on the floor, Fred is relentless. He builds physical strength and mental discipline.',
     certifications: ['Boxing Coach', 'Combat Conditioning', 'FMS Certified'],
     image: '/trainers/instructor_Fred.jpeg',
     status: 'ACTIVE',
@@ -36,7 +36,7 @@ const FALLBACK_TRAINERS = [
     id: 'fallback-energy',
     name: 'Official Energy',
     specializations: ['Dance & Aerobics'],
-    bio: "Can't stop, won't stop. Official Energy doesn't just run classes — she creates moments.",
+    bio: 'Official Energy runs lively classes that make movement feel natural.',
     certifications: ['Zumba Licensed', 'Aerobics Instructor', 'Group Fitness'],
     image: '/trainers/official_energy.jpeg',
     status: 'ACTIVE',
@@ -72,7 +72,7 @@ export async function GET() {
         status: t.status,
       }));
     } catch {
-      // Tables may not exist yet before migration — fall back
+      // Fall back if the tables do not exist before migration.
       trainers = [];
     }
 

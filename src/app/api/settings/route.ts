@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { Prisma } from '@prisma/client';
 import { verifySessionForApi } from '@/lib/auth/dal';
 import { prisma } from '@/lib/prisma';
-import type { Prisma } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
 const DEFAULT_GYM_SETTINGS = {
   name: 'GemFitness Tema',
-  slogan: 'Transform Your Body, Transform Your Life',
+  slogan: 'We Are What We Eat',
   email: 'info@gemfitness.fit',
   phone: '+233 249003832',
   address: 'Gbetsile, Tema, Greater Accra Region, Ghana',

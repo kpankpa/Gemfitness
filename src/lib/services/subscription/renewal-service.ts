@@ -53,7 +53,7 @@ export async function processSubscriptionRenewal(subscriptionId: string): Promis
       };
     }
 
-    // Skip DAILY (day pass) plans — they don't auto-renew
+      // Skip DAILY plans because day passes do not renew automatically.
     if (subscription.plan === 'DAILY') {
       return {
         success: false,

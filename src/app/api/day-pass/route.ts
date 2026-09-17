@@ -28,7 +28,7 @@ import { isAdminOrManager } from '@/lib/auth/permissions';
 import { PLAN_PRICING } from '@/lib/pricing';
 import { generateMemberQRCode } from '@/lib/qr/generator';
 
-// Day pass schema — minimal fields
+// Day pass schema with the required fields.
 const dayPassSchema = z.object({
   firstName: z.string().min(2, 'First name required'),
   lastName: z.string().min(2, 'Last name required'),
@@ -43,7 +43,7 @@ const dayPassSchema = z.object({
 });
 
 /**
- * GET /api/day-pass — Get day pass price (from DB or default)
+ * GET /api/day-pass: Get the day pass price from the database or default.
  */
 export async function GET() {
   try {
@@ -71,7 +71,7 @@ export async function GET() {
 }
 
 /**
- * PUT /api/day-pass — Update day pass price (admin only)
+ * PUT /api/day-pass: Update the day pass price. Admin only.
  */
 export async function PUT(request: NextRequest) {
   try {
@@ -119,7 +119,7 @@ export async function PUT(request: NextRequest) {
 }
 
 /**
- * POST /api/day-pass — Sell a day pass
+ * POST /api/day-pass: Sell a day pass.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
         providedEmail: data.email,
       });
       
-      // Existing user — check if they already have a DAILY subscription today (any status)
+      // Check whether the existing user has a DAILY subscription today in any status.
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const existingDayPass = await prisma.subscription.findFirst({
         where: {
@@ -283,7 +283,7 @@ export async function POST(request: NextRequest) {
         }
       }
     } else {
-      // New user — create minimal account
+      // Create an account for the new user.
       // Use provided email if valid, otherwise auto-generate placeholder
       const phoneDigits = data.phone.replace(/\D/g, '');
       const providedEmail = data.email?.trim() || '';

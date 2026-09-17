@@ -114,7 +114,7 @@ export default function DayPassManager({ onSellDayPass, onUpgrade, isManager = f
   const [voidingId, setVoidingId] = useState<string | null>(null);
   const [isVoiding, setIsVoiding] = useState(false);
 
-  // Toast helper via parent — we'll display inline messages
+  // Display parent toast messages inline.
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   useEffect(() => {
@@ -905,7 +905,7 @@ export default function DayPassManager({ onSellDayPass, onUpgrade, isManager = f
           {pagination.pages > 1 && (
             <div className="flex items-center justify-between pt-4 border-t">
               <p className="text-sm text-gray-500">
-                Showing {((pagination.page - 1) * pagination.limit) + 1}–{Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
+                Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
               </p>
               <div className="flex items-center gap-2">
                 <Button

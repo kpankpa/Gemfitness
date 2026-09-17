@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { CheckCircle, Home, CreditCard, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
@@ -27,6 +27,7 @@ function PaymentSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const reference = searchParams.get('reference');
+  const hasStarted = useRef(false);
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -44,32 +45,11 @@ function PaymentSuccessContent() {
       return;
     }
 
-    const verifyPayment = async () => {
-      try {
-        setLoading(true);
-        
-        // Verify payment with Paystack
-        const verifyResponse = await fetch(`/api/payment/verify?reference=${reference}`);
-        const verifyData = await verifyResponse.json();
+    // Prevent React Strict Mode from running this twice in development.
+    if (hasStarted.current) return;
+    hasStarted.current = true;
 
-        if (!verifyResponse.ok || !verifyData.success) {
-          setError(verifyData.message || 'Payment verification failed');
-          setLoading(false);
-          return;
-        }
-
-        setPaymentData(verifyData);
-
-        // Create user account from payment data
-        await createUserFromPayment(verifyData, reference);
-      } catch (err) {
-        console.error('Payment verification error:', err);
-        setError('Failed to verify payment. Please contact support.');
-        setLoading(false);
-      }
-    };
-
-    const createUserFromPayment = async (verifyData: any, ref: string) => {
+    const createUserFromPayment = async (verifyData: PaymentData & { metadata?: Record<string, unknown> }, ref: string) => {
       try {
         console.log('Creating user account from payment data...');
         
@@ -121,7 +101,31 @@ function PaymentSuccessContent() {
         return;
       }
     };
-        // Fallback: Try to fetch existing user session (for cases where user already exists)
+
+    const verifyPayment = async () => {
+      try {
+        setLoading(true);
+        
+        // Verify payment with Paystack
+        const verifyResponse = await fetch(`/api/payment/verify?reference=${reference}`);
+        const verifyData = await verifyResponse.json();
+
+        if (!verifyResponse.ok || !verifyData.success) {
+          setError(verifyData.message || 'Payment verification failed');
+          setLoading(false);
+          return;
+        }
+
+        setPaymentData(verifyData);
+
+        // Create user account from payment data
+        await createUserFromPayment(verifyData, reference);
+      } catch (err) {
+        console.error('Payment verification error:', err);
+        setError('Failed to verify payment. Please contact support.');
+        setLoading(false);
+      }
+    };
 
     verifyPayment();
   }, [reference, router]);
@@ -420,7 +424,7 @@ function PaymentSuccessContent() {
                   <div>
                     <p className="font-semibold text-gray-900">Visit the Gym</p>
                     <p className="text-sm text-gray-600">
-                      Show your QR code at the entrance to check in and start your fitness journey
+                      Show your QR code at the entrance when you check in.
                     </p>
                   </div>
                 </div>

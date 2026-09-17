@@ -43,7 +43,7 @@ const memberBenefits = [
   {
     icon: Calendar,
     title: 'Group Fitness',
-    description: '50+ classes per week — from HIIT to dance, strength to stepboard.',
+    description: 'More than 50 weekly classes, including HIIT, dance, strength, and stepboard.',
   },
   {
     icon: Shield,
@@ -68,11 +68,11 @@ const faqs = [
   },
   {
     question: 'Is there a joining fee?',
-    answer: 'There is a one-time GH₵250 registration fee — and that is literally all you pay upfront. Your first 30 days are completely free.',
+    answer: 'There is a one-time GH₵250 registration fee. That is the only upfront payment, and your first 30 days are free.',
   },
   {
     question: 'How does the free first month work?',
-    answer: 'Pay GH₵250 to register once and get full, unrestricted gym access for your first 30 days at no extra cost. After that, your chosen plan (GH₵200/month, GH₵500/quarter, or GH₵2,200/year) begins — renewable from your member dashboard or at the front desk.',
+    answer: 'Pay GH₵250 to register once and receive full gym access for your first 30 days at no extra cost. After that, your chosen plan (GH₵200/month, GH₵500/quarter, or GH₵2,200/year) begins. You can renew from your member dashboard or at the front desk.',
   },
   {
     question: 'Can I freeze my membership?',
@@ -88,7 +88,7 @@ const faqs = [
   },
   {
     question: 'Is there a trial period?',
-    answer: 'Yes — your first month IS the trial. You get 30 free days to experience everything GemFitness has to offer before any plan charges begin.',
+    answer: 'Yes. Your first month serves as the trial period. You receive 30 free days of gym access before your plan charges begin.',
   },
 ];
 

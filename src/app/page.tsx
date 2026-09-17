@@ -11,7 +11,6 @@ import {
   Target,
   CheckCircle,
   Clock,
-  ChevronDown,
   MessageCircle,
   ArrowRight,
   Plus,
@@ -40,7 +39,7 @@ interface GymPlan {
 }
 
 const faqs = [
-  { q: 'How does the free first month work?', a: 'Simply pay the one-time GH₵250 registration fee to join. Your first 30 days are completely free — no plan charge, full gym access. After 30 days, your chosen plan (Monthly, Quarterly, or Annual) kicks in automatically.' },
+  { q: 'How does the free first month work?', a: 'Simply pay the one-time GH₵250 registration fee to join. Your first 30 days are completely free, with no plan charge and full gym access. After 30 days, your chosen plan (Monthly, Quarterly, or Annual) begins automatically.' },
   { q: 'What are your operating hours?', a: 'Monday-Friday: 5:00 AM - 10:00 PM, Saturday-Sunday: 7:00 AM - 8:00 PM' },
   { q: 'Do I need to book classes in advance?', a: 'Group classes require booking through your member dashboard. Open gym sessions are walk-in anytime.' },
   { q: 'What is included in membership?', a: 'All memberships include full gym access, group classes, locker facility, showers, and basic fitness assessment.' },
@@ -62,27 +61,51 @@ export default function HomePage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isMuted, setIsMuted] = useState(true);
 
+  const toggleMute = () => {
+    const vid = videoRef.current;
+    if (!vid) return;
+    vid.muted = !vid.muted;
+    setIsMuted(vid.muted);
+  };
+
   useEffect(() => {
     const vid = videoRef.current;
     if (!vid) return;
+
+    let cancelled = false;
+    vid.defaultMuted = true;
     vid.muted = true;
-    const playPromise = vid.play();
-    return () => {
-      if (playPromise !== undefined) {
-        // Wait for play() to settle before pausing — prevents AbortError
-        playPromise
-          .then(() => vid.pause())
-          .catch(() => { /* already aborted or blocked — ignore */ });
+    vid.playsInline = true;
+
+    const tryPlay = () => {
+      if (cancelled) return;
+      const playAttempt = vid.play();
+      if (playAttempt !== undefined) {
+        playAttempt.catch(() => {
+          // Autoplay can still be blocked by the browser; ignore.
+        });
       }
     };
-  }, []);
 
-  const toggleMute = () => {
-    if (videoRef.current) {
-      videoRef.current.muted = !videoRef.current.muted;
-      setIsMuted(videoRef.current.muted);
-    }
-  };
+    tryPlay();
+
+    const onCanPlay = () => tryPlay();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible' && vid.paused) {
+        tryPlay();
+      }
+    };
+
+    vid.addEventListener('canplay', onCanPlay);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      cancelled = true;
+      vid.removeEventListener('canplay', onCanPlay);
+      document.removeEventListener('visibilitychange', onVisibility);
+      vid.pause();
+    };
+  }, []);
 
   useEffect(() => {
     const fetchPlansData = async () => {
@@ -107,188 +130,99 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Hero Section with Modern Editorial Design */}
-      <section className="relative min-h-[calc(100vh-5rem)] sm:min-h-[90vh] flex items-center overflow-hidden">
-        {/* Background Video */}
+      {/* Hero */}
+      <section className="relative isolate flex min-h-[64vh] items-center overflow-hidden sm:min-h-[70vh]">
         <div className="absolute inset-0 bg-black">
           <video
             ref={videoRef}
             autoPlay
-            muted
+            muted={isMuted}
+            loop
             playsInline
             preload="auto"
-            className="absolute inset-0 w-full h-full object-cover"
+            className="absolute inset-0 h-full w-full object-cover"
+            onLoadedData={() => {
+              videoRef.current?.play().catch(() => {});
+            }}
             onTimeUpdate={() => {
               if (videoRef.current && videoRef.current.currentTime >= 17) {
                 videoRef.current.currentTime = 0;
-                videoRef.current.play().catch(() => {});
               }
             }}
           >
             <source src="/videos/Hero.mp4" type="video/mp4" />
           </video>
-          {/* Dual Gradient Overlays */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/50 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/25" />
         </div>
 
-        {/* Mute Toggle */}
         <button
+          type="button"
           onClick={toggleMute}
           aria-label={isMuted ? 'Unmute video' : 'Mute video'}
-          className="absolute top-4 right-4 z-20 flex items-center justify-center w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 text-white hover:bg-black/60 transition-all duration-200"
+          className="absolute top-4 right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white backdrop-blur-sm transition-colors hover:bg-black/60"
         >
-          {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+          {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
         </button>
 
-        {/* Content Overlay */}
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20 w-full">
-          <div className="max-w-3xl">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 1 }}
-            >
-              {/* Eyebrow Badge */}
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md text-white px-5 py-2.5 rounded-full mb-8 font-medium border border-white/20 text-sm tracking-wide"
+        <div className="relative z-10 mx-auto w-full max-w-7xl px-6 py-16 sm:px-10 sm:py-20 lg:px-14">
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+            className="flex max-w-md flex-col items-start text-left"
+          >
+            <span className="mb-4 inline-block border-l-2 border-orange-400 pl-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-orange-400 sm:mb-5 sm:text-xs">
+              GemFitness
+            </span>
+
+            <h1 className="mb-3 !text-[2.1rem] !font-black !leading-[0.9] !tracking-[-0.045em] !text-white uppercase sm:!text-[2.65rem] md:!text-[3rem]">
+              <span className="block">We Are</span>
+              <span className="mt-1 block">What We Eat</span>
+            </h1>
+
+            <p className="mb-6 max-w-xs text-sm leading-relaxed text-white/80 sm:mb-7 sm:max-w-sm sm:text-[15px]">
+              Coaching, group classes, and gym access in Gbestile, Tema.
+            </p>
+
+            <Link href="/signup?plan=quarterly" className="group">
+              <button
+                type="button"
+                className="inline-flex items-center justify-center gap-2.5 rounded-full bg-[#FF5500] px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-[#e64d00] active:bg-[#cc4400]"
               >
-                <Trophy className="h-4 w-4 text-orange-400" />
-                <span>We&apos;re What We Eat!</span>
-              </motion.div>
-
-              {/* Main Headline - Editorial Style */}
-              <motion.h1 
-                initial={{ opacity: 0, y: 40 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.4 }}
-                className="mb-6 sm:mb-8"
-              >
-                <span 
-                  className="block text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-black text-white leading-[0.9] tracking-tight"
-                  style={{ textShadow: '0 4px 30px rgba(0,0,0,0.4)' }}
-                >
-                  Transform Your
-                </span>
-                <span 
-                  className="block text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-black leading-[0.9] tracking-tight bg-gradient-to-r from-orange-400 via-orange-300 to-yellow-300 bg-clip-text text-transparent mt-2"
-                  style={{ WebkitTextStroke: '1px rgba(255,255,255,0.05)' }}
-                >
-                  Body & Mind
-                </span>
-                <span 
-                  className="block text-2xl sm:text-3xl md:text-4xl font-bold text-white/90 mt-4 tracking-wide"
-                  style={{ textShadow: '0 2px 20px rgba(0,0,0,0.3)' }}
-                >
-                  in Tema
-                </span>
-              </motion.h1>
-
-              {/* Subheadline */}
-              <motion.p 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.6 }}
-                className="text-base sm:text-lg md:text-xl text-white/80 font-light leading-relaxed mb-8 sm:mb-10 max-w-xl"
-                style={{ textShadow: '0 2px 10px rgba(0,0,0,0.3)' }}
-              >
-                Join <strong className="text-orange-300 font-semibold">{memberCount}+ members</strong> for expert coaching, modern equipment, and a supportive community built for real results.
-              </motion.p>
-
-              {/* CTA Buttons */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.8 }}
-                className="flex flex-col sm:flex-row gap-4 mb-8 sm:mb-10"
-              >
-                {/* Primary Button */}
-                <Link href="/signup?plan=quarterly" className="group">
-                  <button className="relative w-full sm:w-auto inline-flex items-center justify-center gap-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold px-8 sm:px-10 py-4 sm:py-5 text-base sm:text-lg rounded-full overflow-hidden transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
-                    {/* Animated Shine Effect */}
-                    <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-                    
-                    <span className="relative z-10 flex items-center gap-3">
-                      <Play className="w-5 h-5 fill-current" />
-                      Join Now
-                      <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                    </span>
-                    
-                    {/* Glow Effect */}
-                    <span className="absolute inset-0 rounded-full shadow-[0_0_40px_rgba(249,115,22,0.5)] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  </button>
-                </Link>
-
-                {/* Secondary Button - Glass Style */}
-                <Link href="#pricing" className="w-full sm:w-auto">
-                  <button className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white/10 backdrop-blur-md border border-white/30 text-white font-semibold px-8 sm:px-10 py-4 sm:py-5 text-base sm:text-lg rounded-full overflow-hidden transition-all duration-300 hover:bg-white/20 hover:border-white/50 hover:scale-[1.02] active:scale-[0.98]">
-                    View Memberships
-                  </button>
-                </Link>
-              </motion.div>
-
-              {/* Price Note */}
-              <motion.p 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.6, delay: 1 }}
-                className="text-sm sm:text-base text-white/70 mb-8 font-light"
-              >
-                Pay <span className="text-orange-300 font-semibold">GH₵250 registration</span> once &mdash; your <span className="text-green-300 font-semibold">first month is free</span> • then from GH₵200/month
-              </motion.p>
-
-              {/* Live Stats */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 1.2 }}
-                className="grid grid-cols-3 gap-3 sm:gap-4 max-w-md"
-              >
-                {[
-                  { value: `${memberCount}+`, label: 'Active Members' },
-                  { value: '16', label: 'Hours Daily' },
-                  { value: '5★', label: 'Rated' },
-                ].map((stat) => (
-                  <motion.div
-                    key={stat.label}
-                    whileHover={{ scale: 1.05, y: -4 }}
-                    transition={{ duration: 0.2 }}
-                    className="text-center bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 sm:p-4 hover:border-orange-400/30 hover:bg-white/10 transition-all cursor-pointer group"
-                  >
-                    <div 
-                      className="text-xl sm:text-2xl md:text-3xl font-black text-transparent bg-gradient-to-b from-orange-300 to-orange-400 bg-clip-text mb-1 group-hover:from-orange-200 group-hover:to-orange-300 transition-all"
-                    >
-                      {stat.value}
-                    </div>
-                    <div className="text-[10px] sm:text-xs text-white/70 font-medium uppercase tracking-wider">{stat.label}</div>
-                  </motion.div>
-                ))}
-              </motion.div>
-            </motion.div>
-          </div>
-        </div>
-
-        {/* Scroll Indicator */}
-        <motion.div
-          animate={{ y: [0, 10, 0] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-          className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10"
-        >
-          <ChevronDown className="h-8 w-8 text-white/50" />
-        </motion.div>
-
-        {/* Curved Bottom Border */}
-        <div className="absolute bottom-0 left-0 right-0 overflow-hidden leading-[0]">
-          <svg viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-[120px] block" preserveAspectRatio="none">
-            <path d="M0,80 C320,120 640,60 960,80 C1120,90 1280,100 1440,80 L1440,120 L0,120 Z" fill="white"/>
-          </svg>
+                <Play className="h-4 w-4 fill-current" />
+                Join Now
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </button>
+            </Link>
+          </motion.div>
         </div>
       </section>
 
-      {/* Class Category Cards Section - GoodLife Inspired */}
+      {/* Key figures */}
+      <section aria-label="GemFitness at a glance" className="bg-white">
+        <div className="mx-auto grid max-w-7xl grid-cols-3 px-3 sm:px-6 lg:px-8">
+          {[
+            { value: `${memberCount}+`, label: 'Active members' },
+            { value: '16', label: 'Hours daily' },
+            { value: '5★', label: 'Member rating' },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              className="flex min-w-0 flex-col items-center justify-center px-2 py-7 text-center sm:py-9"
+            >
+              <strong className="text-2xl font-black tracking-tight text-orange-600 sm:text-4xl">
+                {stat.value}
+              </strong>
+              <span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-600 sm:text-sm">
+                {stat.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Class categories */}
       <section className="py-16 sm:py-20 lg:py-24 bg-gradient-to-b from-white to-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
@@ -388,7 +322,7 @@ export default function HomePage() {
                 <ArrowRight className="h-5 w-5 group-hover:translate-x-2 transition-transform" />
               </motion.div>
             </Link>
-            <p className="text-gray-600 text-sm mt-2">Find the perfect class for your fitness journey</p>
+            <p className="text-gray-600 text-sm mt-2">See class times, formats, and availability.</p>
           </motion.div>
         </div>
       </section>
@@ -428,7 +362,7 @@ export default function HomePage() {
               {
                 icon: Sparkles,
                 title: 'Flexible Memberships',
-                description: 'Affordable plans with no long-term commitments. Start your fitness journey on your terms.',
+                description: 'Choose an affordable plan without a long-term commitment.',
               },
             ].map((prop, i) => (
               <motion.div
@@ -577,7 +511,7 @@ export default function HomePage() {
                 </div>
               </motion.div>
 
-              {/* Right: Image — bleeds to the edge */}
+              {/* Full-bleed image */}
               <motion.div
                 initial={{ opacity: 0 }}
                 whileInView={{ opacity: 1 }}
@@ -802,7 +736,7 @@ export default function HomePage() {
             })()}
           </div>
 
-          <div className="text-center space-y-3">
+          <div className="text-center">
             <Link
               href="/membership"
               className="inline-flex items-center gap-2 text-orange-500 hover:text-orange-600 font-bold text-lg group"
@@ -810,11 +744,6 @@ export default function HomePage() {
               View all membership plans
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
-            <div className="inline-flex flex-col sm:flex-row items-center gap-2 bg-orange-50 border border-orange-200 rounded-full px-5 py-2 mt-1">
-              <span className="text-sm font-bold text-orange-600"> First month FREE</span>
-              <span className="hidden sm:block text-orange-300">•</span>
-              <span className="text-sm text-gray-600">Pay only GH₵250 registration today &mdash; start training immediately</span>
-            </div>
           </div>
         </div>
       </section>
@@ -841,7 +770,7 @@ export default function HomePage() {
             viewport={{ once: true }}
           >
             <h2 className="text-4xl sm:text-5xl lg:text-6xl font-black mb-6 text-white uppercase tracking-tight">
-              Ready to Transform<br />Your Life?
+              Ready to Train<br />With Us?
             </h2>
           </motion.div>
 
@@ -850,20 +779,10 @@ export default function HomePage() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="text-xl sm:text-2xl mb-6 text-white/95 font-medium leading-relaxed max-w-2xl mx-auto"
+            className="text-xl sm:text-2xl mb-10 text-white/95 font-medium leading-relaxed max-w-2xl mx-auto"
           >
             Join GemFitness today and become part of Ghana&apos;s most supportive fitness community.
           </motion.p>
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.15 }}
-            className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm border border-white/30 rounded-full px-6 py-3 mb-10 text-white font-medium text-sm sm:text-base"
-          >
-            <CheckCircle className="w-5 h-5 text-green-300 flex-shrink-0" />
-            Pay GH₵250 registration &mdash; <span className="text-green-300 font-bold">first month completely free</span>
-          </motion.div>
 
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
@@ -873,7 +792,7 @@ export default function HomePage() {
             className="flex flex-col sm:flex-row gap-4 justify-center"
           >
             <Button asChild size="lg" className="text-lg bg-white text-orange-600 hover:bg-gray-50 font-bold border-2 border-white transition-all duration-300 hover:scale-105">
-              <Link href="/signup">Start Your Journey</Link>
+              <Link href="/signup">Join GemFitness</Link>
             </Button>
             <Button asChild size="lg" variant="outline" className="text-lg border-2 border-white bg-transparent text-white hover:bg-white hover:text-orange-600 font-bold transition-all duration-300">
               <Link href="/contact">Contact Us</Link>

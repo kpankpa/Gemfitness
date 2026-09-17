@@ -21,7 +21,7 @@ const FALLBACK_TRAINERS: TrainerCard[] = [
   {
     name: 'Instructor Fireman',
     specialty: 'Strength & Conditioning',
-    bio: 'The original. The standard. Fireman doesn\'t coach — he ignites. Every session is a masterclass in what hard work actually looks like.',
+    bio: 'The original. The standard. Fireman brings focus and intensity to every session. His coaching shows what consistent hard work looks like.',
     certifications: ['Strength Coach', 'Conditioning Specialist', 'Nutrition'],
     image: '/trainers/instructor_Fireman.jpeg',
     imgClass: 'object-contain object-center',
@@ -39,7 +39,7 @@ const FALLBACK_TRAINERS: TrainerCard[] = [
   {
     name: 'Instructor Fred',
     specialty: 'Boxing & Combat',
-    bio: 'In the ring or on the floor, Fred is relentless. He builds fighters — mentally and physically. Expect to get hit with the hardest workouts of your life.',
+    bio: 'In the ring or on the floor, Fred is relentless. He builds physical strength and mental discipline. Expect demanding workouts that test your limits.',
     certifications: ['Boxing Coach', 'Combat Conditioning', 'FMS Certified'],
     image: '/trainers/instructor_Fred.jpeg',
     imgClass: 'object-cover object-top',
@@ -48,7 +48,7 @@ const FALLBACK_TRAINERS: TrainerCard[] = [
   {
     name: 'Official Energy',
     specialty: 'Dance & Aerobics',
-    bio: 'Can\'t stop, won\'t stop. Official Energy doesn\'t just run classes — she creates moments. You\'ll be dancing before you even realise you\'re working out.',
+    bio: 'Official Energy runs lively classes that make movement feel natural. You may find yourself dancing before you realise you are working out.',
     certifications: ['Zumba Licensed', 'Aerobics Instructor', 'Group Fitness'],
     image: '/trainers/official_energy.jpeg',
     imgClass: 'object-cover object-top',
@@ -158,7 +158,7 @@ export default function OurTeamPage() {
               className="text-base sm:text-lg md:text-xl text-white/80 font-light leading-relaxed max-w-xl"
               style={{ textShadow: '0 2px 10px rgba(0,0,0,0.3)' }}
             >
-              Built different. Trained harder. Here for one thing — your transformation.
+              Focused coaching, hard training, and measurable progress.
             </motion.p>
           </motion.div>
         </div>
@@ -203,7 +203,7 @@ export default function OurTeamPage() {
               </p>
               <p className="text-lg text-gray-600 leading-relaxed">
                 Every single person on this team is locked in on{' '}
-                <strong className="text-gray-900">one mission — your transformation</strong>.
+                <strong className="text-gray-900">one goal: your progress</strong>.
                 From session one, you feel the difference immediately.
               </p>
             </motion.div>
@@ -237,7 +237,7 @@ export default function OurTeamPage() {
               </p>
               <p className="text-gray-600 leading-relaxed">
                 Step onto the gym floor at GemFitness and you&apos;re working with one of the most
-                fiercely selected coaches in Ghana. That&apos;s not a claim — it&apos;s a standard.
+                carefully selected coaches in Ghana. That standard guides every session.
               </p>
             </motion.div>
             <motion.div
@@ -287,7 +287,7 @@ export default function OurTeamPage() {
               </h2>
               <p className="text-gray-600 leading-relaxed mb-6">
                 Most trainers get certified and coast. Not here. At GemFitness, the moment you join the team,
-                the real work starts — and it never stops.
+                the real work starts, and consistency keeps it going.
               </p>
               <p className="text-gray-700 font-medium mb-6">
                 Non-stop workshops, brutal assessments, mentorship from the top, and live coaching reviews.
@@ -301,7 +301,7 @@ export default function OurTeamPage() {
         </div>
       </section>
 
-      {/* ── MEET THE COACHES — class card style ───────────────────────── */}
+      {/* Meet the coaches */}
       <section className="py-20 px-6 sm:px-12 lg:px-16 bg-gray-50">
         <div className="max-w-7xl mx-auto">
           <motion.div
@@ -353,7 +353,7 @@ export default function OurTeamPage() {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent" />
                 </div>
 
-                {/* Content below image — same as class cards */}
+                {/* Card content */}
                 <h3 className="text-xl font-black text-gray-900 tracking-tight mb-1 group-hover:text-orange-500 transition-colors">
                   {trainer.name}
                 </h3>
@@ -403,11 +403,11 @@ export default function OurTeamPage() {
               </h2>
               <p className="text-gray-600 leading-relaxed mb-6">
                 Your grind deserves to be seen. That&apos;s why we embed a dedicated videographer
-                inside GemFitness — so nothing gets missed and nothing goes undocumented.
+                inside GemFitness, so important moments are documented.
               </p>
               <p className="text-gray-600 leading-relaxed mb-8">
                 The sweat. The breakthroughs. The moments you didn&apos;t think you had in you.
-                We capture all of it in cinematic quality — and make you look absolutely elite.
+                We capture it in high-quality video that reflects the work you put in.
               </p>
 
               <div className="space-y-3">
@@ -428,14 +428,14 @@ export default function OurTeamPage() {
               </div>
             </motion.div>
 
-            {/* Right: videographer card — class card style */}
+            {/* Videographer card */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
             >
               <div className="group">
-                {/* Image — same class card style */}
+                {/* Videographer image */}
                 <div className="relative h-72 sm:h-80 lg:h-96 overflow-hidden mb-5">
                   <Image
                     src="/images/videographer.jpeg"
@@ -462,7 +462,7 @@ export default function OurTeamPage() {
                   </div>
                 </div>
                 <p className="text-gray-600 text-sm leading-relaxed mb-4">
-                  Clement doesn&apos;t just film — he tells your story. From raw training cuts to full cinematic transformation docs, he makes every member look like the main character.
+                  Clement documents each member&apos;s progress. His work ranges from short training edits to full transformation films.
                 </p>
                 <Link
                   href="/contact"
@@ -497,7 +497,7 @@ export default function OurTeamPage() {
               { icon: Target, title: 'Results-Obsessed', description: 'Not satisfied until you hit your goal. Every session, every rep, every plan is built around YOUR outcome.' },
               { icon: Award, title: 'Elite Standard', description: 'Certified, relentlessly trained, battle-tested. These coaches operate at a level most people never see.' },
               { icon: Heart, title: 'All In For You', description: 'Your progress is personal to us. We celebrate your wins, push through your setbacks, and show up every time.' },
-              { icon: Users, title: 'One Team', description: 'Coaches, creatives, and support — all locked in together. Everyone here is pulling in one direction: yours.' },
+              { icon: Users, title: 'One Team', description: 'Coaches, creatives, and support staff work together to help you make progress.' },
             ].map((point, index) => (
               <motion.div
                 key={point.title}

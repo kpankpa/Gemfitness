@@ -481,7 +481,7 @@ export default function ParQManagement() {
                         {member.parqCompleted ? (
                           getRiskBadge(member.parqRiskLevel)
                         ) : (
-                          <span className="text-gray-400 text-sm">—</span>
+                          <span className="text-gray-400 text-sm">Not provided</span>
                         )}
                       </td>
                       <td className="py-3 px-4 text-center text-sm text-gray-600">
@@ -491,7 +491,7 @@ export default function ParQManagement() {
                               month: 'short',
                               day: 'numeric',
                             })
-                          : '—'}
+                          : 'Not provided'}
                       </td>
                       <td className="py-3 px-4 text-center">
                         {member.parqCompleted ? (

@@ -294,7 +294,7 @@ function SignupPageContent() {
             Join <span className="text-orange-500">GemFitness</span>
           </h1>
           <p className="text-xl text-gray-600">
-            Start your fitness journey today with the {plan.name} plan
+            Register for the {plan.name} plan
           </p>
         </motion.div>
 

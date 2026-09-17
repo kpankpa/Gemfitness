@@ -24,7 +24,7 @@ const signatureEvents = [
     tag: 'Annual Competition',
     title: 'GemFitness Fitness Challenge',
     headline: 'The biggest fitness showdown in Accra.',
-    description: 'Every year, GemFitness members go head-to-head in a series of fitness challenges that test strength, endurance, and mental toughness. It\'s not just a competition — it\'s a celebration of how far you\'ve come. Whether you\'re competing or cheering, this day hits different.',
+    description: 'Every year, GemFitness members compete in fitness challenges that test strength, endurance, and mental discipline. The event also gives members a chance to celebrate their progress, whether they compete or support from the crowd.',
     image: '/images/strength.png',
     icon: Trophy,
     stats: [{ label: 'Participants', value: '100+' }, { label: 'Prize Pool', value: 'GHS 2K' }, { label: 'Categories', value: '5' }],
@@ -36,7 +36,7 @@ const signatureEvents = [
     tag: 'Community Event',
     title: 'Community Wellness Day',
     headline: 'A full day of fitness, food, and good vibes.',
-    description: 'Open to members and the public — Community Wellness Day is our way of giving back to Accra. Free classes, nutrition talks, trainer meet-and-greets, and a whole lot of energy. Bring your family. Bring your friends. Come and feel what GemFitness is all about.',
+    description: 'Community Wellness Day is open to members and the public. It is our way of giving back to Accra through free classes, nutrition talks, and opportunities to meet our trainers.',
     image: '/images/training_at_gem.jpg',
     icon: Users,
     stats: [{ label: 'Free Entry', value: '100%' }, { label: 'Duration', value: 'All Day' }, { label: 'Activities', value: '10+' }],
@@ -48,7 +48,7 @@ const signatureEvents = [
     tag: 'Special Session',
     title: 'Night HIIT Bootcamp',
     headline: 'Lights low. Energy high. Zero excuses.',
-    description: 'When the sun goes down, the real work begins. Our Night HIIT Bootcamp flips the script on your usual gym session — high-intensity circuits, pulsing music, and a crowd of people all pushing past their limits together. It\'s part workout, part experience. All results.',
+    description: 'Our Night HIIT Bootcamp combines high-intensity circuits, music, and group training in an evening session designed to challenge every participant.',
     image: '/images/cardio.png',
     icon: Flame,
     stats: [{ label: 'Start Time', value: '8:00 PM' }, { label: 'Duration', value: '90 min' }, { label: 'Spots', value: 'Limited' }],
@@ -142,10 +142,10 @@ export default function EventsPage() {
           transition={{ duration: 30, ease: 'linear', repeat: Infinity }}
         >
           {[...Array(4)].flatMap(() => [
-            '🏆 Annual Fitness Challenge — March 2026',
-            '⚡ Night HIIT Bootcamp — Every Last Friday',
-            '💃 Dance & Movement Workshop — Monthly',
-            '🤝 Community Wellness Day — April 2026',
+            'Annual Fitness Challenge: March 2026',
+            'Night HIIT Bootcamp: Last Friday of every month',
+            'Dance and Movement Workshop: Monthly',
+            'Community Wellness Day: April 2026',
           ]).map((item, i) => (
             <span key={i} className="text-white font-bold text-sm tracking-wide px-4">
               {item}
@@ -178,7 +178,7 @@ export default function EventsPage() {
         </div>
       </section>
 
-      {/* ── SIGNATURE EVENTS — alternating image/text ────────────────── */}
+      {/* Signature events */}
       <section className="py-24 px-6 sm:px-12 lg:px-16">
         <div className="max-w-7xl mx-auto">
           <motion.div
@@ -317,7 +317,7 @@ export default function EventsPage() {
               </h2>
               <p className="text-gray-400 leading-relaxed text-lg mb-8">
                 We don&apos;t just run fitness events. We create moments. The electricity in the room,
-                the crowd pushing each other, the post-workout highs — every GemFitness event hits the same way:
+                and the support from the crowd. Every GemFitness event is built around shared effort:
                 hard and unforgettable.
               </p>
               <Link href="/membership">
@@ -336,7 +336,7 @@ export default function EventsPage() {
             >
               {[
                 { icon: Star, title: 'Members Get First Pick', body: 'Priority registration opens for members 48 hours before the public. The best spots go fast.' },
-                { icon: Clock, title: 'Packed Schedule Year-Round', body: 'Competitions, socials, workshops, bootcamps — we keep the calendar full so you\'re never bored.' },
+                { icon: Clock, title: 'Events Throughout the Year', body: 'Competitions, social events, workshops, and bootcamps keep the calendar active.' },
                 { icon: Flame, title: 'Built for All Levels', body: 'Whether it\'s your first challenge or your tenth, every event has an entry point that\'s right for you.' },
                 { icon: Trophy, title: 'Real Prizes, Real Recognition', body: 'We celebrate results. Win gear, gym credit, and the kind of bragging rights that last a lifetime.' },
               ].map((item, i) => (
@@ -404,7 +404,7 @@ export default function EventsPage() {
                 </div>
                 <h3 className="text-2xl font-black text-gray-900 mb-3">Rolling something big</h3>
                 <p className="text-gray-500 mb-8 max-w-md mx-auto leading-relaxed">
-                  No events scheduled just yet — but they drop fast. Follow us on social or become a member to get notified first.
+                  No events are scheduled yet. Follow us on social media or become a member to receive updates.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
                   <Link href="/signup">
@@ -518,7 +518,7 @@ export default function EventsPage() {
             <div className="hidden lg:block absolute top-[52px] left-[12.5%] right-[12.5%] h-px bg-orange-200 z-0" />
             {[
               { step: '01', title: 'Join as a Member', body: 'Members get 48-hour early access to every event. Sign up once and never miss the drop.' },
-              { step: '02', title: 'Watch the Calendar', body: 'Browse upcoming events on this page. New events drop regularly — check back often.' },
+              { step: '02', title: 'Watch the Calendar', body: 'Browse upcoming events on this page and check back regularly for new dates.' },
               { step: '03', title: 'Register Your Spot', body: 'Click \'Register Now\' to lock in your place. Spots fill fast, especially for Night Bootcamps.' },
               { step: '04', title: 'Show Up & Go Hard', body: 'Arrive early. Come ready. Bring the energy. The rest takes care of itself.' },
             ].map((item, i) => (

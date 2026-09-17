@@ -17,7 +17,7 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
     if (!isStaff(session)) {
-      return NextResponse.json({ error: 'Forbidden — staff access required' }, { status: 403 });
+      return NextResponse.json({ error: 'Forbidden. Staff access is required.' }, { status: 403 });
     }
 
     const now = new Date();

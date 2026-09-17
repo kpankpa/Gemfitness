@@ -158,7 +158,7 @@ export default function ParQPage() {
           icon: CheckCircle,
           title: 'Low Risk',
           message: 'You are cleared for physical activity. Welcome to GemFitness!',
-          action: 'Start your fitness journey immediately',
+          action: 'Begin using your membership immediately',
         };
       case 'medium':
         return {

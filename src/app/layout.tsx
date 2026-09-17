@@ -22,7 +22,7 @@ const montserrat = Montserrat({
 
 export const metadata: Metadata = {
   title: "GemFitness - We're What We Eat!",
-  description: "Transform your body, transform your life. Located in Tema, Gbestile, Ghana. We're What We Eat!",
+  description: "Gym memberships, group classes, and personal training in Gbestile, Tema, Ghana.",
   keywords: [
     "gym",
     "fitness",
@@ -45,7 +45,7 @@ export const metadata: Metadata = {
     url: "https://gemfitness.fit",
     siteName: "GemFitness",
     title: "GemFitness - We're What We Eat!",
-    description: "Transform your body, transform your life. Located in Tema, Gbestile, Ghana.",
+    description: "Gym memberships, group classes, and personal training in Gbestile, Tema, Ghana.",
     images: [
       {
         url: "/og-image.png",
@@ -58,7 +58,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "GemFitness - We're What We Eat!",
-    description: "Transform your body, transform your life. Located in Tema, Gbestile, Ghana.",
+    description: "Gym memberships, group classes, and personal training in Gbestile, Tema, Ghana.",
     images: ["/twitter-image.png"],
   },
   robots: {

@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
     if (!isStaff(session)) {
-      return NextResponse.json({ error: 'Forbidden — staff access required' }, { status: 403 });
+      return NextResponse.json({ error: 'Forbidden. Staff access is required.' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
     if (!isStaff(session)) {
-      return NextResponse.json({ error: 'Forbidden — staff access required' }, { status: 403 });
+      return NextResponse.json({ error: 'Forbidden. Staff access is required.' }, { status: 403 });
     }
 
     const body = await request.json();
